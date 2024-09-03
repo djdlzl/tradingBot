@@ -9,9 +9,12 @@ from config import M_APP_KEY, M_APP_SECRET, R_APP_KEY, R_APP_SECRET, ACCOUNT_NUM
 from datetime import datetime, timedelta
 
 class TradingBot:
-    def __init__(self, api_key, api_secret, account_number):
-        self.api_key = api_key
-        self.api_secret = api_secret
+    def __init__(self, r_api_key, r_api_secret, m_api_key, m_api_secret,hashkey,account_number):
+        self.r_api_key = r_api_key
+        self.r_api_secret = r_api_secret
+        self.m_api_key = m_api_key
+        self.m_api_secret = m_api_secret
+        self.hashkey = hashkey
         self.account_number = account_number
         self.access_token = None
         self.websocket_key = None
@@ -44,10 +47,17 @@ class TradingBot:
             print(f"An error occurred while fetching the access token: {e}")
             return None
 
-    def get_upper_limit_stocks():
-        url = "https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/psearch-result"
+    def get_upper_limit_stocks(self):
+        url = "https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/capture-uplowprice"
         headers = {
-            "content-type": "application/json; charset=utf-8"
+            "content-type": "application/json; charset=utf-8",
+            "authorization": self.access_token,
+            "appkey": self.r_api_key,
+            "appsecret": self.r_api_secret,
+            "tr_id": "FHKST130000C0",
+            "tr_cont": "",
+            "custtype": "P",
+            "hashkey": self
         }
 
 
