@@ -1,0 +1,8 @@
+# 가상 환경
+.venv/
+*.pyc
+__pycache__/
+
+# 기타 제외할 파일/디렉토리
+.DS_Store
+.env
