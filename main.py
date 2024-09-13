@@ -6,11 +6,11 @@ def main():
 
     kis_api._set_headers(is_mock=False, tr_id="FHKST130000C0")
     print(json.dumps(kis_api.headers, indent=2))
-    # # 상한가 종목 조회
-    # upper_limit_stocks = kis_api.get_upper_limit_stocks()
-    # if upper_limit_stocks:
-    #     print("Upper Limit Stocks:")
-    #     kis_api.print_korean_response(upper_limit_stocks)
+    # 상한가 종목 조회
+    upper_limit_stocks = kis_api.get_upper_limit_stocks()
+    if upper_limit_stocks:
+        print("Upper Limit Stocks:")
+        kis_api.print_korean_response(upper_limit_stocks)
 
     # # 상승/하락 순위 조회
     # updown_rank = kis_api.get_upAndDown_rank()

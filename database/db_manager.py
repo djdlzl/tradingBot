@@ -20,6 +20,15 @@ class DatabaseManager:
                 PRIMARY KEY (date, ticker)
             )
         ''')
+        
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS tokens (
+                token_type TEXT PRIMARY KEY,
+                access_token TEXT,
+                expires_at TEXT
+            )
+        ''')
+        
         self.conn.commit()
 
 
@@ -30,9 +39,9 @@ class DatabaseManager:
             VALUES (?, ?, ?)
             ''', (token_type, access_token, expires_at.isoformat()))
             self.conn.commit()
-            logging.info(f"Token saved successfully: {token_type}")
+            logging.info("Token saved successfully: %s", token_type)
         except sqlite3.Error as e:
-            logging.error(f"Error saving token: {e}")
+            logging.error("Error saving token: %s", e)
             raise
 
     def get_token(self, token_type):
@@ -45,7 +54,7 @@ class DatabaseManager:
                 return access_token, expires_at
             return None, None
         except sqlite3.Error as e:
-            logging.error(f"Error retrieving token: {e}")
+            logging.error("Error retrieving token: %s", e)
             raise
 
 
