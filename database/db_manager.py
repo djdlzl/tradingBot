@@ -50,6 +50,7 @@ class DatabaseManager:
                 ticker TEXT,
                 name TEXT,
                 price REAL,
+                upper_rate REAL,
                 PRIMARY KEY (date, ticker)
             )
         ''')
@@ -59,6 +60,14 @@ class DatabaseManager:
                 token_type TEXT PRIMARY KEY,
                 access_token TEXT,
                 expires_at TEXT
+            )
+        ''')
+        
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS upper_limit_history (
+                date TEXT,
+                name TEXT,
+                PRIMARY KEY (date, name)
             )
         ''')
         
@@ -106,7 +115,7 @@ class DatabaseManager:
 
 
 
-    def insert_upper_limit_stock(self, date, ticker, name, price):
+    def insert_upper_limit_stock(self, date, ticker, name, price, upper_rate):
         """
         상한가 주식 정보를 데이터베이스에 삽입합니다.
 
@@ -114,24 +123,89 @@ class DatabaseManager:
         :param ticker: 종목 코드
         :param name: 종목명
         :param price: 가격
+        :param upper_rate: 전일대비율
         """
         self.cursor.execute('''
-            INSERT OR REPLACE INTO upper_limit_stocks (date, ticker, name, price)
-            VALUES (?, ?, ?, ?)
-        ''', (date, ticker, name, price))
+            INSERT OR REPLACE INTO upper_limit_stocks (date, ticker, name, price, upper_rate)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (date, ticker, name, price, upper_rate))
         self.conn.commit()
 
-    def get_upper_limit_stocks(self, date):
+    def get_upper_limit_stocks(self, start_date, end_date):
         """
-        지정된 날짜의 상한가 주식 정보를 조회합니다.
+        지정된 기간 동안의 상한가 주식 정보를 조회합니다.
 
-        :param date: 조회할 날짜
-        :return: 상한가 주식 정보 리스트
+        :param start_date: 시작 날짜 (문자열 형식: 'YYYY-MM-DD')
+        :param end_date: 종료 날짜 (문자열 형식: 'YYYY-MM-DD')
+        :return: 상한가 주식 정보 리스트 [(date, ticker, name, price), ...]
         """
-        self.cursor.execute('''
-            SELECT * FROM upper_limit_stocks WHERE date = ?
-        ''', (date,))
-        return self.cursor.fetchall()
+        try:
+            self.cursor.execute('''
+            SELECT date, ticker, name, price FROM upper_limit_stocks
+            WHERE date BETWEEN ? AND ?
+            ORDER BY date, name
+            ''', (start_date, end_date))
+            return self.cursor.fetchall()
+        except sqlite3.Error as e:
+            logging.error("Error retrieving upper limit stocks: %s", e)
+            raise
+
+    def save_upper_limit_stocks(self, date, stocks):
+        """
+        상한가 주식 정보를 데이터베이스에 저장합니다.
+
+        :param date: 상한가 날짜 (문자열 형식: 'YYYY-MM-DD')
+        :param stocks: 상한가 주식 정보 리스트 [(ticker, name, price), ...]
+        """
+        try:
+            for ticker, name, price, upper_rate in stocks:
+                self.cursor.execute('''
+                INSERT OR REPLACE INTO upper_limit_stocks (date, ticker, name, price, upper_rate)
+                VALUES (?, ?, ?, ?, ?)
+                ''', (date, ticker, name, price, upper_rate))
+            self.conn.commit()
+            logging.info("Saved upper limit stocks for date: %s", date)
+        except sqlite3.Error as e:
+            logging.error("Error saving upper limit stocks: %s", e)
+            raise
+
+    def save_upper_limit_history(self, date, names):
+        """
+        상한가 종목들의 이름과 날짜를 저장합니다.
+
+        :param date: 상한가 날짜 (문자열 형식: 'YYYY-MM-DD')
+        :param names: 상한가 종목 이름 리스트
+        """
+        try:
+            for name in names:
+                self.cursor.execute('''
+                INSERT OR REPLACE INTO upper_limit_history (date, name)
+                VALUES (?, ?)
+                ''', (date, name))
+            self.conn.commit()
+            logging.info("Saved upper limit history for date: %s", date)
+        except sqlite3.Error as e:
+            logging.error("Error saving upper limit history: %s", e)
+            raise
+
+    def get_upper_limit_history(self, start_date, end_date):
+        """
+        지정된 기간 동안의 상한가 히스토리를 조회합니다.
+
+        :param start_date: 시작 날짜 (문자열 형식: 'YYYY-MM-DD')
+        :param end_date: 종료 날짜 (문자열 형식: 'YYYY-MM-DD')
+        :return: 상한가 히스토리 리스트 [(날짜, 종목명), ...]
+        """
+        try:
+            self.cursor.execute('''
+            SELECT * FROM upper_limit_history
+            WHERE date BETWEEN ? AND ?
+            ORDER BY date, name
+            ''', (start_date, end_date))
+            return self.cursor.fetchall()
+        except sqlite3.Error as e:
+            logging.error("Error retrieving upper limit history: %s", e)
+            raise
 
     def close(self):
         """

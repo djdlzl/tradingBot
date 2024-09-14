@@ -14,6 +14,8 @@
 """
 
 from api.kis_api import KISApi
+from database.db_manager import DatabaseManager
+from datetime import date
 
 def main():
     """
@@ -28,6 +30,14 @@ def main():
         print("Upper Limit Stocks:")
         kis_api.print_korean_response(upper_limit_stocks)
         
+        # 상한가 종목 정보 추출
+        stocks_info = [(stock['mksc_shrn_iscd'], stock['hts_kor_isnm'], stock['stck_prpr'], stock['prdy_ctrt']) for stock in upper_limit_stocks['output']]
+        
+        # 데이터베이스에 저장
+        db = DatabaseManager()
+        today = date.today().isoformat()
+        db.save_upper_limit_stocks(today, stocks_info)
+        db.close()
 
     # # 상승/하락 순위 조회
     # updown_rank = kis_api.get_upAndDown_rank()
