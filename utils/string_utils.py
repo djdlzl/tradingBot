@@ -1,3 +1,5 @@
+"""한글 관련 문자열 유틸리티 함수를 제공하는 모듈입니다."""
+
 def unicode_to_korean(unicode_string):
     """
     유니코드 문자열을 한글로 변환합니다.
