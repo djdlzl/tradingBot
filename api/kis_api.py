@@ -99,7 +99,7 @@ class KISApi:
                 print(self.real_token_expires_at)
             return self.real_token
 
-    def _set_headers(self, is_mock=False, tr_id=None):
+    def set_headers(self, is_mock=False, tr_id=None):
         """
         API 요청에 필요한 헤더를 설정합니다.
 
@@ -145,13 +145,13 @@ class KISApi:
         Returns:
             dict: 주가 정보를 포함한 딕셔너리
         """
-        self._set_headers(is_mock=False)
+        self.set_headers(is_mock=False)
         params = {
             "FID_COND_MRKT_DIV_CODE": "J",
             "FID_INPUT_ISCD": ticker
         }
-        json_response = response.json()
         response = requests.get(TICKER_URL, params=params, headers=self.headers, timeout=10)
+        json_response = response.json()
         
         for key, value in json_response.items():
             if isinstance(value, str):
@@ -171,7 +171,7 @@ class KISApi:
         Returns:
             dict: 주문 실행 결과를 포함한 딕셔너리
         """
-        self._set_headers(is_mock=True)
+        self.set_headers(is_mock=True)
         data = {
             "CANO": M_ACCOUNT_NUMBER,
             "ACNT_PRDT_CD": "01",
@@ -210,7 +210,7 @@ class KISApi:
             "FID_VOL_CNT": ""
         }
         self.get_hashkey(body)
-        self._set_headers(is_mock=False, tr_id="FHKST130000C0")
+        self.set_headers(is_mock=False, tr_id="FHKST130000C0")
         self.headers["hashkey"] = self.hashkey
         
         res = requests.get(url=url, headers=self.headers, params=body, timeout=10)
@@ -244,7 +244,7 @@ class KISApi:
         }
         
         self.get_hashkey(body)
-        self._set_headers(is_mock=False, tr_id="FHPST01700000")
+        self.set_headers(is_mock=False, tr_id="FHPST01700000")
         self.headers["hashkey"] = self.hashkey
         
         res = requests.get(url=url, headers=self.headers, params=body, timeout=10)

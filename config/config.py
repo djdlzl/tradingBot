@@ -1,3 +1,6 @@
+"""
+전체 설정 파일
+"""
 import os
 from dotenv import load_dotenv
 

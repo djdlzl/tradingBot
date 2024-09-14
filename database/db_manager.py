@@ -1,3 +1,25 @@
+"""
+데이터베이스 관리를 위한 DatabaseManager 클래스를 정의합니다.
+
+이 모듈은 SQLite 데이터베이스를 사용하여 트레이딩 봇의 데이터를 저장하고 관리합니다.
+주요 기능으로는 토큰 정보 저장 및 조회, 상한가 주식 정보 저장 및 조회 등이 있습니다.
+
+클래스:
+    DatabaseManager: 데이터베이스 연결 및 쿼리 실행을 관리합니다.
+
+의존성:
+    - sqlite3: SQLite 데이터베이스 연동
+    - logging: 로그 기록
+    - datetime: 날짜 및 시간 처리
+    - config.config: 데이터베이스 설정 정보
+
+사용 예:
+    db = DatabaseManager()
+    db.save_token("access", "token123", datetime.now())
+    db.insert_upper_limit_stock("2023-05-01", "005930", "삼성전자", 70000)
+    db.close()
+"""
+
 import sqlite3
 import logging
 from datetime import datetime
@@ -5,6 +27,9 @@ from config.config import DB_NAME
 
 
 class DatabaseManager:
+    """
+    Database 관리용 클래스
+    """
     def __init__(self):
         """
         DatabaseManager 클래스의 생성자.
