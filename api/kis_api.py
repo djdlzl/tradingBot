@@ -4,9 +4,11 @@ import logging
 from requests.exceptions import RequestException
 from utils.string_utils import unicode_to_korean
 from config.config import R_APP_KEY, R_APP_SECRET, M_APP_KEY, M_APP_SECRET, M_ACCOUNT_NUMBER, TICKER_URL, TRADE_URL
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from database.db_manager import DatabaseManager
 import time
+from utils.date_utils import DateUtils
+
 
 class KISApi:
     """한국투자증권 API와 상호작용하기 위한 클래스입니다."""
@@ -266,3 +268,22 @@ class KISApi:
 
         formatted_response = json.loads(json.dumps(response, default=unicode_to_korean_converter))
         print(json.dumps(formatted_response, ensure_ascii=False, indent=2))
+        
+    def fetch_and_save_previous_upper_limit_stocks(self):
+        upper_limit_stocks = self.get_upper_limit_stocks()
+        if upper_limit_stocks:
+            print("Upper Limit Stocks:")
+            self.print_korean_response(upper_limit_stocks)
+            
+            # 상한가 종목 정보 추출
+            stocks_info = [(stock['mksc_shrn_iscd'], stock['hts_kor_isnm'], stock['stck_prpr'], stock['prdy_ctrt']) 
+                        for stock in upper_limit_stocks['output']]
+            
+            # 영업일 기준 날짜 가져오기
+            today = date.today()
+            if not DateUtils.is_business_day(today):
+                today = DateUtils.get_previous_business_day(today)
+            # 데이터베이스에 저장
+            db = DatabaseManager()
+            db.save_upper_limit_stocks(today.isoformat(), stocks_info)
+            db.close()

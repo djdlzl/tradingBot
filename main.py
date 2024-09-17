@@ -13,9 +13,19 @@
 - api.kis_api 모듈의 KISApi 클래스
 """
 
+import threading
+import time
+from datetime import datetime
 from api.kis_api import KISApi
 from database.db_manager import DatabaseManager
-from datetime import date
+from utils.date_utils import DateUtils
+
+def fetch_and_save_upper_limit_stocks():
+    while True:
+        now = datetime.now()
+        if now.hour == 15 and now.minute == 30:  # 매일 15시 30분에 실행
+            fetch_and_save_previous_upper_limit_stocks()
+        time.sleep(60)  # 1분 대기
 
 def main():
     """
@@ -31,19 +41,19 @@ def main():
         kis_api.print_korean_response(upper_limit_stocks)
         
         # 상한가 종목 정보 추출
-        stocks_info = [(stock['mksc_shrn_iscd'], stock['hts_kor_isnm'], stock['stck_prpr'], stock['prdy_ctrt']) for stock in upper_limit_stocks['output']]
+        stocks_info = [(stock['mksc_shrn_iscd'], stock['hts_kor_isnm'], stock['stck_prpr'], stock['prdy_ctrt']) 
+                       for stock in upper_limit_stocks['output']]
         
+        # 영업일 기준 날짜 가져오기
+        today = date.today()
+        if not DateUtils.is_business_day(today):
+            today = DateUtils.get_previous_business_day(today)
         # 데이터베이스에 저장
         db = DatabaseManager()
-        today = date.today().isoformat()
-        db.save_upper_limit_stocks(today, stocks_info)
+        db.save_upper_limit_stocks(today.isoformat(), stocks_info)
         db.close()
 
-    # # 상승/하락 순위 조회
-    # updown_rank = kis_api.get_upAndDown_rank()
-    # if updown_rank:
-    #     print("\nUp and Down Rank:")
-    #     kis_api.print_korean_response(updown_rank)
+
 
 if __name__ == "__main__":
     main()

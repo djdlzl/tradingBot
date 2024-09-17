@@ -214,3 +214,19 @@ class DatabaseManager:
         if self.conn:
             self.conn.close()
             logging.info("Database connection closed")
+            
+    def delete_upper_limit_stocks(self, date):
+        """
+        특정 날짜의 상한가 주식 정보를 삭제합니다.
+
+        :param date: 삭제할 날짜 (문자열 형식: 'YYYY-MM-DD')
+        """
+        try:
+            self.cursor.execute('''
+            DELETE FROM upper_limit_stocks WHERE date = ?
+            ''', (date,))
+            self.conn.commit()
+            logging.info("Deleted upper limit stocks for date: %s", date)
+        except sqlite3.Error as e:
+            logging.error("Error deleting upper limit stocks: %s", e)
+            raise
