@@ -17,43 +17,45 @@ import threading
 import time
 from datetime import datetime
 from api.kis_api import KISApi
-from database.db_manager import DatabaseManager
-from utils.date_utils import DateUtils
+from apscheduler.schedulers.background import BackgroundScheduler
 
-def fetch_and_save_upper_limit_stocks():
+def fetch_and_save_upper_limit_stocks(api_instanace):
+    """
+    주기적으로 상한가 종목을 DB에 저장
+    """
+    api_instanace.set_headers(is_mock=False, tr_id="FHKST130000C0")
     while True:
         now = datetime.now()
         if now.hour == 15 and now.minute == 30:  # 매일 15시 30분에 실행
-            fetch_and_save_previous_upper_limit_stocks()
+            api_instanace.fetch_and_save_previous_upper_limit_stocks()
         time.sleep(60)  # 1분 대기
 
-def main():
+def threaded_job(func, *args):
     """
-    메인 프로세스
+    APscheduler 사용을 위한 래퍼함수
+    스레드에서 실행할 작업을 감싸는 함수입니다.
     """
-    kis_api = KISApi()
+    thread = threading.Thread(target=func, args=args, daemon=True)
+    thread.start()
 
-    kis_api.set_headers(is_mock=False, tr_id="FHKST130000C0")
-
-    upper_limit_stocks = kis_api.get_upper_limit_stocks()
-    if upper_limit_stocks:
-        print("Upper Limit Stocks:")
-        kis_api.print_korean_response(upper_limit_stocks)
-        
-        # 상한가 종목 정보 추출
-        stocks_info = [(stock['mksc_shrn_iscd'], stock['hts_kor_isnm'], stock['stck_prpr'], stock['prdy_ctrt']) 
-                       for stock in upper_limit_stocks['output']]
-        
-        # 영업일 기준 날짜 가져오기
-        today = date.today()
-        if not DateUtils.is_business_day(today):
-            today = DateUtils.get_previous_business_day(today)
-        # 데이터베이스에 저장
-        db = DatabaseManager()
-        db.save_upper_limit_stocks(today.isoformat(), stocks_info)
-        db.close()
+def test():
+    """
+    테스트 프로세스
+    """
 
 
 
 if __name__ == "__main__":
-    main()
+    kis_api = KISApi()  # KISApi 인스턴스 생성
+    scheduler = BackgroundScheduler()
+    
+    # 매일 15시 30분에 fetch_and_save_upper_limit_stocks 실행
+    scheduler.add_job(threaded_job, 'cron', hour=15, minute=30, args=[fetch_and_save_upper_limit_stocks, kis_api])
+    scheduler.start()
+
+    # 프로그램이 종료되지 않도록 유지
+    try:
+        while True:
+            time.sleep(1)
+    except (KeyboardInterrupt, SystemExit):
+        scheduler.shutdown()

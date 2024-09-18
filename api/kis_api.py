@@ -270,6 +270,10 @@ class KISApi:
         print(json.dumps(formatted_response, ensure_ascii=False, indent=2))
         
     def fetch_and_save_previous_upper_limit_stocks(self):
+        """
+        상한가 종목을 받아온 후,
+        DB에 상한가 종목을 저장
+        """
         upper_limit_stocks = self.get_upper_limit_stocks()
         if upper_limit_stocks:
             print("Upper Limit Stocks:")
@@ -278,7 +282,7 @@ class KISApi:
             # 상한가 종목 정보 추출
             stocks_info = [(stock['mksc_shrn_iscd'], stock['hts_kor_isnm'], stock['stck_prpr'], stock['prdy_ctrt']) 
                         for stock in upper_limit_stocks['output']]
-            
+            print(stocks_info)
             # 영업일 기준 날짜 가져오기
             today = date.today()
             if not DateUtils.is_business_day(today):
