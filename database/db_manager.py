@@ -230,3 +230,17 @@ class DatabaseManager:
         except sqlite3.Error as e:
             logging.error("Error deleting upper limit stocks: %s", e)
             raise
+        
+    def get_ticker(self, stock_name):
+        """
+        종목코드 조회
+        """
+        try:
+            self.cursor.execute('''
+            SELECT * FROM upper_limit_stocks WHERE name = ?
+            ''', (stock_name,))
+            result = self.cursor.fetchone()
+            return result
+        except sqlite3.Error as e:
+            logging.error("Error deleting upper limit stocks: %s", e)
+            raise

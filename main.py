@@ -16,18 +16,19 @@
 import threading
 import time
 from datetime import datetime
-from api.kis_api import KISApi
+from trading.trading import TradingLogic
 from apscheduler.schedulers.background import BackgroundScheduler
 
-def fetch_and_save_upper_limit_stocks(api_instanace):
+def fetch_and_save_upper_limit_stocks(trading_instacne):
     """
     주기적으로 상한가 종목을 DB에 저장
     """
-    api_instanace.set_headers(is_mock=False, tr_id="FHKST130000C0")
+    # trading_instacne.set_headers(is_mock=False, tr_id="FHKST130000C0")
     while True:
         now = datetime.now()
-        if now.hour == 15 and now.minute == 30:  # 매일 15시 30분에 실행
-            api_instanace.fetch_and_save_previous_upper_limit_stocks()
+        if now.hour == 7 and now.minute == 2:  # 매일 15시 30분에 실행
+            trading_instacne.fetch_and_save_previous_upper_limit_stocks()
+            print("상한가 저장")
         time.sleep(60)  # 1분 대기
 
 def threaded_job(func, *args):
@@ -38,24 +39,26 @@ def threaded_job(func, *args):
     thread = threading.Thread(target=func, args=args, daemon=True)
     thread.start()
 
-def test():
+def test(trading_instance):
     """
     테스트 프로세스
     """
-
+    trading_instance.fetch_and_save_previous_upper_limit_stocks()
+    print("상한가 저장")
+    
 
 
 if __name__ == "__main__":
-    kis_api = KISApi()  # KISApi 인스턴스 생성
     scheduler = BackgroundScheduler()
+    trading = TradingLogic()
     
     # 매일 15시 30분에 fetch_and_save_upper_limit_stocks 실행
-    scheduler.add_job(threaded_job, 'cron', hour=15, minute=30, args=[fetch_and_save_upper_limit_stocks, kis_api])
-    scheduler.start()
-
+    test(trading)
+    # scheduler.add_job(threaded_job, 'cron', hour=7, minute=2, args=[fetch_and_save_upper_limit_stocks, trading])
+    # scheduler.start()
     # 프로그램이 종료되지 않도록 유지
-    try:
-        while True:
-            time.sleep(1)
-    except (KeyboardInterrupt, SystemExit):
-        scheduler.shutdown()
+    # try:
+    #     while True:
+    #         time.sleep(1)
+    # except (KeyboardInterrupt, SystemExit):
+    #     scheduler.shutdown()
