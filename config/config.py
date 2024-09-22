@@ -26,3 +26,7 @@ DB_NAME = "quant_trading.db"
 
 # Trading parameters
 MAX_PRICE_DROP_PERCENT = -8
+
+# About Time
+get_uls_hour = 23
+get_uls_minute = 34

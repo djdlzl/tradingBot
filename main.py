@@ -18,25 +18,28 @@ import time
 from datetime import datetime
 from trading.trading import TradingLogic
 from apscheduler.schedulers.background import BackgroundScheduler
+from config.config import get_uls_hour, get_uls_minute
 
-def fetch_and_save_upper_limit_stocks(trading_instacne):
+
+def fetch_and_save_upper_limit_stocks():
     """
     주기적으로 상한가 종목을 DB에 저장
     """
+    trading = TradingLogic()
     # trading_instacne.set_headers(is_mock=False, tr_id="FHKST130000C0")
     while True:
         now = datetime.now()
-        if now.hour == 7 and now.minute == 2:  # 매일 15시 30분에 실행
-            trading_instacne.fetch_and_save_previous_upper_limit_stocks()
+        if now.hour == get_uls_hour and now.minute == get_uls_minute:  # 매일 15시 30분에 실행
+            trading.fetch_and_save_previous_upper_limit_stocks()
             print("상한가 저장")
         time.sleep(60)  # 1분 대기
 
-def threaded_job(func, *args):
+def threaded_job(func):
     """
     APscheduler 사용을 위한 래퍼함수
     스레드에서 실행할 작업을 감싸는 함수입니다.
     """
-    thread = threading.Thread(target=func, args=args, daemon=True)
+    thread = threading.Thread(target=func, daemon=True)
     thread.start()
 
 def test(trading_instance):
@@ -50,15 +53,14 @@ def test(trading_instance):
 
 if __name__ == "__main__":
     scheduler = BackgroundScheduler()
-    trading = TradingLogic()
     
     # 매일 15시 30분에 fetch_and_save_upper_limit_stocks 실행
-    test(trading)
-    # scheduler.add_job(threaded_job, 'cron', hour=7, minute=2, args=[fetch_and_save_upper_limit_stocks, trading])
-    # scheduler.start()
+    scheduler.add_job(threaded_job, 'cron', hour=get_uls_hour, minute=get_uls_minute, args=[fetch_and_save_upper_limit_stocks])
+    scheduler.start()
+    # test(trading)
     # 프로그램이 종료되지 않도록 유지
-    # try:
-    #     while True:
-    #         time.sleep(1)
-    # except (KeyboardInterrupt, SystemExit):
-    #     scheduler.shutdown()
+    try:
+        while True:
+            time.sleep(1)
+    except (KeyboardInterrupt, SystemExit):
+        scheduler.shutdown()

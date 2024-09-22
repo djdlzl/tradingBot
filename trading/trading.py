@@ -32,7 +32,6 @@ class TradingLogic:
             # 상한가 종목 정보 추출
             stocks_info = [(stock['mksc_shrn_iscd'], stock['hts_kor_isnm'], stock['stck_prpr'], stock['prdy_ctrt']) 
                         for stock in upper_limit_stocks['output']]
-            print(stocks_info)
             # 영업일 기준 날짜 가져오기
             today = date.today()
             if not DateUtils.is_business_day(today):
