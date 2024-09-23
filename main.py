@@ -18,7 +18,9 @@ import time
 from datetime import datetime
 from trading.trading import TradingLogic
 from apscheduler.schedulers.background import BackgroundScheduler
-from config.config import get_uls_hour, get_uls_minute
+from config.config import GET_ULS_HOUR, GET_ULS_MINUTE
+
+
 
 
 def fetch_and_save_upper_limit_stocks():
@@ -29,10 +31,9 @@ def fetch_and_save_upper_limit_stocks():
     # trading_instacne.set_headers(is_mock=False, tr_id="FHKST130000C0")
     while True:
         now = datetime.now()
-        if now.hour == get_uls_hour and now.minute == get_uls_minute:  # 매일 15시 30분에 실행
+        if now.hour == GET_ULS_HOUR and now.minute == GET_ULS_MINUTE:  # 매일 15시 30분에 실행
             trading.fetch_and_save_previous_upper_limit_stocks()
-            print("상한가 저장")
-        time.sleep(60)  # 1분 대기
+        time.sleep(1)  # 1분 대기
 
 def threaded_job(func):
     """
@@ -42,22 +43,26 @@ def threaded_job(func):
     thread = threading.Thread(target=func, daemon=True)
     thread.start()
 
-def test(trading_instance):
+def test():
     """
     테스트 프로세스
     """
-    trading_instance.fetch_and_save_previous_upper_limit_stocks()
-    print("상한가 저장")
+    trading = TradingLogic()
     
+    # trading.fetch_and_save_previous_upper_limit_stocks()
+    # print("상한가 저장")
 
-
+    trading.select_stocks_to_buy()
+    
+    
 if __name__ == "__main__":
+
     scheduler = BackgroundScheduler()
     
+    test()
     # 매일 15시 30분에 fetch_and_save_upper_limit_stocks 실행
-    scheduler.add_job(threaded_job, 'cron', hour=get_uls_hour, minute=get_uls_minute, args=[fetch_and_save_upper_limit_stocks])
+    scheduler.add_job(threaded_job, 'cron', hour=GET_ULS_HOUR, minute=GET_ULS_MINUTE, args=[fetch_and_save_upper_limit_stocks])
     scheduler.start()
-    # test(trading)
     # 프로그램이 종료되지 않도록 유지
     try:
         while True:

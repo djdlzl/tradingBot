@@ -267,3 +267,16 @@ class KISApi:
 
         formatted_response = json.loads(json.dumps(response, default=unicode_to_korean_converter))
         print(json.dumps(formatted_response, ensure_ascii=False, indent=2))
+
+    def get_current_price(self, ticker):
+        """
+        지정된 종목의 현재 주가 정보를 가져옵니다.
+
+        Args:
+            ticker (str): 종목 코드
+
+        Returns:
+            float: 현재 주가
+        """
+        stock_price_info = self.get_stock_price(ticker)
+        return float(stock_price_info.get('stck_prpr', 0))  # 현재가 반환, 기본값은 0
