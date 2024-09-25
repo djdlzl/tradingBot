@@ -245,18 +245,19 @@ class DatabaseManager:
             logging.error("Error deleting upper limit stocks: %s", e)
             raise
         
-    def get_upper_limit_stocks_three_days_ago(self):
+    def get_upper_limit_stocks_two_days_ago(self):
         """
         영업일 기준으로 3일 전에 상한가를 기록한 종목의 ticker와 price를 반환합니다.
 
         :return: 상한가 종목 ticker와 price 리스트
         """
         today = datetime.now()
-        three_days_ago = DateUtils.get_previous_business_day(today, 3)  # 3 영업일 전 날짜 계산
+        three_days_ago = DateUtils.get_previous_business_day(today, 2)  # 2 영업일 전 날짜 계산
         three_days_ago_str = three_days_ago.strftime('%Y-%m-%d')  # 문자열 형식으로 변환
 
         # 3 영업일 전의 상한가 종목 조회
         self.cursor.execute('''
             SELECT ticker, name, price FROM upper_limit_stocks WHERE date = ?
         ''', (three_days_ago_str,))
+        # print(self.cursor.fetchall())
         return self.cursor.fetchall()  # ticker와 price 리스트 반환

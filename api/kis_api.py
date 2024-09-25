@@ -3,7 +3,7 @@ import requests
 import logging
 from requests.exceptions import RequestException
 from utils.string_utils import unicode_to_korean
-from config.config import R_APP_KEY, R_APP_SECRET, M_APP_KEY, M_APP_SECRET, M_ACCOUNT_NUMBER, TICKER_URL, TRADE_URL
+from config.config import R_APP_KEY, R_APP_SECRET, M_APP_KEY, M_APP_SECRET, M_ACCOUNT_NUMBER
 from datetime import datetime, timedelta
 from database.db_manager import DatabaseManager
 import time
@@ -100,7 +100,7 @@ class KISApi:
                 print(self.real_token_expires_at)
             return self.real_token
 
-    def set_headers(self, is_mock=False, tr_id=None):
+    def _set_headers(self, is_mock=False, tr_id=None):
         """
         API 요청에 필요한 헤더를 설정합니다.
 
@@ -117,7 +117,7 @@ class KISApi:
         self.headers["tr_cont"] = ""
         self.headers["custtype"] = "P"
 
-    def get_hashkey(self, body):
+    def _get_hashkey(self, body, is_mock=False):
         """
         주어진 요청 본문에 대한 해시 키를 생성합니다.
 
@@ -127,11 +127,18 @@ class KISApi:
         Returns:
             str: 생성된 해시 키
         """
-        url = "https://openapi.koreainvestment.com:9443/uapi/hashkey"
+        if is_mock:
+            url = "https://openapivts.koreainvestment.com:29443/uapi/hashkey"
+        else:
+            url = "https://openapi.koreainvestment.com:9443/uapi/hashkey"
+            # 모의 거래와 실제 거래에 따라 헤더 설정
+        self._set_headers(is_mock=True, tr_id="VTTC8908R")
+
+        
         try:
-            res = requests.post(url=url, headers=self.headers, data=json.dumps(body), timeout=10)
-            res.raise_for_status()
-            tmp = res.json()
+            response = requests.post(url=url, headers=self.headers, data=json.dumps(body), timeout=10)
+            response.raise_for_status()
+            tmp = response.json()
             self.hashkey = tmp['HASH']
         except requests.exceptions.RequestException as e:
             print(f"An error occurred while fetching the hash key: {e}")
@@ -146,18 +153,20 @@ class KISApi:
         Returns:
             dict: 주가 정보를 포함한 딕셔너리
         """
-        self.set_headers(is_mock=False)
+        self._set_headers(is_mock=False, tr_id="FHKST01010100")
+        url = "https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-price"
         params = {
             "FID_COND_MRKT_DIV_CODE": "J",
             "FID_INPUT_ISCD": ticker
         }
-        response = requests.get(TICKER_URL, params=params, headers=self.headers, timeout=10)
+        response = requests.get(url=url, params=params, headers=self.headers, timeout=10)
         json_response = response.json()
         
         for key, value in json_response.items():
             if isinstance(value, str):
                 json_response[key] = unicode_to_korean(value)
-        
+        # print(json.dumps(json_response,indent=2))
+
         return json_response
 
     def place_order(self, ticker, order_type, quantity):
@@ -172,7 +181,8 @@ class KISApi:
         Returns:
             dict: 주문 실행 결과를 포함한 딕셔너리
         """
-        self.set_headers(is_mock=True)
+        self._set_headers(is_mock=True)
+        url = "https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/order-cash"
         data = {
             "CANO": M_ACCOUNT_NUMBER,
             "ACNT_PRDT_CD": "01",
@@ -181,7 +191,7 @@ class KISApi:
             "ORD_QTY": str(quantity),
             "ORD_UNPR": "0",
         }
-        response = requests.post(TRADE_URL, data=json.dumps(data), headers=self.headers, timeout=10)
+        response = requests.post(url=url, data=json.dumps(data), headers=self.headers, timeout=10)
         json_response = response.json()
         
         for key, value in json_response.items():
@@ -210,13 +220,13 @@ class KISApi:
             "FID_INPUT_PRICE_2": "",
             "FID_VOL_CNT": ""
         }
-        self.get_hashkey(body)
-        self.set_headers(is_mock=False, tr_id="FHKST130000C0")
+        self._get_hashkey(body, is_mock=False)
+        self._set_headers(is_mock=False, tr_id="FHKST130000C0")
         self.headers["hashkey"] = self.hashkey
         
-        res = requests.get(url=url, headers=self.headers, params=body, timeout=10)
+        response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
         
-        upper_limit_stocks = res.json()
+        upper_limit_stocks = response.json()
         return upper_limit_stocks
 
     def get_upAndDown_rank(self):
@@ -244,15 +254,15 @@ class KISApi:
             "fid_rsfl_rate2":""
         }
         
-        self.get_hashkey(body)
-        self.set_headers(is_mock=False, tr_id="FHPST01700000")
+        self._get_hashkey(body, is_mock=False)
+        self._set_headers(is_mock=False, tr_id="FHPST01700000")
         self.headers["hashkey"] = self.hashkey
         
-        res = requests.get(url=url, headers=self.headers, params=body, timeout=10)
-        print("res status_code:", res.status_code )
-        print("res headers:", res.headers )
+        response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
+        print("response status_code:", response.status_code )
+        print("response headers:", response.headers )
         
-        updown = res.json()
+        updown = response.json()
         return updown
 
     def print_korean_response(self, response):
@@ -279,4 +289,60 @@ class KISApi:
             float: 현재 주가
         """
         stock_price_info = self.get_stock_price(ticker)
-        return float(stock_price_info.get('stck_prpr', 0))  # 현재가 반환, 기본값은 0
+
+        return stock_price_info['output']['stck_prpr'], stock_price_info['output']['temp_stop_yn']  # 현재가 반환, 기본값은 0
+    
+    def get_my_cash(self):
+        """
+        계좌 잔고 확인 및 return
+        """
+        
+        # url="https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/trading/inquire-psbl-order"
+        url="https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/inquire-psbl-order"
+        body = {
+            "CANO": M_ACCOUNT_NUMBER,
+            "ACNT_PRDT_CD": "01",
+            "PDNO": "",
+            "ORD_UNPR": "",
+            "ORD_DVSN": "01",
+            "CMA_EVLU_AMT_ICLD_YN": "N",
+            "OVRS_ICLD_YN": "N"
+        }
+                
+        self._get_hashkey(body, is_mock=True)
+        self._set_headers(is_mock=True, tr_id="VTTC8908R")
+        self.headers["hashkey"] = self.hashkey
+        
+        response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
+        json_response = response.json()
+        # print(json.dumps(json_response, indent=2))
+        
+    def get_my_cash2(self):
+        """
+        계좌 잔고 확인 및 return
+        """
+        
+        # url="https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/trading/inquire-psbl-order"
+        url="https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/inquire-balance"
+        body = {
+            "CANO": M_ACCOUNT_NUMBER,
+            "ACNT_PRDT_CD": "01",
+            "AFHR_FLPR_YN": "N",
+            "OFL_YN": "",
+            "INQR_DVSN": "02",
+            "UNPR_DVSN": "01",
+            "FUND_STTL_ICLD_YN": "N",
+            "FNCG_AMT_AUTO_RDPT_YN": "N",
+            "PRCS_DVSN": "01",
+            "CTX_AREA_FK100": "",
+            "CTX_AREA_NK100": ""
+        }
+                
+        self._get_hashkey(body, is_mock=True)
+        self._set_headers(is_mock=True, tr_id="VTTC8434R")
+        self.headers["hashkey"] = self.hashkey
+        
+        response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
+        json_response = response.json()
+        print(json.dumps(json_response, indent=2))
+        
