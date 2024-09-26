@@ -75,4 +75,21 @@ class TradingLogic:
             db.close()
                 
     def manage_fund(self):
-        self.kis_api.get_my_cash2()
+        """
+        자금을 관리하고 매수할 종목에 따라 사용할 금액을 결정합니다.
+        """
+        balance = self.kis_api.get_balance()  # 현재 예수금 조회
+        cash = int(balance.get('output2')[0].get('dnca_tot_amt'))  # 현재 예수금 조회
+        current_stocks = [stock['prdt_name'] for stock in balance['output1']]
+        num_stocks = len(current_stocks)
+        print(num_stocks)
+        if num_stocks == 0:
+            amount_to_use = cash * 0.33  # 전체 예수금의 33%
+        elif num_stocks == 1:
+            amount_to_use = cash * 0.50  # 남은 예수금의 50%
+        elif num_stocks == 2:
+            amount_to_use = cash  # 나머지 예수금 100%
+        else:
+            amount_to_use = 0  # 슬롯이 가득 찼을 경우
+
+        return amount_to_use
