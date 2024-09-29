@@ -48,9 +48,9 @@ def test():
     테스트 프로세스
     """
     trading = TradingLogic()
-    # #####상한가 조회#############    
-    # trading.fetch_and_save_previous_upper_limit_stocks()
-    # print("상한가 저장")
+    #####상한가 조회#############    
+    trading.fetch_and_save_previous_upper_limit_stocks()
+    print("상한가 저장")
 
     ######매수가능 상한가 종목 조회###########
     # select_stocks = trading.select_stocks_to_buy()
