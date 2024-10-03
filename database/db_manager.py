@@ -42,8 +42,16 @@ class DatabaseManager:
     def _create_tables(self):
         """
         필요한 데이터베이스 테이블을 생성합니다.
-        upper_limit_stocks와 tokens 테이블을 만듭니다.
         """
+
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS tokens (
+                token_type TEXT PRIMARY KEY,
+                access_token TEXT,
+                expires_at TEXT
+            )
+        ''')
+
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS upper_limit_stocks (
                 date TEXT,
@@ -56,28 +64,33 @@ class DatabaseManager:
         ''')
         
         self.cursor.execute('''
-            CREATE TABLE IF NOT EXISTS tokens (
-                token_type TEXT PRIMARY KEY,
-                access_token TEXT,
-                expires_at TEXT
+            CREATE TABLE IF NOT EXISTS selected_stocks (
+                no INTEGER PRIMARY KEY AUTOINCREMENT,
+                date TEXT,
+                ticker TEXT,
+                name TEXT,
+                price REAL,
+                upper_rate REAL
             )
         ''')
         
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS trading_session (
+                start_date TEXT,
+                current_date TEXT,
+                ticker TEXT,
+                name TEXT,
+                fund INTEGER,
+                count INTEGER,
+                PRIMARY KEY (start_date, name)
+            )
+        ''')
+        
+                
         ### 테이블 삭제
         # self.cursor.execute('''
         # DROP TABLE IF EXISTS upper_limit_history
         # ''')
-        
-        
-        self.cursor.execute('''
-            CREATE TABLE IF NOT EXISTS trading_session (
-                date TEXT,
-                ticker TEXT,
-                name TEXT,
-                name TEXT,
-                PRIMARY KEY (date, name)
-            )
-        ''')
         
         self.conn.commit()
 
@@ -218,7 +231,7 @@ class DatabaseManager:
         
     def get_upper_limit_stocks_two_days_ago(self):
         """
-        영업일 기준으로 3일 전에 상한가를 기록한 종목의 ticker와 price를 반환합니다.
+        영업일 기준으로 2일 전에 상한가를 기록한 종목의 ticker와 price를 반환합니다.
 
         :return: 상한가 종목 ticker와 price 리스트
         """
@@ -230,72 +243,73 @@ class DatabaseManager:
         self.cursor.execute('''
             SELECT ticker, name, price FROM upper_limit_stocks WHERE date = ?
         ''', (three_days_ago_str,))
-        # print(self.cursor.fetchall())
         return self.cursor.fetchall()  # ticker와 price 리스트 반환
 
-    def create_trade_session(self):
+    def save_selected_stocks(self, selected_stocks):
         """
-        새로운 거래 세션을 생성하고 ID를 반환합니다.
-        """
-        self.cursor.execute('''
-            CREATE TABLE IF NOT EXISTS trade_sessions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                stock TEXT,
-                shares INTEGER,
-                price REAL,
-                status TEXT,
-                day_count INTEGER DEFAULT 1,  -- 거래 일수 추가
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        self.conn.commit()
-        return self.cursor.lastrowid
+        선택된 종목 정보를 데이터베이스에 저장합니다.
 
-    def save_trade_session(self, session_id, stock, shares, price, status):
+        :param selected_stocks: 선택된 종목 리스트 [(ticker, name, price), ...]
+        """
+        try:
+            # selected_stocks 테이블 초기화
+            self.delete_selected_stocks()  # 테이블 초기화
+
+            for ticker, name, price in selected_stocks:
+                self.cursor.execute('''
+                INSERT INTO selected_stocks (date, ticker, name, price, upper_rate)
+                VALUES (?, ?, ?, ?, ?)
+                ''', (datetime.now().strftime('%Y-%m-%d'), ticker, name, float(price), None))  # upper_rate는 None으로 설정
+            self.conn.commit()
+            logging.info("Saved selected stocks successfully.")
+        except sqlite3.Error as e:
+            logging.error("Error saving selected stocks: %s", e)
+            raise
+
+    def delete_selected_stocks(self):
+        """
+        selected_stocks 테이블의 모든 데이터를 삭제합니다.
+        """
+        try:
+            self.cursor.execute('DELETE FROM selected_stocks')
+            self.conn.commit()
+            logging.info("Deleted all records from selected_stocks table.")
+        except sqlite3.Error as e:
+            logging.error("Error deleting selected stocks: %s", e)
+            raise
+
+    def delete_selected_stock_by_no(self, no):
+        """
+        특정 no에 해당하는 종목을 selected_stocks 테이블에서 삭제합니다.
+
+        :param no: 삭제할 종목의 no
+        """
+        try:
+            self.cursor.execute('DELETE FROM selected_stocks WHERE no = ?', (no,))
+            self.conn.commit()
+            logging.info("Deleted stock with no: %d", no)
+        except sqlite3.Error as e:
+            logging.error("Error deleting selected stock: %s", e)
+            raise
+
+    def save_trading_session(self, start_date, current_date, ticker, name, fund, count):
         """
         거래 세션 정보를 데이터베이스에 저장합니다.
 
-        :param session_id: 거래 세션 ID
-        :param stock: 종목 코드
-        :param shares: 매수 수량
-        :param price: 매수 가격
-        :param status: 거래 상태
+        :param start_date: 거래 시작 날짜
+        :param current_date: 현재 날짜
+        :param ticker: 종목 코드
+        :param name: 종목명
+        :param fund: 투자 금액
+        :param count: 매수 수량
         """
-        self.cursor.execute('''
-            INSERT INTO trade_sessions (id, stock, shares, price, status)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (session_id, stock, shares, price, status))
-        self.conn.commit()
-
-    def get_active_trade_sessions(self):
-        """
-        현재 활성화된 거래 세션을 조회합니다.
-
-        :return: 활성화된 거래 세션 리스트
-        """
-        self.cursor.execute('SELECT * FROM trade_sessions WHERE status = "active"')
-        return self.cursor.fetchall()
-
-    def update_trade_session_status(self, session_id, status):
-        """
-        거래 세션의 상태를 업데이트합니다.
-
-        :param session_id: 거래 세션 ID
-        :param status: 새로운 상태
-        """
-        self.cursor.execute('''
-            UPDATE trade_sessions SET status = ? WHERE id = ?
-        ''', (status, session_id))
-        self.conn.commit()
-
-    def update_trade_session_day_count(self, session_id, day_count):
-        """
-        거래 세션의 day_count를 업데이트합니다.
-
-        :param session_id: 거래 세션 ID
-        :param day_count: 새로운 거래 일수
-        """
-        self.cursor.execute('''
-            UPDATE trade_sessions SET day_count = ? WHERE id = ?
-        ''', (day_count, session_id))
-        self.conn.commit()
+        try:
+            self.cursor.execute('''
+            INSERT INTO trading_session (start_date, current_date, ticker, name, fund, count)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ''', (start_date, current_date, ticker, name, fund, count))
+            self.conn.commit()
+            logging.info("Trading session saved successfully for ticker: %s", ticker)
+        except sqlite3.Error as e:
+            logging.error("Error saving trading session: %s", e)
+            raise
