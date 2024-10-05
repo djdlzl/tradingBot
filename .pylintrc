@@ -1,3 +1,6 @@
-   [MASTER]
-   init-hook='import sys; sys.path.append(".")'
-   ignored-modules=schedule
+[MASTER]
+init-hook='import sys; sys.path.append(".")'
+ignored-modules=schedule
+
+[MESSAGES CONTROL]
+disable=E1101

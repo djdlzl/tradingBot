@@ -38,10 +38,15 @@ class DateUtils:
         Returns:
             datetime: 계산된 이전 영업일
         """
-        kr_holidays = holidays.country_holidays('KR')
+        kr_holidays = holidays.CountryHoliday('KR', years=2024)  # 한국의 공휴일을 가져옵니다.
+        print("get_previous_business_day")
+        print(kr_holidays)
+        for date, name in sorted(kr_holidays.items()):
+            print(f"{date}: {name}")
         current_date = date
         while days_back > 0:
             current_date -= timedelta(days=1)
+            # 주말과 공휴일을 건너뛰기
             if current_date.weekday() < 5 and current_date not in kr_holidays:
                 days_back -= 1
         return current_date

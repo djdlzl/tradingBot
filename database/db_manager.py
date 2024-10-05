@@ -69,8 +69,7 @@ class DatabaseManager:
                 date TEXT,
                 ticker TEXT,
                 name TEXT,
-                price REAL,
-                upper_rate REAL
+                price REAL
             )
         ''')
         
@@ -89,7 +88,7 @@ class DatabaseManager:
                 
         ### 테이블 삭제
         # self.cursor.execute('''
-        # DROP TABLE IF EXISTS upper_limit_history
+        # DROP TABLE IF EXISTS selected_stocks
         # ''')
         
         self.conn.commit()
@@ -236,30 +235,34 @@ class DatabaseManager:
         :return: 상한가 종목 ticker와 price 리스트
         """
         today = datetime.now()
-        three_days_ago = DateUtils.get_previous_business_day(today, 2)  # 2 영업일 전 날짜 계산
-        three_days_ago_str = three_days_ago.strftime('%Y-%m-%d')  # 문자열 형식으로 변환
+        two_days_ago = DateUtils.get_previous_business_day(today, 3)  # 2 영업일 전 날짜 계산
+        print(two_days_ago)
+        two_days_ago_str = two_days_ago.strftime('%Y-%m-%d')  # 문자열 형식으로 변환
 
         # 3 영업일 전의 상한가 종목 조회
         self.cursor.execute('''
             SELECT ticker, name, price FROM upper_limit_stocks WHERE date = ?
-        ''', (three_days_ago_str,))
+        ''', (two_days_ago_str,))
         return self.cursor.fetchall()  # ticker와 price 리스트 반환
 
     def save_selected_stocks(self, selected_stocks):
         """
         선택된 종목 정보를 데이터베이스에 저장합니다.
 
-        :param selected_stocks: 선택된 종목 리스트 [(ticker, name, price), ...]
+        :param selected_stocks: 선택된 종목 리스트 [(ticker, name, price, upper_rate), ...]
         """
         try:
+            print(selected_stocks)
             # selected_stocks 테이블 초기화
             self.delete_selected_stocks()  # 테이블 초기화
 
-            for ticker, name, price in selected_stocks:
+            today = DateUtils.get_previous_business_day(datetime.now())  # 영업일 기준으로 오늘 날짜 가져오기
+
+            for ticker, name, price in selected_stocks:  # 수정된 부분
                 self.cursor.execute('''
-                INSERT INTO selected_stocks (date, ticker, name, price, upper_rate)
-                VALUES (?, ?, ?, ?, ?)
-                ''', (datetime.now().strftime('%Y-%m-%d'), ticker, name, float(price), None))  # upper_rate는 None으로 설정
+                INSERT INTO selected_stocks (date, ticker, name, price)
+                VALUES (?, ?, ?, ?)
+                ''', (today.strftime('%Y-%m-%d'), ticker, name, float(price))) 
             self.conn.commit()
             logging.info("Saved selected stocks successfully.")
         except sqlite3.Error as e:
@@ -278,6 +281,20 @@ class DatabaseManager:
             logging.error("Error deleting selected stocks: %s", e)
             raise
 
+    def get_selected_stocks(self):
+        """
+        selected_stocks 테이블에서 첫 번째 종목을 조회합니다.
+
+        :return: (no, date, ticker, name, price, upper_rate) 튜플 또는 None
+        """
+        try:
+            self.cursor.execute('SELECT * FROM selected_stocks ORDER BY no LIMIT 1')
+            result = self.cursor.fetchone()
+            return result  # 첫 번째 종목 반환
+        except sqlite3.Error as e:
+            logging.error("Error retrieving first selected stock: %s", e)
+            raise
+
     def delete_selected_stock_by_no(self, no):
         """
         특정 no에 해당하는 종목을 selected_stocks 테이블에서 삭제합니다.
@@ -288,8 +305,37 @@ class DatabaseManager:
             self.cursor.execute('DELETE FROM selected_stocks WHERE no = ?', (no,))
             self.conn.commit()
             logging.info("Deleted stock with no: %d", no)
+            
+            # 삭제 후 no 값을 재정렬
+            self.reorder_selected_stocks()
         except sqlite3.Error as e:
             logging.error("Error deleting selected stock: %s", e)
+            raise
+
+    def reorder_selected_stocks(self):
+        """
+        selected_stocks 테이블의 no 값을 1부터 다시 정렬합니다.
+        """
+        try:
+            # no 값을 1부터 재정렬
+            self.cursor.execute('''
+            UPDATE selected_stocks SET no = NULL
+            ''')
+            self.cursor.execute('''
+            DELETE FROM sqlite_sequence WHERE name='selected_stocks'
+            ''')  # AUTOINCREMENT를 초기화
+            self.cursor.execute('''
+            SELECT rowid, * FROM selected_stocks
+            ''')
+            rows = self.cursor.fetchall()
+            for index, row in enumerate(rows, start=1):
+                self.cursor.execute('''
+                UPDATE selected_stocks SET no = ? WHERE rowid = ?
+                ''', (index, row[0]))  # rowid를 사용하여 no 업데이트
+            self.conn.commit()
+            logging.info("Reordered selected stocks successfully.")
+        except sqlite3.Error as e:
+            logging.error("Error reordering selected stocks: %s", e)
             raise
 
     def save_trading_session(self, start_date, current_date, ticker, name, fund, count):

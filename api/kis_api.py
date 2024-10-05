@@ -97,7 +97,6 @@ class KISApi:
         else:
             if not self.real_token or now >= self.real_token_expires_at:
                 self.real_token, self.real_token_expires_at = self._get_token(R_APP_KEY, R_APP_SECRET, "real")
-                print(self.real_token_expires_at)
             return self.real_token
 
     def _set_headers(self, is_mock=False, tr_id=None):
