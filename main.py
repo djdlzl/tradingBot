@@ -66,6 +66,7 @@ def test():
     """
     trading = TradingLogic()
     #####상한가 조회#############    
+    print("시작")
     trading.fetch_and_save_previous_upper_limit_stocks()
     print("상한가 저장")
 

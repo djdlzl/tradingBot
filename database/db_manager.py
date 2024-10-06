@@ -235,8 +235,8 @@ class DatabaseManager:
         :return: 상한가 종목 ticker와 price 리스트
         """
         today = datetime.now()
-        two_days_ago = DateUtils.get_previous_business_day(today, 3)  # 2 영업일 전 날짜 계산
-        print(two_days_ago)
+        two_days_ago = DateUtils.get_previous_business_day(today, 2)  # 2 영업일 전 날짜 계산
+        print("two_days_ago: ",two_days_ago)
         two_days_ago_str = two_days_ago.strftime('%Y-%m-%d')  # 문자열 형식으로 변환
 
         # 3 영업일 전의 상한가 종목 조회
@@ -256,7 +256,7 @@ class DatabaseManager:
             # selected_stocks 테이블 초기화
             self.delete_selected_stocks()  # 테이블 초기화
 
-            today = DateUtils.get_previous_business_day(datetime.now())  # 영업일 기준으로 오늘 날짜 가져오기
+            today = DateUtils.get_previous_business_day(datetime.now(), 2)  # 영업일 기준으로 오늘 날짜 가져오기
 
             for ticker, name, price in selected_stocks:  # 수정된 부분
                 self.cursor.execute('''

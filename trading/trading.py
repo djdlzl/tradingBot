@@ -35,7 +35,7 @@ class TradingLogic:
             else:
                 print("상한가 종목이 없습니다.")
             db.close()
-            
+
     def select_stocks_to_buy(self):
         """
         2일 전 상한가 종목의 가격과 현재가를 비교하여 매수할 종목을 선정(선별)합니다.
