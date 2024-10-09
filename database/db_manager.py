@@ -171,24 +171,24 @@ class DatabaseManager:
             logging.error("Error saving upper limit stocks: %s", e)
             raise
 
-    def get_upper_limit_history(self, start_date, end_date):
-        """
-        지정된 기간 동안의 상한가 히스토리를 조회합니다.
+    # def get_upper_limit_history(self, start_date, end_date):
+    #     """
+    #     지정된 기간 동안의 상한가 히스토리를 조회합니다.
 
-        :param start_date: 시작 날짜 (문자열 형식: 'YYYY-MM-DD')
-        :param end_date: 종료 날짜 (문자열 형식: 'YYYY-MM-DD')
-        :return: 상한가 히스토리 리스트 [(날짜, 종목명), ...]
-        """
-        try:
-            self.cursor.execute('''
-            SELECT * FROM upper_limit_history
-            WHERE date BETWEEN ? AND ?
-            ORDER BY date, name
-            ''', (start_date, end_date))
-            return self.cursor.fetchall()
-        except sqlite3.Error as e:
-            logging.error("Error retrieving upper limit history: %s", e)
-            raise
+    #     :param start_date: 시작 날짜 (문자열 형식: 'YYYY-MM-DD')
+    #     :param end_date: 종료 날짜 (문자열 형식: 'YYYY-MM-DD')
+    #     :return: 상한가 히스토리 리스트 [(날짜, 종목명), ...]
+    #     """
+    #     try:
+    #         self.cursor.execute('''
+    #         SELECT * FROM upper_limit_history
+    #         WHERE date BETWEEN ? AND ?
+    #         ORDER BY date, name
+    #         ''', (start_date, end_date))
+    #         return self.cursor.fetchall()
+    #     except sqlite3.Error as e:
+    #         logging.error("Error retrieving upper limit history: %s", e)
+    #         raise
 
     def close(self):
         """

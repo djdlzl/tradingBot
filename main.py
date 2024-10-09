@@ -60,6 +60,22 @@ def threaded_job(func):
     thread = threading.Thread(target=func, daemon=True)
     thread.start()
 
+def session_start():
+    # 거래 세션 확인
+    trading = TradingLogic()
+    scheduler = BackgroundScheduler()
+
+    
+    #거래 세션 확인
+    session_info = trading.check_trading_session()
+    print(f"현재 세션 수: {session_info['session']}, 슬롯 수: {session_info['slot']}")
+    
+    #새 세션에 할당할 자금 계산
+    funds = trading.calculate_funds(session_info['slot'])
+    
+    
+
+
 def test():
     """
     테스트 프로세스
@@ -70,15 +86,15 @@ def test():
     trading.fetch_and_save_previous_upper_limit_stocks()
     print("상한가 저장")
 
-
-
-
     ######매수가능 상한가 종목 조회###########
     trading.init_selected_stocks()
     trading.select_stocks_to_buy()
     print("상한가 선별 및 저장")
-    # print(trading.manage_fund())
     
+
+    #######트레이딩 세션 확인#############
+    session_start()
+
 if __name__ == "__main__":
 
     scheduler = BackgroundScheduler()

@@ -76,25 +76,21 @@ class TradingLogic:
         finally:
             db.close()
 
-    def allocate_funds(self, total_fund):
+    def calculate_funds(self, slot):
         """
         슬롯 개수에 따라 자금을 할당합니다.
-
-        :param total_fund: 총 자금
-        :return: 각 세션에 할당된 자금 리스트
         """
-        db = DatabaseManager()
+        #전체 예수금 조회
+        data = self.kis_api.get_balance()
+        balance = float(data.get('output2')[0].get('dnca_tot_amt'))
+        
         try:
-            # 현재 trading_session 테이블의 슬롯 개수 확인
-            db.cursor.execute('SELECT COUNT(*) FROM trading_session')
-            slot_count = db.cursor.fetchone()[0]
-
-            if slot_count == 3:
-                allocated_funds = [total_fund * 0.33] * 3  # 3개 슬롯에 33%씩 할당
-            elif slot_count == 2:
-                allocated_funds = [total_fund * 0.50] + [total_fund * 0.50]  # 2개 슬롯에 50%씩 할당
-            elif slot_count == 1:
-                allocated_funds = [total_fund]  # 1개 슬롯에 전체 자금 할당
+            if slot == 3:
+                allocated_funds = [balance * 0.33] * 3  # 3개 슬롯에 33%씩 할당
+            elif slot == 2:
+                allocated_funds = [balance * 0.50] + [balance * 0.50]  # 2개 슬롯에 50%씩 할당
+            elif slot == 1:
+                allocated_funds = [balance]  # 1개 슬롯에 전체 자금 할당
             else:
                 allocated_funds = []  # 슬롯이 없으면 빈 리스트 반환
 
@@ -102,8 +98,6 @@ class TradingLogic:
         except Exception as e:
             print(f"Error allocating funds: {e}")
             return []
-        finally:
-            db.close()
             
     def allocate_stock(self):
         """
@@ -114,9 +108,7 @@ class TradingLogic:
         # selected_stocks에서 첫 번째 종목 가져오기
         selected_stock = db.get_selected_stocks()  # selected_stocks 조회
         if selected_stock:
-            db.delete_selected_stock_by_no(selected_stock[0][0])  # no로 삭제
-            
-        # ... 기존 코드 ...
+            db.delete_selected_stock_by_no(selected_stock[0][0])  # no로 삭제 
 
     def init_selected_stocks(self):
         """
@@ -125,3 +117,21 @@ class TradingLogic:
         db = DatabaseManager()
         db.delete_selected_stocks()
         db.close()
+
+    def check_trading_session(self):
+        """
+        거래 전, 트레이딩 세션 테이블에 진행 중인 거래세션이 있는지 확인하고,
+        세션 수에 따라 거래를 진행하거나 새로운 세션을 생성합니다.
+        """
+        db = DatabaseManager()
+        
+        # 현재 거래 세션의 수를 확인
+        db.cursor.execute('SELECT COUNT(*) FROM trading_session')
+        session_count = db.cursor.fetchone()[0]
+        slot_count = 3 - session_count
+
+        db.close()
+        
+        return {'session': session_count, 'slot': slot_count}
+         
+    # def add_trading_session(self, stock):

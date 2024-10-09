@@ -60,8 +60,8 @@ class DateUtils:
             elif current_date.weekday() == 6:
                 current_date -= timedelta(days=2)
                 continue
-            #공휴일 건너뛰기
             
+            #공휴일 건너뛰기
             current_date -= timedelta(days=1)
             days_back -= 1
 
