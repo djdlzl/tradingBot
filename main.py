@@ -48,8 +48,12 @@ def add_stocks():
     trading.add_upper_limit_stocks("2024-09-30", stocks)
 
 def delete_stocks():
+    """
+    특정일자 상한가 종목 삭제
+    필요 시 사용
+    """
     db = DatabaseManager()
-    db.delete_upper_limit_stocks("2024-09-30")
+    db.delete_upper_limit_stocks("2024-10-09")
     db.close()
 
 def threaded_job(func):
@@ -60,19 +64,22 @@ def threaded_job(func):
     thread = threading.Thread(target=func, daemon=True)
     thread.start()
 
-def session_start():
-    # 거래 세션 확인
-    trading = TradingLogic()
-    scheduler = BackgroundScheduler()
 
+
+# def session_start():
+#     # 거래 세션 확인
+#     trading = TradingLogic()
+#     scheduler = BackgroundScheduler()
     
-    #거래 세션 확인
-    session_info = trading.check_trading_session()
-    print(f"현재 세션 수: {session_info['session']}, 슬롯 수: {session_info['slot']}")
+#     #2주 전 데이터 주기적으로 삭제
+#     trading.delete_old_stocks()
     
-    #새 세션에 할당할 자금 계산
-    funds = trading.calculate_funds(session_info['slot'])
+#     #거래 세션 확인
+#     session_info = trading.check_trading_session()
+#     print(f"현재 세션 수: {session_info['session']}, 슬롯 수: {session_info['slot']}")
     
+#     #새 세션에 할당할 자금 계산
+#     funds = trading.calculate_funds(session_info['slot'])
     
 
 
@@ -91,9 +98,7 @@ def test():
     trading.select_stocks_to_buy()
     print("상한가 선별 및 저장")
     
-
-    #######트레이딩 세션 확인#############
-    session_start()
+    result = DatabaseManager().get_selected_stocks()
 
 if __name__ == "__main__":
 

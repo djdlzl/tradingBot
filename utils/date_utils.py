@@ -45,7 +45,7 @@ class DateUtils:
         additional_holidays = [
             dt(2024, 10, 1)
         ]
-        
+
         # 기존 공휴일에 추가 공휴일 합치기
         all_holidays = set(kr_holidays.keys()).union(additional_holidays)
         current_date = date
@@ -60,14 +60,14 @@ class DateUtils:
             elif current_date.weekday() == 6:
                 current_date -= timedelta(days=2)
                 continue
-            
-            #공휴일 건너뛰기
+
             current_date -= timedelta(days=1)
             days_back -= 1
 
+            #공휴일 건너뛰기
             if (current_date in all_holidays) and (current_date.weekday() < 5):
                 current_date -= timedelta(days=1)
-            
+
         return current_date
 
     @staticmethod
@@ -81,5 +81,49 @@ class DateUtils:
         Returns:
             bool: 영업일이면 True, 아니면 False
         """
-        kr_holidays = holidays.country_holidays('KR')
-        return date.weekday() < 5 and date not in kr_holidays
+        # 한국의 2024년 공휴일 가져오기
+        kr_holidays = holidays.CountryHoliday('KR', years=2024)  
+        
+        # 추가 공휴일 수동으로 추가 (datetime.date 객체로 추가)
+        additional_holidays = [
+            dt(2024, 10, 1)
+        ]
+
+        # 기존 공휴일에 추가 공휴일 합치기
+        all_holidays = set(kr_holidays.keys()).union(additional_holidays)
+        current_date = date
+        current_date = date.date() 
+
+        while current_date.weekday() > 4:
+            # 주말 건너뛰기
+            if current_date.weekday() == 5:
+                current_date -= timedelta(days=1)
+            elif current_date.weekday() == 6:
+                current_date -= timedelta(days=2)
+
+            #공휴일 건너뛰기
+            current_date -= timedelta(days=1)
+
+        while (current_date in all_holidays) and (current_date.weekday() < 5):
+            current_date -= timedelta(days=1)
+            
+        return current_date
+
+    @staticmethod
+    def get_holidays():
+        """
+        공휴일 받아오기
+        """
+        
+        # 한국의 2024년 공휴일 가져오기
+        kr_holidays = holidays.CountryHoliday('KR', years=2024)  
+        
+        # 추가 공휴일 수동으로 추가 (datetime.date 객체로 추가)
+        additional_holidays = [
+            dt(2024, 10, 1)
+        ]
+
+        # 기존 공휴일에 추가 공휴일 합치기
+        all_holidays = set(kr_holidays.keys()).union(additional_holidays)
+        
+        return all_holidays

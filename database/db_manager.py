@@ -62,17 +62,19 @@ class DatabaseManager:
                 PRIMARY KEY (date, ticker)
             )
         ''')
-        
+
+
+
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS selected_stocks (
-                no INTEGER PRIMARY KEY AUTOINCREMENT,
+                no INTEGER PRIMARY KEY,
                 date TEXT,
                 ticker TEXT,
                 name TEXT,
                 price REAL
             )
         ''')
-        
+
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS trading_session (
                 start_date TEXT,
@@ -91,7 +93,7 @@ class DatabaseManager:
         # DROP TABLE IF EXISTS selected_stocks
         # ''')
         
-        self.conn.commit()
+        # self.conn.commit()
 
 
     def save_token(self, token_type, access_token, expires_at):
@@ -197,7 +199,7 @@ class DatabaseManager:
         if self.conn:
             self.conn.close()
             logging.info("Database connection closed")
-            
+
     def delete_upper_limit_stocks(self, date):
         """
         특정 날짜의 상한가 주식 정보를 삭제합니다.
@@ -213,21 +215,54 @@ class DatabaseManager:
         except sqlite3.Error as e:
             logging.error("Error deleting upper limit stocks: %s", e)
             raise
-        
-    def get_ticker(self, stock_name):
+
+    def delete_old_stocks(self, date):
         """
-        종목코드 조회
+        upper_limit_stocks 테이블에서 2개월이 지난 상한가 종목을 삭제합니다.
         """
         try:
             self.cursor.execute('''
-            SELECT * FROM upper_limit_stocks WHERE name = ?
-            ''', (stock_name,))
-            result = self.cursor.fetchone()
-            return result
+                DELETE FROM upper_limit_stocks WHERE date < ?
+                ''', (date,))
+            self.conn.commit()
+            logging.info("Deleted upper limit stocks before date: %s", date)
         except sqlite3.Error as e:
             logging.error("Error deleting upper limit stocks: %s", e)
             raise
         
+    # def get_ticker(self, stock_name):
+    #     """
+    #     종목코드 조회
+    #     """
+    #     try:
+    #         self.cursor.execute('''
+    #         SELECT * FROM upper_limit_stocks WHERE name = ?
+    #         ''', (stock_name,))
+    #         result = self.cursor.fetchone()
+    #         return result
+    #     except sqlite3.Error as e:
+    #         logging.error("Error deleting upper limit stocks: %s", e)
+    #         raise
+
+######################################################################################
+#########################    선택된 종목 관련 메서드   ####################################
+######################################################################################
+
+    def get_selected_stocks(self):
+        """
+        selected_stocks 테이블에서 첫 번째 종목을 조회합니다.
+
+        :return: (no, date, ticker, name, price, upper_rate) 튜플 또는 None
+        """
+        try:
+            self.cursor.execute('SELECT * FROM selected_stocks ORDER BY no LIMIT 1')
+            result = self.cursor.fetchone()
+            print(result)
+            return result  # 첫 번째 종목 반환
+        except sqlite3.Error as e:
+            logging.error("Error retrieving first selected stock: %s", e)
+            raise
+
     def get_upper_limit_stocks_two_days_ago(self):
         """
         영업일 기준으로 2일 전에 상한가를 기록한 종목의 ticker와 price를 반환합니다.
@@ -252,17 +287,29 @@ class DatabaseManager:
         :param selected_stocks: 선택된 종목 리스트 [(ticker, name, price, upper_rate), ...]
         """
         try:
-            print(selected_stocks)
             # selected_stocks 테이블 초기화
             self.delete_selected_stocks()  # 테이블 초기화
+
+            # no 갱신
+            self.cursor.execute('SELECT MAX(no) FROM selected_stocks')
+            max_no = self.cursor.fetchone()[0]
+
+            # no 값을 결정
+            if max_no is None or max_no < 100:
+                no = (max_no + 1) if max_no is not None else 1
+            else:
+                no = 1  # 100에 도달하면 1로 리셋
 
             today = DateUtils.get_previous_business_day(datetime.now(), 2)  # 영업일 기준으로 오늘 날짜 가져오기
 
             for ticker, name, price in selected_stocks:  # 수정된 부분
                 self.cursor.execute('''
-                INSERT INTO selected_stocks (date, ticker, name, price)
-                VALUES (?, ?, ?, ?)
-                ''', (today.strftime('%Y-%m-%d'), ticker, name, float(price))) 
+                INSERT INTO selected_stocks (no, date, ticker, name, price)
+                VALUES (?, ?, ?, ?, ?)
+                ''', (no, today.strftime('%Y-%m-%d'), ticker, name, float(price))) 
+                
+                no += 1
+                
             self.conn.commit()
             logging.info("Saved selected stocks successfully.")
         except sqlite3.Error as e:
@@ -279,20 +326,6 @@ class DatabaseManager:
             logging.info("Deleted all records from selected_stocks table.")
         except sqlite3.Error as e:
             logging.error("Error deleting selected stocks: %s", e)
-            raise
-
-    def get_selected_stocks(self):
-        """
-        selected_stocks 테이블에서 첫 번째 종목을 조회합니다.
-
-        :return: (no, date, ticker, name, price, upper_rate) 튜플 또는 None
-        """
-        try:
-            self.cursor.execute('SELECT * FROM selected_stocks ORDER BY no LIMIT 1')
-            result = self.cursor.fetchone()
-            return result  # 첫 번째 종목 반환
-        except sqlite3.Error as e:
-            logging.error("Error retrieving first selected stock: %s", e)
             raise
 
     def delete_selected_stock_by_no(self, no):
@@ -337,6 +370,11 @@ class DatabaseManager:
         except sqlite3.Error as e:
             logging.error("Error reordering selected stocks: %s", e)
             raise
+
+
+######################################################################################
+#########################    트레이딩 세션 관련 메서드   ###################################
+######################################################################################
 
     def save_trading_session(self, start_date, current_date, ticker, name, fund, count):
         """
