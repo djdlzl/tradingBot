@@ -168,7 +168,7 @@ class KISApi:
 
         return json_response
 
-    def place_order(self, ticker, order_type, quantity):
+    def place_order(self, ticker, quantity):
         """
         주식 주문을 실행합니다.
 
@@ -180,23 +180,21 @@ class KISApi:
         Returns:
             dict: 주문 실행 결과를 포함한 딕셔너리
         """
-        self._set_headers(is_mock=True)
+        self._set_headers(is_mock=True, tr_id="VTTC0802U")
         url = "https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/order-cash"
         data = {
             "CANO": M_ACCOUNT_NUMBER,
             "ACNT_PRDT_CD": "01",
             "PDNO": ticker,
-            "ORD_DVSN": order_type,
+            "ORD_DVSN": "01",
             "ORD_QTY": str(quantity),
             "ORD_UNPR": "0",
         }
+        self.headers["hashkey"] = None
+
         response = requests.post(url=url, data=json.dumps(data), headers=self.headers, timeout=10)
         json_response = response.json()
-        
-        for key, value in json_response.items():
-            if isinstance(value, str):
-                json_response[key] = unicode_to_korean(value)
-        
+
         return json_response
 
     def get_upper_limit_stocks(self):

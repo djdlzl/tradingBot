@@ -22,7 +22,6 @@ from config.config import GET_ULS_HOUR, GET_ULS_MINUTE
 from database.db_manager import DatabaseManager
 
 
-
 def fetch_and_save_upper_limit_stocks():
     """
     주기적으로 상한가 종목을 DB에 저장
@@ -53,7 +52,7 @@ def delete_stocks():
     필요 시 사용
     """
     db = DatabaseManager()
-    db.delete_upper_limit_stocks("2024-10-09")
+    db.delete_upper_limit_stocks("2024-10-10")
     db.close()
 
 def threaded_job(func):
@@ -98,12 +97,13 @@ def test():
     trading.select_stocks_to_buy()
     print("상한가 선별 및 저장")
     
-    result = DatabaseManager().get_selected_stocks()
+    res = trading.place_order("002760", "1")
+    print(res)
 
 if __name__ == "__main__":
 
     scheduler = BackgroundScheduler()
-
+    
     test()
     # 매일 15시 30분에 fetch_and_save_upper_limit_stocks 실행
     scheduler.add_job(threaded_job, 'cron', hour=GET_ULS_HOUR, minute=GET_ULS_MINUTE, args=[fetch_and_save_upper_limit_stocks])

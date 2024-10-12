@@ -77,6 +77,7 @@ class DatabaseManager:
 
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS trading_session (
+                id INTEGER,
                 start_date TEXT,
                 current_date TEXT,
                 ticker TEXT,
@@ -90,10 +91,10 @@ class DatabaseManager:
                 
         ### 테이블 삭제
         # self.cursor.execute('''
-        # DROP TABLE IF EXISTS selected_stocks
+        # DROP TABLE IF EXISTS trading_session
         # ''')
         
-        # self.conn.commit()
+        self.conn.commit()
 
 
     def save_token(self, token_type, access_token, expires_at):
@@ -376,7 +377,7 @@ class DatabaseManager:
 #########################    트레이딩 세션 관련 메서드   ###################################
 ######################################################################################
 
-    def save_trading_session(self, start_date, current_date, ticker, name, fund, count):
+    def save_trading_session(self, random_id, start_date, current_date, ticker, name, fund, count):
         """
         거래 세션 정보를 데이터베이스에 저장합니다.
 
@@ -389,9 +390,9 @@ class DatabaseManager:
         """
         try:
             self.cursor.execute('''
-            INSERT INTO trading_session (start_date, current_date, ticker, name, fund, count)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ''', (start_date, current_date, ticker, name, fund, count))
+            INSERT INTO trading_session (id, start_date, current_date, ticker, name, fund, count)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (random_id, start_date, current_date, ticker, name, fund, count))
             self.conn.commit()
             logging.info("Trading session saved successfully for ticker: %s", ticker)
         except sqlite3.Error as e:

@@ -18,6 +18,21 @@ class TradingLogic:
         self.kis_api = KISApi()
         self.date_utils = DateUtils()
         
+######################################################################################
+#########################    매수 관련 메서드   ###################################
+######################################################################################
+
+    def place_order(self, ticker, quantity):
+        """
+        주식 매수
+        """
+        res = self.kis_api.place_order(ticker, quantity)
+        return res
+        
+######################################################################################
+#########################    상한가 조회 관련 메서드   #####################################
+######################################################################################
+
     def fetch_and_save_previous_upper_limit_stocks(self):
         """
         상한가 종목을 받아온 후,
@@ -126,7 +141,6 @@ class TradingLogic:
         self.add_new_trading_session(fund)
         
 
-
     def check_trading_session(self):
         """
         거래 전, 트레이딩 세션 테이블에 진행 중인 거래세션이 있는지 확인하고,
@@ -149,13 +163,21 @@ class TradingLogic:
         새로운 세션 생성
         """
         db = DatabaseManager()
-        #세션 받아오는 메서드, trading_session의 id값을 받아와서 exclude_set에 저장
+        # id: 세션 받아오는 메서드, trading_session의 id값을 받아와서 exclude_set에 저장
         exclude_num = []
         random_id = self.generate_random_id(exclude=exclude_num)
+        
+        # 날짜
         today = datetime.now()
+        
+        # 종목 정보
         stock = self.allocate_stock()
         
-        # db.save_trading_session(today, today, )
+        # count 초기화
+        count = 0
+        
+        # 세션 저장
+        db.save_trading_session(random_id, today, today, stock['ticker'], stock['name'], fund, count)
 
 
     def generate_random_id(self, min_value=1000, max_value=9999, exclude=None):
@@ -214,3 +236,10 @@ class TradingLogic:
         except Exception as e:
             print(f"Error allocating funds: {e}")
             return []
+
+    ############ 기존 세션 ##################
+    def continue_trading_session(self):
+        """
+        기존 세션 이어하기
+        """
+        
