@@ -162,7 +162,6 @@ class TradingLogic:
         """
         새로운 세션 생성
         """
-        db = DatabaseManager()
         # id: 세션 받아오는 메서드, trading_session의 id값을 받아와서 exclude_set에 저장
         exclude_num = []
         random_id = self.generate_random_id(exclude=exclude_num)
@@ -177,7 +176,7 @@ class TradingLogic:
         count = 0
         
         # 세션 저장
-        db.save_trading_session(random_id, today, today, stock['ticker'], stock['name'], fund, count)
+        self.place_order_and_update_session(random_id, today, today, stock['ticker'], stock['name'], fund, count)
 
     ############ 기존 세션 ##################
     def continue_trading_session(self):
@@ -230,24 +229,45 @@ class TradingLogic:
         :param start_date: 거래 시작 날짜
         :param current_date: 현재 날짜
         :param name: 종목명
-        :param db: DatabaseManager 인스턴스
         """
         db = DatabaseManager()
         price = self.kis_api.get_current_price(ticker)
-        quantity = (fund * 0.11) / price  # 매수 수량 계산
+        
+        # 매수할 금액 계산
+        amount_per_order = fund * 0.11  # 각 매수 시 사용할 금액
+        total_spent = 0  # 총 사용 금액 초기화
 
-        # 매수 주문을 진행
-        order_result = self.kis_api.place_order(ticker, quantity)
-        print(f"주문 결과: {order_result}")
+        for i in range(count):
+            if i < 8:  # 0부터 7까지는 일반 매수
+                quantity = amount_per_order / price  # 매수 수량 계산
+            else:  # 9회차 매수 (count가 8일 때)
+                remaining_fund = fund - total_spent  # 남은 자금 계산
+                quantity = remaining_fund / price  # 남은 자금으로 매수 수량 계산
 
-        # 주문 결과에 따라 세션 업데이트 (예: count 증가)
-        if order_result.get('success'):  # 주문 성공 여부 확인
-            count += 1  # 매수 회수 증가
-            # 세션 업데이트
-            db.save_trading_session(random_id, start_date, current_date, ticker, name, fund, count)
-            print(f"세션 업데이트 완료: 남은 매수 회수 {count}")
-        else:
-            print(f"주문 실패: {order_result.get('message')}")
+            # 매수 주문을 진행
+            order_result = self.kis_api.place_order(ticker, quantity)
+            print(f"주문 결과: {order_result}")
+
+            # 주문 결과에 따라 세션 업데이트
+            if order_result.get('success'):  # 주문 성공 여부 확인
+                if i < 8:
+                    total_spent += amount_per_order  # 총 사용 금액 업데이트
+                else:
+                    total_spent += remaining_fund  # 마지막 매수에서 남은 자금 사용
+
+                # 세션 업데이트
+                db.save_trading_session(random_id, start_date, current_date, ticker, name, fund, count)
+                db.cursor.execute('''
+                    UPDATE trading_session
+                    SET spent_fund = ?
+                    WHERE id = ? AND name = ?
+                ''', (total_spent, random_id, name))  # spent_fund 업데이트
+                db.conn.commit()
+
+                print(f"세션 업데이트 완료: 남은 매수 회수 {count}")
+            else:
+                print(f"주문 실패: {order_result.get('message')}")
+                break  # 주문 실패 시 루프 종료
 
     def generate_random_id(self, min_value=1000, max_value=9999, exclude=None):
         """

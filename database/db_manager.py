@@ -83,6 +83,7 @@ class DatabaseManager:
                 ticker TEXT,
                 name TEXT,
                 fund INTEGER,
+                spent_fund INTEGER,
                 count INTEGER,
                 PRIMARY KEY (id, name)
             )
