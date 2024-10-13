@@ -179,6 +179,75 @@ class TradingLogic:
         # 세션 저장
         db.save_trading_session(random_id, today, today, stock['ticker'], stock['name'], fund, count)
 
+    ############ 기존 세션 ##################
+    def continue_trading_session(self):
+        """
+        기존 세션 이어하기
+        """
+        db = DatabaseManager()
+        try:
+            # 현재 진행 중인 거래 세션을 조회
+            sessions = db.load_trading_session()
+
+            if not sessions:
+                print("진행 중인 거래 세션이 없습니다.")
+                return
+            
+            for session in sessions:
+                random_id, start_date, current_date, ticker, name, fund, count = session
+
+                # 거래를 이어가기 위한 로직
+                print(f"세션 ID: {random_id}, 종목: {ticker}, 매수 회수: {count}, 자금: {fund}")
+                price = self.kis_api.get_current_price(ticker)
+
+                quantity = (fund * 0.11) / price
+                # 매수 주문을 진행
+                order_result = self.kis_api.place_order(ticker, quantity)
+                print(f"주문 결과: {order_result}")
+                
+                # 주문 결과에 따라 세션 업데이트 (예: count 감소)
+                if order_result.get('success'):  # 주문 성공 여부 확인
+                    count += 1  # 매수 회수 증가
+                    # 세션 업데이트
+                    db.save_trading_session(random_id, start_date, current_date, ticker, name, fund, count)
+                    print(f"세션 업데이트 완료: 남은 매수 회수 {count}")
+                else:
+                    print(f"주문 실패: {order_result.get('message')}")
+                    
+        except Exception as e:
+            print(f"Error continuing trading session: {e}")
+        finally:
+            db.close()
+
+    def place_order_and_update_session(self, random_id, start_date, current_date, ticker, name, fund, count):
+        """
+        주식 매수 주문을 진행하고 세션을 업데이트합니다.
+
+        :param ticker: 종목 코드
+        :param fund: 투자 금액
+        :param count: 매수 수량
+        :param random_id: 세션 ID
+        :param start_date: 거래 시작 날짜
+        :param current_date: 현재 날짜
+        :param name: 종목명
+        :param db: DatabaseManager 인스턴스
+        """
+        db = DatabaseManager()
+        price = self.kis_api.get_current_price(ticker)
+        quantity = (fund * 0.11) / price  # 매수 수량 계산
+
+        # 매수 주문을 진행
+        order_result = self.kis_api.place_order(ticker, quantity)
+        print(f"주문 결과: {order_result}")
+
+        # 주문 결과에 따라 세션 업데이트 (예: count 증가)
+        if order_result.get('success'):  # 주문 성공 여부 확인
+            count += 1  # 매수 회수 증가
+            # 세션 업데이트
+            db.save_trading_session(random_id, start_date, current_date, ticker, name, fund, count)
+            print(f"세션 업데이트 완료: 남은 매수 회수 {count}")
+        else:
+            print(f"주문 실패: {order_result.get('message')}")
 
     def generate_random_id(self, min_value=1000, max_value=9999, exclude=None):
         """
@@ -237,9 +306,4 @@ class TradingLogic:
             print(f"Error allocating funds: {e}")
             return []
 
-    ############ 기존 세션 ##################
-    def continue_trading_session(self):
-        """
-        기존 세션 이어하기
-        """
-        
+

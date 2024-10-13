@@ -84,7 +84,7 @@ class DatabaseManager:
                 name TEXT,
                 fund INTEGER,
                 count INTEGER,
-                PRIMARY KEY (start_date, name)
+                PRIMARY KEY (id, name)
             )
         ''')
         
@@ -392,9 +392,30 @@ class DatabaseManager:
             self.cursor.execute('''
             INSERT INTO trading_session (id, start_date, current_date, ticker, name, fund, count)
             VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                start_date = excluded.start_date,
+                current_date = excluded.current_date,
+                ticker = excluded.ticker,
+                name = excluded.name,
+                fund = excluded.fund,
+                count = excluded.count
             ''', (random_id, start_date, current_date, ticker, name, fund, count))
             self.conn.commit()
-            logging.info("Trading session saved successfully for ticker: %s", ticker)
+            logging.info("Trading session saved/updated successfully for ticker: %s", ticker)
         except sqlite3.Error as e:
             logging.error("Error saving trading session: %s", e)
+            raise
+
+    def load_trading_session(self):
+        """
+        trading_session 테이블에서 모든 정보를 조회합니다.
+
+        :return: 거래 세션 정보 리스트
+        """
+        try:
+            self.cursor.execute('SELECT * FROM trading_session')
+            session = self.cursor.fetchall()
+            return session
+        except sqlite3.Error as e:
+            logging.error("Error loading trading session: %s", e)
             raise

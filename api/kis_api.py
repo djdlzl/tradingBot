@@ -177,7 +177,7 @@ class KISApi:
             order_type (str): 주문 유형
             quantity (int): 주문 수량
 
-        Returns:
+            Returns:
             dict: 주문 실행 결과를 포함한 딕셔너리
         """
         self._set_headers(is_mock=True, tr_id="VTTC0802U")
