@@ -160,7 +160,7 @@ class TradingLogic:
                 
         except Exception as e:
             print("Error in trading session: ", e)
-            
+             
             
     def check_trading_session(self):
         """
