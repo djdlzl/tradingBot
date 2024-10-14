@@ -378,7 +378,7 @@ class DatabaseManager:
 #########################    트레이딩 세션 관련 메서드   ###################################
 ######################################################################################
 
-    def save_trading_session(self, random_id, start_date, current_date, ticker, name, fund, count):
+    def save_trading_session(self, random_id, start_date, current_date, ticker, name, fund, spent_fund, count):
         """
         거래 세션 정보를 데이터베이스에 저장합니다.
 
@@ -391,16 +391,17 @@ class DatabaseManager:
         """
         try:
             self.cursor.execute('''
-            INSERT INTO trading_session (id, start_date, current_date, ticker, name, fund, count)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO trading_session (id, start_date, current_date, ticker, name, fund, spent_fund, count)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 start_date = excluded.start_date,
                 current_date = excluded.current_date,
                 ticker = excluded.ticker,
                 name = excluded.name,
                 fund = excluded.fund,
+                spent_fund = excluded.spent_fund,
                 count = excluded.count
-            ''', (random_id, start_date, current_date, ticker, name, fund, count))
+            ''', (random_id, start_date, current_date, ticker, name, fund, spent_fund, count))
             self.conn.commit()
             logging.info("Trading session saved/updated successfully for ticker: %s", ticker)
         except sqlite3.Error as e:
