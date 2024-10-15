@@ -97,8 +97,7 @@ def test():
     trading.select_stocks_to_buy()
     print("상한가 선별 및 저장")
     
-    res = trading.place_order("002760", "1")
-    print(res)
+    trading.start_trading_session()
 
 if __name__ == "__main__":
 

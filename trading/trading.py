@@ -302,6 +302,8 @@ class TradingLogic:
             selected_stock = db.get_selected_stocks()  # selected_stocks 조회
             if selected_stock:
                 db.delete_selected_stock_by_no(selected_stock[0][0])  # no로 삭제 
+            else:
+                return None
             return selected_stock
 
         except Exception as e:
