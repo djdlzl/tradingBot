@@ -51,7 +51,7 @@ class DateUtils:
         current_date = date
         current_date = date.date() 
 
-        while days_back > 0:
+        while days_back > 0 or current_date.weekday() == 5 or current_date.weekday() == 6 or ((current_date in all_holidays) and (current_date.weekday() < 5)):
 
             # 주말 건너뛰기
             if current_date.weekday() == 5:
@@ -61,12 +61,14 @@ class DateUtils:
                 current_date -= timedelta(days=2)
                 continue
 
-            current_date -= timedelta(days=1)
             days_back -= 1
+            current_date -= timedelta(days=1)
 
             #공휴일 건너뛰기
             if (current_date in all_holidays) and (current_date.weekday() < 5):
                 current_date -= timedelta(days=1)
+
+        
 
         return current_date
 

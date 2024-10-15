@@ -7,8 +7,7 @@ from database.db_manager import DatabaseManager
 from utils.date_utils import DateUtils
 from api.kis_api import KISApi
 import random
-import queue
-import threading
+import time
 
 class TradingLogic:
     """
@@ -45,9 +44,11 @@ class TradingLogic:
             # 상한가 종목 정보 추출
             stocks_info = [(stock['mksc_shrn_iscd'], stock['hts_kor_isnm'], stock['stck_prpr'], stock['prdy_ctrt']) 
                         for stock in upper_limit_stocks['output']]
+            
             # 오늘 날짜 가져오기
             today = datetime.now()  # 현재 날짜와 시간 가져오기
             current_day = self.date_utils.is_business_day(today)
+            
             # 데이터베이스에 저장
             db = DatabaseManager()
             if stocks_info:  # 리스트가 비어있지 않은 경우
@@ -61,6 +62,10 @@ class TradingLogic:
         2일 전 상한가 종목의 가격과 현재가를 비교하여 매수할 종목을 선정(선별)합니다.
         """
         db = DatabaseManager()
+        
+        # # 이전 selected_stocks 정보 삭제
+        # self.init_selected_stocks()
+        
         selected_stocks = []
         tickers_with_prices = db.get_upper_limit_stocks_two_days_ago()  # 2일 전 상한가 종목 가져오기
         print(tickers_with_prices)
@@ -139,11 +144,13 @@ class TradingLogic:
         db = DatabaseManager()
         session_info = self.check_trading_session()
         fund = self.calculate_funds(session_info['slot'])
+        print("#### start_trading_session - fund 저장 완료")
         
         # 새로운 세션을 DB에 저장
         for _ in range(int(session_info['slot'])):
+            print("#### start_trading_session - DB 저장 완료")
             self.add_new_trading_session(fund)
-        
+
         try:
             # 거래 세션을 조회
             sessions = db.load_trading_session()
@@ -157,7 +164,7 @@ class TradingLogic:
 
                 # 세션 정보로 주식 주문
                 self.place_order_and_update_session(random_id, start_date, current_date, ticker, name, fund, spent_fund, count)
-                
+                print("### place_order_and_update_session 까지 마무리")
         except Exception as e:
             print("Error in trading session: ", e)
              
@@ -194,6 +201,9 @@ class TradingLogic:
         
         # 종목 정보
         stock = self.allocate_stock()
+        print("add_new_trading_session - stock: ", stock)
+        if stock == None:
+            return
         
         # count,spent_fund 초기화
         count = 0
@@ -215,12 +225,15 @@ class TradingLogic:
         :param current_date: 현재 날짜
         :param name: 종목명
         """
+        # API 초과 방지
+        time.sleep(0.6)
+        
         db = DatabaseManager()
         
-        price = self.kis_api.get_current_price(ticker)
+        price = int(self.kis_api.get_current_price(ticker)[0])
 
         # 매수할 금액 계산
-        amount_per_order = fund * 0.11  # 각 매수 시 사용할 금액
+        amount_per_order = int(fund * 0.11)  # 각 매수 시 사용할 금액
 
         if count < 8:  # 0부터 7까지는 일반 매수
             quantity = amount_per_order / price  # 매수 수량 계산
@@ -229,11 +242,17 @@ class TradingLogic:
             quantity = remaining_fund / price  # 남은 자금으로 매수 수량 계산
 
         # 매수 주문을 진행
+        quantity = int(quantity)
         order_result = self.kis_api.place_order(ticker, quantity)
         print(f"주문 결과: {order_result}")
+
         # 사용 금액 산출
         real_spent_fund = self.kis_api.select_spent_fund(order_result.get('ODNO'))
 
+        # current date 갱신
+        current_date = datetime.now()
+
+        
         # 주문 결과에 따라 세션 업데이트
         if order_result.get('success'):  # 주문 성공 여부 확인
             spent_fund += real_spent_fund  # 총 사용 금액 업데이트
@@ -271,21 +290,20 @@ class TradingLogic:
         """
         슬롯 개수에 따라 자금을 할당합니다.
         """
+        
         #전체 예수금 조회
         data = self.kis_api.get_balance()
         balance = float(data.get('output2')[0].get('dnca_tot_amt'))
-
         try:
             if slot == 3:
-                allocated_funds = [balance * 0.33] * 3  # 3개 슬롯에 33%씩 할당
+                allocated_funds = balance / 3  # 3개 슬롯에 33%씩 할당
             elif slot == 2:
-                allocated_funds = [balance * 0.50] + [balance * 0.50]  # 2개 슬롯에 50%씩 할당
+                allocated_funds = balance / 2  # 2개 슬롯에 50%씩 할당
             elif slot == 1:
-                allocated_funds = [balance]  # 1개 슬롯에 전체 자금 할당
+                allocated_funds = balance  # 1개 슬롯에 전체 자금 할당
             else:
-                allocated_funds = []  # 슬롯이 없으면 빈 리스트 반환
-
-            return allocated_funds
+                allocated_funds = 0  # 슬롯이 없으면 빈 리스트 반환
+            return int(allocated_funds)
         except Exception as e:
             print(f"Error allocating funds: {e}")
             return []
@@ -300,8 +318,10 @@ class TradingLogic:
         try:
             # selected_stocks에서 첫 번째 종목 가져오기
             selected_stock = db.get_selected_stocks()  # selected_stocks 조회
+            print("allocate_stock - selected_stock: ",selected_stock)
             if selected_stock:
-                db.delete_selected_stock_by_no(selected_stock[0][0])  # no로 삭제 
+                db.delete_selected_stock_by_no(selected_stock['no'])  # no로 삭제 
+                print('no 삭제 완료')
             else:
                 return None
             return selected_stock

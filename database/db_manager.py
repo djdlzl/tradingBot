@@ -77,23 +77,22 @@ class DatabaseManager:
 
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS trading_session (
-                id INTEGER,
+                id INTEGER PRIMARY KEY,
                 start_date TEXT,
                 current_date TEXT,
                 ticker TEXT,
                 name TEXT,
                 fund INTEGER,
                 spent_fund INTEGER,
-                count INTEGER,
-                PRIMARY KEY (id, name)
+                count INTEGER
             )
         ''')
         
-                
-        ### 테이블 삭제
+        # ## 테이블 삭제
         # self.cursor.execute('''
         # DROP TABLE IF EXISTS trading_session
         # ''')
+
         
         self.conn.commit()
 
@@ -259,8 +258,17 @@ class DatabaseManager:
         try:
             self.cursor.execute('SELECT * FROM selected_stocks ORDER BY no LIMIT 1')
             result = self.cursor.fetchone()
-            print(result)
-            return result  # 첫 번째 종목 반환
+            print("get_selected_stocks - result: ", result)
+            
+            data = {
+                'no': int(result[0]),
+                'date': result[1],
+                'ticker': result[2],
+                'name': result[3],
+                'price': result[4]
+            }
+            print("get_selected_stocks - data: ", data)
+            return data  # 첫 번째 종목 반환
         except sqlite3.Error as e:
             logging.error("Error retrieving first selected stock: %s", e)
             raise
@@ -289,12 +297,13 @@ class DatabaseManager:
         :param selected_stocks: 선택된 종목 리스트 [(ticker, name, price, upper_rate), ...]
         """
         try:
-            # selected_stocks 테이블 초기화
-            self.delete_selected_stocks()  # 테이블 초기화
 
             # no 갱신
             self.cursor.execute('SELECT MAX(no) FROM selected_stocks')
             max_no = self.cursor.fetchone()[0]
+
+            # selected_stocks 테이블 초기화
+            self.delete_selected_stocks()  # 테이블 초기화
 
             # no 값을 결정
             if max_no is None or max_no < 100:
@@ -343,6 +352,7 @@ class DatabaseManager:
             
             # 삭제 후 no 값을 재정렬
             self.reorder_selected_stocks()
+            print("#### delete_selected_stock_by_no - 재정렬 완료")
         except sqlite3.Error as e:
             logging.error("Error deleting selected stock: %s", e)
             raise
@@ -352,24 +362,26 @@ class DatabaseManager:
         selected_stocks 테이블의 no 값을 1부터 다시 정렬합니다.
         """
         try:
-            # no 값을 1부터 재정렬
+            # 트랜잭션 시작
+            self.conn.execute('BEGIN TRANSACTION')
+
+            # no 칼럼을 1부터 재정렬
             self.cursor.execute('''
-            UPDATE selected_stocks SET no = NULL
+            UPDATE selected_stocks
+            SET no = (SELECT COUNT(*) FROM selected_stocks AS s WHERE s.rowid <= selected_stocks.rowid)
             ''')
+
+            # AUTOINCREMENT 초기화 (필요한 경우)
             self.cursor.execute('''
-            DELETE FROM sqlite_sequence WHERE name='selected_stocks'
-            ''')  # AUTOINCREMENT를 초기화
-            self.cursor.execute('''
-            SELECT rowid, * FROM selected_stocks
+            UPDATE sqlite_sequence SET seq = (SELECT MAX(no) FROM selected_stocks) WHERE name = 'selected_stocks'
             ''')
-            rows = self.cursor.fetchall()
-            for index, row in enumerate(rows, start=1):
-                self.cursor.execute('''
-                UPDATE selected_stocks SET no = ? WHERE rowid = ?
-                ''', (index, row[0]))  # rowid를 사용하여 no 업데이트
+
+            # 변경사항 커밋
             self.conn.commit()
             logging.info("Reordered selected stocks successfully.")
         except sqlite3.Error as e:
+            # 오류 발생 시 롤백
+            self.conn.rollback()
             logging.error("Error reordering selected stocks: %s", e)
             raise
 
