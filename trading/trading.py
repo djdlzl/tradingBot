@@ -72,7 +72,7 @@ class TradingLogic:
         for stock in tickers_with_prices:
             # 현재가 가져오기
             current_price, temp_stop_yn = self.kis_api.get_current_price(stock[0])
-            print(f"################ 매수 후보 종목: {stock[0]}, 종목명: {stock[1]} (현재가: {current_price}, 상한가 당시 가격: {stock[2]})")
+            # print(f"################ 매수 후보 종목: {stock[0]}, 종목명: {stock[1]} (현재가: {current_price}, 상한가 당시 가격: {stock[2]})")
             # 매수 조건: 현재가가 상한가 당시 가격보다 -8% 이상 하락하지 않은 경우
             if int(current_price) > (int(stock[2]) * 0.92) and temp_stop_yn=='N':  # -8% 이상 하락, 거래정지 N
                 
