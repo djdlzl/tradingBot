@@ -2,7 +2,7 @@ import json
 import requests
 import logging
 from requests.exceptions import RequestException
-from utils.string_utils import unicode_to_korean
+from utils.string_utils import unicode_to_korean, interpret_api_response
 from config.config import R_APP_KEY, R_APP_SECRET, M_APP_KEY, M_APP_SECRET, M_ACCOUNT_NUMBER
 from datetime import datetime, timedelta
 from database.db_manager import DatabaseManager
@@ -23,6 +23,10 @@ class KISApi:
         self.hashkey = None
         self.upper_limit_stocks = {}
         self.watchlist = set()
+
+######################################################################################
+#########################    인증 관련 메서드   #######################################
+######################################################################################
 
     def _get_token(self, app_key, app_secret, token_type, max_retries=3, retry_delay=5):
         """
@@ -358,32 +362,41 @@ class KISApi:
         """
         today = datetime.now()
         formatted_date = today.strftime('%Y%m%d')
-        url="https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/inquire-daily-ccld"
+
+        print(order_num)
         # url="https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/trading/inquire-daily-ccld"
+        url="https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/inquire-daily-ccld"
         body = {
             "CANO": M_ACCOUNT_NUMBER,
             "ACNT_PRDT_CD": "01",
             "INQR_STRT_DT": formatted_date,
             "INQR_END_DT": formatted_date,
-            "SLL_BUY_DVSN_CD": "00",
+            "UNPR_DVSN": "01",
+            "SLL_BUY_DVSN_CD": "02",
             "INQR_DVSN": "00",
             "PDNO": "", # 상품번호 ticker, 공란 - 전체조회
             "CCLD_DVSN": "00",
             "ORD_GNO_BRNO": "",
             "ODNO": order_num,
             "INQR_DVSN_3": "00",
-            "INQR_DVSN_1": "00",
+            "INQR_DVSN_1": "",
             "CTX_AREA_FK100": "",
-            "CTX_AREA_NK100": ""
+            "CTX_AREA_NK100": "",
+            
+            # "AFHR_FLPR_YN": "N",
+            # "OFL_YN": "",
+            # "FUND_STTL_ICLD_YN": "N",
+            # "FNCG_AMT_AUTO_RDPT_YN": "N",
+            # "PRCS_DVSN": "00"
         }
                 
         self._get_hashkey(body, is_mock=True)
-        self._set_headers(is_mock=True, tr_id="VTTC8434R")
+        self._set_headers(is_mock=True, tr_id="VTTC8001R")
         self.headers["hashkey"] = self.hashkey
         
         response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
         json_response = response.json()
-        # print(json.dumps(json_response, indent=2))
-        # print(json.dumps(json_response.get('output2')[0].get('dnca_tot_amt'), indent=2))
-        return json_response.get('tot_ccld_amt')
+        
+        # print("##########select_spent_fund:  ",json.dumps(json_response, indent=2))
+        return json_response.get('output1')[0].get('tot_ccld_amt')
     

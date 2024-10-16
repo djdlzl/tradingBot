@@ -164,7 +164,6 @@ class TradingLogic:
 
                 # 세션 정보로 주식 주문
                 self.place_order_and_update_session(random_id, start_date, current_date, ticker, name, fund, spent_fund, count)
-                print("### place_order_and_update_session 까지 마무리")
         except Exception as e:
             print("Error in trading session: ", e)
              
@@ -246,20 +245,23 @@ class TradingLogic:
         order_result = self.kis_api.place_order(ticker, quantity)
         print(f"주문 결과: {order_result}")
 
-        # 사용 금액 산출
-        real_spent_fund = self.kis_api.select_spent_fund(order_result.get('ODNO'))
-
+        if order_result.get('ODNO'):
+            # 사용 금액 산출
+            real_spent_fund = self.kis_api.select_spent_fund(order_result.get('ODNO'))
+        else:
+            print("주문 번호가 없습니다. 사유: ", order_result.get('msg1'))
+            return
+        
         # current date 갱신
         current_date = datetime.now()
 
-        
         # 주문 결과에 따라 세션 업데이트
-        if order_result.get('success'):  # 주문 성공 여부 확인
-            spent_fund += real_spent_fund  # 총 사용 금액 업데이트
+        if order_result.get('rt_cd') == "0":  # 주문 성공 여부 확인
 
+            spent_fund += int(real_spent_fund)  # 총 사용 금액 업데이트
 
             #count 증가
-            count += 1
+            count = count + 1
 
             # 세션 업데이트
             db.save_trading_session(random_id, start_date, current_date, ticker, name, fund, spent_fund, count)
@@ -268,6 +270,7 @@ class TradingLogic:
             print("세션 업데이트 완료")
         else:
             print(f"주문 실패: {order_result.get('message')}")
+            db.close()
 
 
     def generate_random_id(self, min_value=1000, max_value=9999, exclude=None):

@@ -1,4 +1,5 @@
-"""한글 관련 문자열 유틸리티 함수를 제공하는 모듈입니다."""
+import json
+
 def unicode_to_korean(unicode_string):
     """
     유니코드 문자열을 한글로 변환합니다.
@@ -7,8 +8,18 @@ def unicode_to_korean(unicode_string):
     :return: 변환된 한글 문자열
     """
     try:
-        # 유니코드 이스케이프 시퀀스를 바이트로 인코딩한 후 UTF-8로 디코딩
         return unicode_string.encode('utf-8').decode('unicode_escape')
     except UnicodeDecodeError:
-        # 디코딩 중 오류가 발생하면 원래 문자열 반환
         return unicode_string
+
+def interpret_api_response(response_dict):
+    """
+    API 응답 딕셔너리의 msg1 필드를 한글로 변환합니다.
+    
+    :param response_dict: API 응답 딕셔너리
+    :return: msg1 필드가 한글로 변환된 딕셔너리
+    """
+    modified_response = response_dict.copy()
+    if 'msg1' in modified_response:
+        modified_response['msg1'] = unicode_to_korean(modified_response['msg1'])
+    return json.dumps(modified_response, indent=2)
