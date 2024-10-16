@@ -20,6 +20,7 @@ from trading.trading import TradingLogic
 from apscheduler.schedulers.background import BackgroundScheduler
 from config.config import GET_ULS_HOUR, GET_ULS_MINUTE
 from database.db_manager import DatabaseManager
+from api.kis_api import KISApi
 
 
 def fetch_and_save_upper_limit_stocks():
@@ -90,6 +91,11 @@ def test():
     테스트 프로세스
     """
     trading = TradingLogic()
+    kis_api = KISApi()
+    #####웹소켓 테스트############
+    approval_key = kis_api._ensure_approval(is_mock=False)
+    print(approval_key)
+    
     #####상한가 조회#############    
     print("시작")
     trading.fetch_and_save_previous_upper_limit_stocks()

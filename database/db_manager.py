@@ -53,6 +53,14 @@ class DatabaseManager:
         ''')
 
         self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS approvals (
+                approval_type TEXT PRIMARY KEY,
+                approval_key TEXT,
+                expires_at TEXT
+            )
+        ''')
+
+        self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS upper_limit_stocks (
                 date TEXT,
                 ticker TEXT,
@@ -90,7 +98,7 @@ class DatabaseManager:
         
         # ## 테이블 삭제
         # self.cursor.execute('''
-        # DROP TABLE IF EXISTS trading_session
+        # DROP TABLE IF EXISTS approvals
         # ''')
 
         
@@ -130,6 +138,42 @@ class DatabaseManager:
                 access_token, expires_at_str = result
                 expires_at = datetime.fromisoformat(expires_at_str)
                 return access_token, expires_at
+            return None, None
+        except sqlite3.Error as e:
+            logging.error("Error retrieving token: %s", e)
+            raise
+
+    def save_approval(self, approval_type, approval_key, expires_at):
+        """
+        토큰 정보를 데이터베이스에 저장합니다.
+
+        :param approval_type: 토큰 유형
+        :param approval_key: 액세스 토큰
+        :param expires_at: 토큰 만료 시간
+        """
+        try:
+            self.cursor.execute('''
+            INSERT OR REPLACE INTO approvals (approval_type, approval_key, expires_at)
+            VALUES (?, ?, ?)
+            ''', (approval_type, approval_key, expires_at))
+            self.conn.commit()
+            logging.info("Token saved successfully: %s", approval_type)
+        except sqlite3.Error as e:
+            logging.error("Error saving token: %s", e)
+            raise
+
+    def get_approval(self, approval_type):
+        """
+        지정된 유형의 토큰 정보를 데이터베이스에서 조회합니다.
+
+        :param approval_type: 조회할 토큰 유형
+        :return: (액세스 토큰, 만료 시간) 튜플 또는 (None, None)
+        """
+        try:
+            self.cursor.execute('SELECT approval_key, expires_at FROM approvals WHERE approval_type = ?', (approval_type,))
+            result = self.cursor.fetchone()
+            if result:
+                return result
             return None, None
         except sqlite3.Error as e:
             logging.error("Error retrieving token: %s", e)
