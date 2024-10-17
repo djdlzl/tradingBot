@@ -173,7 +173,9 @@ class DatabaseManager:
             self.cursor.execute('SELECT approval_key, expires_at FROM approvals WHERE approval_type = ?', (approval_type,))
             result = self.cursor.fetchone()
             if result:
-                return result
+                approval_key, expires_at_str = result
+                expires_at = datetime.fromisoformat(expires_at_str)
+                return approval_key, expires_at
             return None, None
         except sqlite3.Error as e:
             logging.error("Error retrieving token: %s", e)
@@ -302,8 +304,7 @@ class DatabaseManager:
         try:
             self.cursor.execute('SELECT * FROM selected_stocks ORDER BY no LIMIT 1')
             result = self.cursor.fetchone()
-            print("get_selected_stocks - result: ", result)
-            
+         
             data = {
                 'no': int(result[0]),
                 'date': result[1],
@@ -311,11 +312,10 @@ class DatabaseManager:
                 'name': result[3],
                 'price': result[4]
             }
-            print("get_selected_stocks - data: ", data)
             return data  # 첫 번째 종목 반환
         except sqlite3.Error as e:
             logging.error("Error retrieving first selected stock: %s", e)
-            raise
+            return None
 
     def get_upper_limit_stocks_two_days_ago(self):
         """
@@ -333,6 +333,7 @@ class DatabaseManager:
             SELECT ticker, name, price FROM upper_limit_stocks WHERE date = ?
         ''', (two_days_ago_str,))
         return self.cursor.fetchall()  # ticker와 price 리스트 반환
+
 
     def save_selected_stocks(self, selected_stocks):
         """
@@ -396,7 +397,6 @@ class DatabaseManager:
             
             # 삭제 후 no 값을 재정렬
             self.reorder_selected_stocks()
-            print("#### delete_selected_stock_by_no - 재정렬 완료")
         except sqlite3.Error as e:
             logging.error("Error deleting selected stock: %s", e)
             raise

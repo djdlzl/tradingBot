@@ -93,7 +93,7 @@ def test():
     trading = TradingLogic()
     kis_api = KISApi()
     #####웹소켓 테스트############
-    approval_key = kis_api._ensure_approval(is_mock=False)
+    approval_key = kis_api._ensure_approval(is_mock=True)
     print(approval_key)
     
     #####상한가 조회#############    
@@ -102,11 +102,19 @@ def test():
     print("상한가 저장")
 
     ######매수가능 상한가 종목 조회###########
-    trading.select_stocks_to_buy()
-    print("상한가 선별 및 저장")
+    trading.select_stocks_to_buy() # 2일째 장 마감때 저장
+    print("상한가 선별 및 저장 완료")
     
-    trading.start_trading_session()
-    print("start_trading_session 실행 완료")
+    print("start_trading_session 실행 시작")
+    order_list = trading.start_trading_session()
+    
+    time.sleep(15)
+    print("update_trading_session 실행 시작")
+    trading.update_trading_session(order_list)
+    
+    # print("테스트 일별주문체결조회 시작")
+    # result = kis_api.select_spent_fund(31520)
+    # print("테스트 일별주문체결조회 결과:  ", result)
 
 if __name__ == "__main__":
 

@@ -124,7 +124,7 @@ class KISApi:
         body = {
             "grant_type": "client_credentials",
             "appkey": app_key,
-            "appsecret": app_secret
+            "secretkey": app_secret
         }
         
         for attempt in range(max_retries):
@@ -445,7 +445,6 @@ class KISApi:
         today = datetime.now()
         formatted_date = today.strftime('%Y%m%d')
 
-        print(order_num)
         # url="https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/trading/inquire-daily-ccld"
         url="https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/inquire-daily-ccld"
         body = {
@@ -464,12 +463,6 @@ class KISApi:
             "INQR_DVSN_1": "",
             "CTX_AREA_FK100": "",
             "CTX_AREA_NK100": "",
-            
-            # "AFHR_FLPR_YN": "N",
-            # "OFL_YN": "",
-            # "FUND_STTL_ICLD_YN": "N",
-            # "FNCG_AMT_AUTO_RDPT_YN": "N",
-            # "PRCS_DVSN": "00"
         }
                 
         self._get_hashkey(body, is_mock=True)
@@ -480,5 +473,6 @@ class KISApi:
         json_response = response.json()
         
         # print("##########select_spent_fund:  ",json.dumps(json_response, indent=2))
+        # print(json_response.get('output1')[0].get('tot_ccld_amt'))
         return json_response.get('output1')[0].get('tot_ccld_amt')
     
