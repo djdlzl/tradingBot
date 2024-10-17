@@ -304,15 +304,17 @@ class DatabaseManager:
         try:
             self.cursor.execute('SELECT * FROM selected_stocks ORDER BY no LIMIT 1')
             result = self.cursor.fetchone()
-         
-            data = {
-                'no': int(result[0]),
-                'date': result[1],
-                'ticker': result[2],
-                'name': result[3],
-                'price': result[4]
-            }
-            return data  # 첫 번째 종목 반환
+            if result:
+                data = {
+                    'no': int(result[0]),
+                    'date': result[1],
+                    'ticker': result[2],
+                    'name': result[3],
+                    'price': result[4]
+                }
+                return data  # 첫 번째 종목 반환
+            else:
+                return None
         except sqlite3.Error as e:
             logging.error("Error retrieving first selected stock: %s", e)
             return None

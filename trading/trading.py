@@ -179,23 +179,6 @@ class TradingLogic:
             print("Error in trading session: ", e)
 
 
-    def update_trading_session(self, order_list):
-        db = DatabaseManager()
-        
-        try:
-            # 거래 세션을 조회
-            sessions = db.load_trading_session()
-            if not sessions:
-                print("진행 중인 거래 세션이 없습니다.")
-                return
-            
-            # 주문 결과 리스트로 저장
-
-            for index ,session in enumerate(sessions, start=0):
-                random_id, start_date, current_date, ticker, name, fund, spent_fund, count = session
-                self.update_session(random_id, start_date, current_date, ticker, name, fund, spent_fund, count, order_list[index])
-        except Exception as e:
-            print("Error in update_trading_session: ", e)
 
 
     def check_trading_session(self):
@@ -338,12 +321,31 @@ class TradingLogic:
         # 매수 주문을 진행
         quantity = int(quantity)
         order_result = self.kis_api.place_order(ticker, quantity)
+        print("place_order_session:  주문 실행", order_result)
 
         db.close()
         
         return order_result
 
 
+    def update_trading_session(self, order_list):
+        db = DatabaseManager()
+        
+        try:
+            # 거래 세션을 조회
+            sessions = db.load_trading_session()
+            if not sessions:
+                print("진행 중인 거래 세션이 없습니다.")
+                return
+            
+            # 주문 결과 리스트로 저장
+            for index ,session in enumerate(sessions, start=0):
+                random_id, start_date, current_date, ticker, name, fund, spent_fund, count = session
+                self.update_session(random_id, start_date, current_date, ticker, name, fund, spent_fund, count, order_list[index])
+                
+        except Exception as e:
+            print("Error in update_trading_session: ", e)
+            
 
     def update_session(self, random_id, start_date, current_date, ticker, name, fund, spent_fund, count, order_result):
         """
@@ -361,10 +363,10 @@ class TradingLogic:
         time.sleep(0.8)
         
         db = DatabaseManager()
-
-        if order_result.get('output').get('ODNO'):
+        odno = order_result.get('output', {}).get('ODNO')
+        if odno is not None:
             # 사용 금액 산출
-            real_spent_fund = self.kis_api.select_spent_fund(order_result.get('output').get('ODNO'))
+            real_spent_fund = self.kis_api.select_spent_fund(odno)
         else:
             print("주문 번호가 없습니다. 사유: ", order_result.get('msg1'))
             return
@@ -449,10 +451,10 @@ class TradingLogic:
         try:
             # selected_stocks에서 첫 번째 종목 가져오기
             selected_stock = db.get_selected_stocks()  # selected_stocks 조회
-            if selected_stock:
+            if selected_stock is not None:
                 db.delete_selected_stock_by_no(selected_stock['no'])  # no로 삭제 
                 return selected_stock
-            elif selected_stock == None:
+            else:
                 return None
 
         except Exception as e:

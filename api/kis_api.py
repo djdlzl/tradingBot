@@ -473,6 +473,6 @@ class KISApi:
         json_response = response.json()
         
         # print("##########select_spent_fund:  ",json.dumps(json_response, indent=2))
-        # print(json_response.get('output1')[0].get('tot_ccld_amt'))
+        print(json_response.get('output1')[0].get('tot_ccld_amt'))
         return json_response.get('output1')[0].get('tot_ccld_amt')
     
