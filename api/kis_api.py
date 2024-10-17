@@ -15,6 +15,7 @@ class KISApi:
     def __init__(self):
         """KISApi 클래스의 인스턴스를 초기화합니다."""
         self.headers = {"content-type": "application/json; charset=utf-8"}
+        self.w_headers = {"content-type": "utf-8"}
         self.db_manager = DatabaseManager()
         self.real_token = None
         self.mock_token = None
@@ -173,9 +174,9 @@ class KISApi:
                 self.mock_approval, self.mock_approval_expires_at = self._get_approval(M_APP_KEY, M_APP_SECRET, "mock")
             return self.mock_approval
         else:
-            if not self.real_approval or now >= self.real_token_expires_at:
-                self.real_approval, self.real_token_expires_at = self._get_approval(R_APP_KEY, R_APP_SECRET, "real")
-            return self.real_token
+            if not self.real_approval or now >= self.real_approval_expires_at:
+                self.real_approval, self.real_approval_expires_at = self._get_approval(R_APP_KEY, R_APP_SECRET, "real")
+            return self.real_approval
 
 ######################################################################################
 ###############################    헤더와 해쉬   ########################################
@@ -223,6 +224,23 @@ class KISApi:
             self.hashkey = tmp['HASH']
         except requests.exceptions.RequestException as e:
             print(f"An error occurred while fetching the hash key: {e}")
+
+    def _set_w_headers(self, is_mock=False, tr_id=None):
+        """
+        API 요청에 필요한 헤더를 설정합니다.
+
+        Args:
+            is_mock (bool): 모의 거래 여부
+            tr_id (str, optional): 거래 ID
+        """
+        approval_key = self._ensure_approval(is_mock)
+        self.w_headers["approval_key"] = approval_key
+        self.w_headers["appkey"] = M_APP_KEY if is_mock else R_APP_KEY
+        self.w_headers["appsecret"] = M_APP_SECRET if is_mock else R_APP_SECRET
+        if tr_id:
+            self.w_headers["tr_id"] = tr_id
+        self.w_headers["tr_type"] = "1"
+        self.w_headers["custtype"] = "P"
 
 ######################################################################################
 #########################    상한가 관련 메서드   #######################################
