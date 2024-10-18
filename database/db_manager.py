@@ -479,3 +479,17 @@ class DatabaseManager:
         except sqlite3.Error as e:
             logging.error("Error loading trading session: %s", e)
             raise
+    
+    def delete_session_one_row(self, id):
+        """
+        특정 ticker를 가진 row를 삭제합니다.
+        
+        :param ticker: 삭제할 row의 ticker
+        """
+        try:
+            self.cursor.execute('DELETE FROM trading_session WHERE id = ?', (id,))
+            self.conn.commit()
+            print("delete_session_one_row: 삭제 성공")
+        except sqlite3.Error as e:
+            print(f"An error occurred: {e}")
+            self.conn.rollback()

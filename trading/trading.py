@@ -289,14 +289,14 @@ class TradingLogic:
     #         db.close()
 
 
-    def place_order_session(self, random_id, start_date, current_date, ticker, name, fund, spent_fund, count):
+    def place_order_session(self, id, start_date, current_date, ticker, name, fund, spent_fund, count):
         """
         주식 매수 주문을 진행하고 세션을 업데이트합니다.
 
         :param ticker: 종목 코드
         :param fund: 투자 금액
         :param count: 매수 수량
-        :param random_id: 세션 ID
+        :param id: 세션 ID
         :param start_date: 거래 시작 날짜
         :param current_date: 현재 날짜
         :param name: 종목명
@@ -324,11 +324,10 @@ class TradingLogic:
         print("place_order_session:  주문 실행", order_result)
         
         # 'rt_cd': '1' 세션 취소
-        sessions = db.load_trading_session()
-        data = []
-        for i, session in enumerate(sessions, start=0):
-            data[i][''] = session[7]
-        if order_result["rt_cd"] == 1 and 
+        print(order_result['rt_cd'], count, ticker)
+        if order_result['rt_cd'] and count == 0:
+            print("실행됨")
+            db.delete_session_one_row(id)
 
         db.close()
         
@@ -336,6 +335,9 @@ class TradingLogic:
 
 
     def update_trading_session(self, order_list):
+        """
+        트레이딩 세션 업데이트
+        """
         db = DatabaseManager()
         
         try:
