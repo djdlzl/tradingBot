@@ -494,3 +494,24 @@ class KISApi:
         print(json_response.get('output1')[0].get('tot_ccld_amt'))
         return json_response.get('output1')[0].get('tot_ccld_amt')
     
+    
+######################################################################################
+################################    실시간 메서드   ###################################
+######################################################################################
+
+    def live_get_price(self, ticker):
+
+        url="ws://ops.koreainvestment.com:31000/tryitout/H0STASP0"
+        body = {
+            "tr_id": "H0STASP0",
+            "tr_key": ticker,
+        }
+
+        self._set_w_headers(is_mock=True)
+        self.headers["hashkey"] = self.hashkey
+        
+        response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
+        json_response = response.json()
+        
+        print(json_response)
+        return json_response

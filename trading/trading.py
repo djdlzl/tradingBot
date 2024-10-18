@@ -227,66 +227,66 @@ class TradingLogic:
         return True
 
 
-    def place_order_and_update_session(self, random_id, start_date, current_date, ticker, name, fund, spent_fund, count):
-        """
-        주식 매수 주문을 진행하고 세션을 업데이트합니다.
+    # def place_order_and_update_session(self, random_id, start_date, current_date, ticker, name, fund, spent_fund, count):
+    #     """
+    #     주식 매수 주문을 진행하고 세션을 업데이트합니다.
 
-        :param ticker: 종목 코드
-        :param fund: 투자 금액
-        :param count: 매수 수량
-        :param random_id: 세션 ID
-        :param start_date: 거래 시작 날짜
-        :param current_date: 현재 날짜
-        :param name: 종목명
-        """
-        # API 초과 방지
-        time.sleep(0.9)
+    #     :param ticker: 종목 코드
+    #     :param fund: 투자 금액
+    #     :param count: 매수 수량
+    #     :param random_id: 세션 ID
+    #     :param start_date: 거래 시작 날짜
+    #     :param current_date: 현재 날짜
+    #     :param name: 종목명
+    #     """
+    #     # API 초과 방지
+    #     time.sleep(0.9)
         
-        db = DatabaseManager()
+    #     db = DatabaseManager()
         
-        result = self.kis_api.get_current_price(ticker)
-        price = int(result[0])
+    #     result = self.kis_api.get_current_price(ticker)
+    #     price = int(result[0])
 
-        # 매수할 금액 계산
-        amount_per_order = int(fund * 0.11)  # 각 매수 시 사용할 금액
+    #     # 매수할 금액 계산
+    #     amount_per_order = int(fund * 0.11)  # 각 매수 시 사용할 금액
 
-        if count < 8:  # 0부터 7까지는 일반 매수
-            quantity = amount_per_order / price  # 매수 수량 계산
-        else:  # 9회차 매수 (count가 8일 때)
-            remaining_fund = fund - spent_fund  # 남은 자금 계산
-            quantity = remaining_fund / price  # 남은 자금으로 매수 수량 계산
+    #     if count < 8:  # 0부터 7까지는 일반 매수
+    #         quantity = amount_per_order / price  # 매수 수량 계산
+    #     else:  # 9회차 매수 (count가 8일 때)
+    #         remaining_fund = fund - spent_fund  # 남은 자금 계산
+    #         quantity = remaining_fund / price  # 남은 자금으로 매수 수량 계산
 
-        # 매수 주문을 진행
-        quantity = int(quantity)
-        order_result = self.kis_api.place_order(ticker, quantity)
-        print(f"주문 결과: {order_result}")
-        time.sleep(10)
-        if order_result.get('output').get('ODNO'):
-            # 사용 금액 산출
-            real_spent_fund = self.kis_api.select_spent_fund(order_result.get('output').get('ODNO'))
-        else:
-            print("주문 번호가 없습니다. 사유: ", order_result.get('msg1'))
-            return
+    #     # 매수 주문을 진행
+    #     quantity = int(quantity)
+    #     order_result = self.kis_api.place_order(ticker, quantity)
+    #     print(f"주문 결과: {order_result}")
+    #     time.sleep(10)
+    #     if order_result.get('output').get('ODNO'):
+    #         # 사용 금액 산출
+    #         real_spent_fund = self.kis_api.select_spent_fund(order_result.get('output').get('ODNO'))
+    #     else:
+    #         print("주문 번호가 없습니다. 사유: ", order_result.get('msg1'))
+    #         return
         
-        # current date 갱신
-        current_date = datetime.now()
+    #     # current date 갱신
+    #     current_date = datetime.now()
 
-        # 주문 결과에 따라 세션 업데이트
-        if order_result.get('rt_cd') == "0":  # 주문 성공 여부 확인
-            print("real_spent_fund: ", real_spent_fund)
-            spent_fund += int(real_spent_fund)  # 총 사용 금액 업데이트
-            print("spent_fund", spent_fund)
-            #count 증가
-            count = count + 1
+    #     # 주문 결과에 따라 세션 업데이트
+    #     if order_result.get('rt_cd') == "0":  # 주문 성공 여부 확인
+    #         print("real_spent_fund: ", real_spent_fund)
+    #         spent_fund += int(real_spent_fund)  # 총 사용 금액 업데이트
+    #         print("spent_fund", spent_fund)
+    #         #count 증가
+    #         count = count + 1
 
-            # 세션 업데이트
-            db.save_trading_session(random_id, start_date, current_date, ticker, name, fund, spent_fund, count)
-            db.close()
+    #         # 세션 업데이트
+    #         db.save_trading_session(random_id, start_date, current_date, ticker, name, fund, spent_fund, count)
+    #         db.close()
 
-            print("세션 업데이트 완료")
-        else:
-            print(f"주문 실패: {order_result.get('message')}")
-            db.close()
+    #         print("세션 업데이트 완료")
+    #     else:
+    #         print(f"주문 실패: {order_result.get('message')}")
+    #         db.close()
 
 
     def place_order_session(self, random_id, start_date, current_date, ticker, name, fund, spent_fund, count):
@@ -322,6 +322,13 @@ class TradingLogic:
         quantity = int(quantity)
         order_result = self.kis_api.place_order(ticker, quantity)
         print("place_order_session:  주문 실행", order_result)
+        
+        # 'rt_cd': '1' 세션 취소
+        sessions = db.load_trading_session()
+        data = []
+        for i, session in enumerate(sessions, start=0):
+            data[i][''] = session[7]
+        if order_result["rt_cd"] == 1 and 
 
         db.close()
         
@@ -462,3 +469,21 @@ class TradingLogic:
             return None
 
 
+######################################################################################
+###############################    실시간 메서드   ####################################
+######################################################################################
+
+    def live_get_price(self):
+        db =DatabaseManager()
+        sessions = db.load_trading_session()
+        
+        tickers = []
+        
+        for session in sessions:
+            tickers.append(session[3])
+            
+        print(tickers)
+        
+        for ticker in tickers:
+            live_price = self.kis_api.live_get_price(ticker)
+            print(live_price)

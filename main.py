@@ -108,13 +108,16 @@ def test():
     print("start_trading_session 실행 시작")
     order_list = trading.start_trading_session()
     
-    time.sleep(1)
+    time.sleep(30)
     print("update_trading_session 실행 시작")
     trading.update_trading_session(order_list)
     
-    print("테스트 일별주문체결조회 시작")
-    result = kis_api.select_spent_fund(43880)
-    print("테스트 일별주문체결조회 결과:  ", result)
+    # print("테스트 일별주문체결조회 시작")
+    # result = kis_api.select_spent_fund(43880)
+    # print("테스트 일별주문체결조회 결과:  ", result)
+    
+    print("웹소켓 실시간호가 시작")
+    trading.live_get_price()
 
 if __name__ == "__main__":
 
