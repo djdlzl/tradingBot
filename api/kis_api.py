@@ -2,7 +2,7 @@ import json
 import requests
 import logging
 from requests.exceptions import RequestException
-from utils.string_utils import unicode_to_korean, interpret_api_response
+from utils.string_utils import unicode_to_korean
 from config.config import R_APP_KEY, R_APP_SECRET, M_APP_KEY, M_APP_SECRET, M_ACCOUNT_NUMBER
 from datetime import datetime, timedelta
 from database.db_manager import DatabaseManager
