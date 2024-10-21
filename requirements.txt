@@ -2,3 +2,4 @@ schedule==1.2.2
 holidays
 apscheduler
 python-dotenv
+websockets
