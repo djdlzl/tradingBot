@@ -21,7 +21,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from config.config import GET_ULS_HOUR, GET_ULS_MINUTE
 from database.db_manager import DatabaseManager
 from api.kis_api import KISApi
-
+from api.kis_websocket import KISWebSocket
+import asyncio
 
 def fetch_and_save_upper_limit_stocks():
     """
@@ -91,13 +92,9 @@ def test():
     테스트 프로세스
     """
     trading = TradingLogic()
-    kis_api = KISApi()
     db = DatabaseManager()
     
-    #####웹소켓 테스트############
-    approval_key = kis_api._ensure_approval(is_mock=True)
-    print(approval_key)
-    
+
     #####상한가 조회#############    
     print("시작")
     trading.fetch_and_save_previous_upper_limit_stocks()
@@ -114,18 +111,33 @@ def test():
     print("update_trading_session 실행 시작")
     trading.update_trading_session(order_list)
     
+        
     # print("테스트 일별주문체결조회 시작")
     # result = kis_api.select_spent_fund(43880)
     # print("테스트 일별주문체결조회 결과:  ", result)
     
     # print("웹소켓 실시간호가 시작")
     # trading.live_get_price()
+    
+async def test_websocket():
+    kis_websocket = KISWebSocket()
+
+    #####웹소켓 테스트############
+    approval_key = await kis_websocket._ensure_approval(is_mock=True)
+    print(approval_key)
+    
+
+    await kis_websocket.realtime_quote_subscribe("00553")
+
 
 if __name__ == "__main__":
 
     scheduler = BackgroundScheduler()
     
     test()
+    # asyncio.run()을 사용하여 비동기 함수 실행
+    asyncio.run(test_websocket())
+    print("asyncio.run(test_websocket()) 성공!")
     # 매일 15시 30분에 fetch_and_save_upper_limit_stocks 실행
     scheduler.add_job(threaded_job, 'cron', hour=GET_ULS_HOUR, minute=GET_ULS_MINUTE, args=[fetch_and_save_upper_limit_stocks])
     scheduler.start()

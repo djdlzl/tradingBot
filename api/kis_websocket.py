@@ -5,6 +5,7 @@ from requests.exceptions import RequestException
 from config.config import R_APP_KEY, R_APP_SECRET, M_APP_KEY, M_APP_SECRET
 from datetime import datetime, timedelta
 from database.db_manager import DatabaseManager
+from trading.trading import TradingLogic
 import time
 import asyncio
 import websockets
@@ -89,11 +90,11 @@ class KISWebSocket:
         now = datetime.now()
         if is_mock:
             if not self.mock_approval or now >= self.mock_approval_expires_at:
-                self.mock_approval, self.mock_approval_expires_at = self._get_approval(M_APP_KEY, M_APP_SECRET, "mock")
+                self.mock_approval, self.mock_approval_expires_at = await self._get_approval(M_APP_KEY, M_APP_SECRET, "mock")
             return self.mock_approval
         else:
             if not self.real_approval or now >= self.real_approval_expires_at:
-                self.real_approval, self.real_approval_expires_at = self._get_approval(R_APP_KEY, R_APP_SECRET, "real")
+                self.real_approval, self.real_approval_expires_at = await self._get_approval(R_APP_KEY, R_APP_SECRET, "real")
             return self.real_approval
 
 
@@ -115,10 +116,14 @@ class KISWebSocket:
         self.headers["custtype"] = "P"
 
     async def realtime_quote_subscribe(self, ticker):
-
+        """
+        실시간호가 감시
+        """
 
         await self._set_headers(is_mock=True)
         url = "ws://ops.koreainvestment.com:31000/tryitout/H0STCNT0"
+
+        avr_price = 3
         async with websockets.connect(url, extra_headers=self.headers) as websocket:
             body = {
                 "tr_id": "H0STASP0",
@@ -126,31 +131,33 @@ class KISWebSocket:
             }
             await websocket.send(json.dumps(body))
             print(f"Subscribed to real-time data for {ticker}")
-
+            trading = TradingLogic()
             while True:
                 try:
                     data = await websocket.recv()
-                    await self.monitoring_for_selling(data)
+                    await self.monitoring_for_selling(data, avr_price, trading)
                 except websockets.ConnectionClosed:
                     print("WebSocket connection closed. Attempting to reconnect...")
                     break
 
-    async def process_data(self, data):
-        data = json.loads(data)
-        # 실제 데이터 구조에 맞게 조정 필요
-        current_price = float(data.get('stck_prpr', 0))  # 현재가
-        print(f"Current price of {self.ticker}: {current_price}")
-        # 여기에 추가적인 로직 구현 (예: 특정 가격에 도달했을 때 알림 등)
+    # async def process_data(self, data):
+    #     data = json.loads(data)
+    #     # 실제 데이터 구조에 맞게 조정 필요
+    #     current_price = float(data.get('stck_prpr', 0))  # 현재가
+    #     print(f"Current price of {self.ticker}: {current_price}")
+    #     # 여기에 추가적인 로직 구현 (예: 특정 가격에 도달했을 때 알림 등)
 
-    async def monitoring_for_selling(self, data):
+    async def monitoring_for_selling(self, data, avr_price, tradingInstance):
         recvvalue = data.split('^')
-        if recvvalue[14] > 
+        print(recvvalue)
+        # if recvvalue[14] > avr_price * 1.18:
+        #     print("성공")
 
-    async def run(self):
-        while True:
-            try:
-                await self.connect_and_subscribe()
-            except Exception as e:
-                print(f"An error occurred: {e}")
-                print("Retrying in 5 seconds...")
-                await asyncio.sleep(5)
+    # async def run(self):
+    #     while True:
+    #         try:
+    #             await self.connect_and_subscribe()
+    #         except Exception as e:
+    #             print(f"An error occurred: {e}")
+    #             print("Retrying in 5 seconds...")
+    #             await asyncio.sleep(5)

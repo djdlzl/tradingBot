@@ -423,7 +423,7 @@ class KISApi:
         return json_response
 
 ######################################################################################
-################################    주문 관련 메서드   ###################################
+################################    주문 메서드   ###################################
 ######################################################################################
 
     def place_order(self, ticker, quantity):
@@ -455,6 +455,40 @@ class KISApi:
 
         return json_response
 
+    def sell_order(self, ticker, quantity, price=None):
+        """
+        주식 매도 주문을 실행합니다.
+
+        Args:
+            ticker (str): 종목 코드
+            quantity (int): 매도 수량
+            price (float, optional): 매도 희망 가격. None이면 시장가 주문
+
+        Returns:
+            dict: 주문 실행 결과를 포함한 딕셔너리
+        """
+        self._set_headers(is_mock=True, tr_id="VTTC0801U")  # 매도 거래 ID
+        url = "https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/order-cash"
+        
+        data = {
+            "CANO": M_ACCOUNT_NUMBER,
+            "ACNT_PRDT_CD": "01",
+            "PDNO": ticker,
+            "ORD_DVSN": "01" if price is None else "00",  # 01: 시장가, 00: 지정가
+            "ORD_QTY": str(quantity),
+            "ORD_UNPR": "0" if price is None else str(price),
+        }
+        self.headers["hashkey"] = None
+
+        response = requests.post(url=url, data=json.dumps(data), headers=self.headers, timeout=10)
+        json_response = response.json()
+
+        return json_response
+
+
+######################################################################################
+################################    잔고 메서드   ###################################
+######################################################################################
 
     def select_spent_fund(self, order_num):
         """
