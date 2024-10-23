@@ -174,13 +174,13 @@ class TradingLogic:
             
             # 주문 결과 리스트로 저장
             order_list = []
-            
+            tot_ccld_qty
             for session in sessions:
-                random_id, start_date, current_date, ticker, name, fund, spent_fund, count = session
+                random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count = session
 
                 # 세션 정보로 주식 주문
                 # self.place_order_and_update_session(random_id, start_date, current_date, ticker, name, fund, spent_fund, count)
-                order_result = self.place_order_session(random_id, start_date, current_date, ticker, name, fund, spent_fund, count)
+                order_result = self.place_order_session(random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count)
                 order_list.append(order_result)
             return order_list
         except Exception as e:
@@ -225,19 +225,20 @@ class TradingLogic:
         if stock == None:
             return None
 
-        # count,spent_fund 초기화
+        # 컬럼 초기화
         count = 0
         spent_fund = 0
-        
+        quantity = 0
+        avr_price = 0
         # 거래 세션 생성
-        db.save_trading_session(random_id, today, today, stock['ticker'], stock['name'], fund, spent_fund, count)
+        db.save_trading_session(random_id, today, today, stock['ticker'], stock['name'], fund, spent_fund, quantity, avr_price, count)
         
         return True
 
 
-    def place_order_session(self, id, start_date, current_date, ticker, name, fund, spent_fund, count):
+    def place_order_session(self, id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count):
         """
-        주식 매수 주문을 진행하고 세션을 업데이트합니다.
+        주식 매수 주문을 진행
 
         :param ticker: 종목 코드
         :param fund: 투자 금액
@@ -280,9 +281,9 @@ class TradingLogic:
         return order_result
 
 
-    def update_trading_session(self, order_list):
+    def load_and_update_trading_session(self, order_list):
         """
-        트레이딩 세션 업데이트
+        트레이딩 세션을 불러옵니다.
         """
         db = DatabaseManager()
         
@@ -295,24 +296,27 @@ class TradingLogic:
             
             # 주문 결과 리스트로 저장
             for index ,session in enumerate(sessions, start=0):
-                random_id, start_date, current_date, ticker, name, fund, spent_fund, count = session
-                self.update_session(random_id, start_date, current_date, ticker, name, fund, spent_fund, count, order_list[index])
+                random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count = session
+                self.update_session(random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count, order_list[index])
                 
         except Exception as e:
             print("Error in update_trading_session: ", e)
             
 
-    def update_session(self, random_id, start_date, current_date, ticker, name, fund, spent_fund, count, order_result):
+    def update_session(self, random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count, order_result):
         """
-        주식 매수 주문을 진행하고 세션을 업데이트합니다.
+        세션을 업데이트합니다.
 
-        :param ticker: 종목 코드
-        :param fund: 투자 금액
-        :param count: 매수 수량
         :param random_id: 세션 ID
         :param start_date: 거래 시작 날짜
         :param current_date: 현재 날짜
+        :param ticker: 종목 코드
         :param name: 종목명
+        :param fund: 투자 금액
+        :param spent_fund: 사용한 총 금액
+        :param avr_price: 평균 단가
+        :param quantity: 매수한 총 주식 수
+        :param count: 거래 횟수
         """
         # API 초과 방지
         time.sleep(0.8)
@@ -320,8 +324,17 @@ class TradingLogic:
         db = DatabaseManager()
         odno = order_result.get('output', {}).get('ODNO')
         if odno is not None:
-            # 사용 금액 산출
-            real_spent_fund = self.kis_api.select_spent_fund(odno)
+            # 사용 금액, 체결 주식 수
+            result = self.kis_api.daily_order_execution_inquiry(odno)
+            real_spent_fund = result.get('output1')[0].get('tot_ccld_amt')
+            real_quantity = result.get('output1')[0].get('tot_ccld_qty')
+            
+            # 매입단가
+            result = self.kis_api.balance_inquiry()
+            index_of_odno = next((index for index, d in enumerate(result) if d.get('pdno') == ticker), -1)
+            avr_price = result[index_of_odno].get("pchs_avg_pric")
+            avr_price = int(avr_price)
+            print("update_session - avr_price", avr_price)
         else:
             print("주문 번호가 없습니다. 사유: ", order_result.get('msg1'))
             return
@@ -331,14 +344,14 @@ class TradingLogic:
 
         # 주문 결과에 따라 세션 업데이트
         if order_result.get('rt_cd') == "0":  # 주문 성공 여부 확인
-            print("real_spent_fund: ", real_spent_fund)
             spent_fund += int(real_spent_fund)  # 총 사용 금액 업데이트
-            print("spent_fund", spent_fund)
+            quantity += int(real_quantity)
+            
             #count 증가
             count = count + 1
 
             # 세션 업데이트
-            db.save_trading_session(random_id, start_date, current_date, ticker, name, fund, spent_fund, count)
+            db.save_trading_session(random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count)
             db.close()
 
             print("세션 업데이트 완료")

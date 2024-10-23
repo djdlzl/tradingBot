@@ -9,6 +9,7 @@ from trading.trading import TradingLogic
 import time
 import asyncio
 import websockets
+import logging
 
 
 class KISWebSocket:
@@ -116,30 +117,54 @@ class KISWebSocket:
         self.headers["custtype"] = "P"
 
     async def realtime_quote_subscribe(self, ticker):
-        """
-        실시간호가 감시
-        """
-
-        await self._set_headers(is_mock=True)
-        url = "ws://ops.koreainvestment.com:31000/tryitout/H0STCNT0"
-
-        avr_price = 3
-        async with websockets.connect(url, extra_headers=self.headers) as websocket:
-            body = {
-                "tr_id": "H0STASP0",
-                "tr_key": ticker
+        """실시간 호가 구독"""
+     
+        # WebSocket 연결 설정
+        url = 'ws://ops.koreainvestment.com:31000'  # 모의투자 웹소켓 URL
+        
+        connect_headers = {
+            "approval_key": self.mock_approval,
+            "custtype": "P",
+            "tr_type": "1",
+            "content-type": "utf-8"
+        }
+        
+        async with websockets.connect(url, extra_headers=connect_headers) as websocket:
+            # 실시간 호가 요청 데이터 구성
+            request_data = {
+                "header": connect_headers,
+                "body": {
+                    "input":{
+                    "tr_id": "H0STASP0",  # 실시간 호가 TR ID
+                    "tr_key": "058450"
+                   }
+                }
             }
-            await websocket.send(json.dumps(body))
-            print(f"Subscribed to real-time data for {ticker}")
+            
+            # 구독 요청
+            await websocket.send(json.dumps(request_data))
+            logging.info("Subscribed to real-time quotes for %s", ticker)
             trading = TradingLogic()
+
             while True:
                 try:
                     data = await websocket.recv()
-                    await self.monitoring_for_selling(data, avr_price, trading)
-                except websockets.ConnectionClosed:
-                    print("WebSocket connection closed. Attempting to reconnect...")
-                    break
+                    # PINGPONG 처리
+                    if '"tr_id":"PINGPONG"' in data:
+                        await websocket.pong(data)
+                        continue
+                        
+                    # 실시간 데이터 처리
 
+                    print("이까지 성공")    
+                    await self.monitoring_for_selling(data, 3, trading)
+                            
+                except websockets.ConnectionClosed:
+                    logging.error("WebSocket connection closed")
+                    break
+                except Exception as e:
+                    logging.error("Error processing data: %s", e)
+                    
     # async def process_data(self, data):
     #     data = json.loads(data)
     #     # 실제 데이터 구조에 맞게 조정 필요
@@ -147,11 +172,15 @@ class KISWebSocket:
     #     print(f"Current price of {self.ticker}: {current_price}")
     #     # 여기에 추가적인 로직 구현 (예: 특정 가격에 도달했을 때 알림 등)
 
-    async def monitoring_for_selling(self, data, avr_price, tradingInstance):
+    async def monitoring_for_selling(self, data, avr_price, tradingInstance): # 실제 거래 시간에 값이 받아와지는지 확인 필요
         recvvalue = data.split('^')
-        print(recvvalue)
-        # if recvvalue[14] > avr_price * 1.18:
-        #     print("성공")
+        print("monitoring_for_selling",recvvalue)
+        if recvvalue:
+            if recvvalue[14] > avr_price * 1.18:
+                tradingInstance.sell_order()
+                print("성공")
+            else:
+                print("값이 없습니다.")
 
     # async def run(self):
     #     while True:

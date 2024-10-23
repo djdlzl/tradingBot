@@ -490,7 +490,7 @@ class KISApi:
 ################################    잔고 메서드   ###################################
 ######################################################################################
 
-    def select_spent_fund(self, order_num):
+    def daily_order_execution_inquiry(self, order_num):
         """
         사용한 자금 조회
         """
@@ -526,26 +526,37 @@ class KISApi:
         
         # print("##########select_spent_fund:  ",json.dumps(json_response, indent=2))
         print(json_response.get('output1')[0].get('tot_ccld_amt'))
-        return json_response.get('output1')[0].get('tot_ccld_amt')
+        return json_response
     
-    
-######################################################################################
-################################    실시간 메서드   ###################################
-######################################################################################
+    def balance_inquiry(self):
 
-    def live_get_price(self, ticker):
-
-        url="ws://ops.koreainvestment.com:31000/tryitout/H0STASP0"
+        # url="https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/trading/inquire-daily-ccld"
+        url="https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/inquire-balance"
         body = {
-            "tr_id": "H0STASP0",
-            "tr_key": ticker,
+            "CANO": M_ACCOUNT_NUMBER,
+            "ACNT_PRDT_CD": "01",
+            "AFHR_FLPR_YN": "N",
+            "OFL_YN": "",
+            "INQR_DVSN": "02",
+            "UNPR_DVSN": "01",
+            "FUND_STTL_ICLD_YN": "N",
+            "FNCG_AMT_AUTO_RDPT_YN": "N", 
+            "PRCS_DVSN": "00",
+            "CTX_AREA_FK100": "",
+            "CTX_AREA_NK100": "",
         }
-
-        self._set_w_headers(is_mock=True)
+                
+        self._get_hashkey(body, is_mock=True)
+        self._set_headers(is_mock=True, tr_id="VTTC8434R")
         self.headers["hashkey"] = self.hashkey
         
         response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
         json_response = response.json()
         
-        print(json_response)
-        return json_response
+        # print("##########select_spent_fund:  ",json.dumps(json_response, indent=2))
+        print(json.dumps(json_response.get("output1"), indent=2))
+        index_of_odno = next((index for index, d in enumerate(json_response.get("output1")) if d.get('pdno') == "095700"), -1)
+        avr_price = json_response.get("output1")[index_of_odno].get("pchs_avg_pric")
+        print("update_session - avr_price", avr_price)
+        return json_response.get("output1")
+    
