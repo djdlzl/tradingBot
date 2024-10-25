@@ -93,14 +93,14 @@ class DatabaseManager:
                 fund INTEGER,
                 spent_fund INTEGER,
                 quantity INTEGER,
-                spent_fund INTEGER,
+                avr_price INTEGER,
                 count INTEGER
             )
         ''')
         
         # ## 테이블 삭제
         # self.cursor.execute('''
-        # DROP TABLE IF EXISTS approvals
+        # DROP TABLE IF EXISTS trading_session
         # ''')
 
         

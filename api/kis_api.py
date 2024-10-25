@@ -524,11 +524,9 @@ class KISApi:
         response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
         json_response = response.json()
         
-        # print("##########select_spent_fund:  ",json.dumps(json_response, indent=2))
-        print(json_response.get('output1')[0].get('tot_ccld_amt'))
         return json_response
     
-    def balance_inquiry(self):
+    def balance_inquiry(self, ticker):
 
         # url="https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/trading/inquire-daily-ccld"
         url="https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/inquire-balance"
@@ -553,10 +551,5 @@ class KISApi:
         response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
         json_response = response.json()
         
-        # print("##########select_spent_fund:  ",json.dumps(json_response, indent=2))
-        print(json.dumps(json_response.get("output1"), indent=2))
-        index_of_odno = next((index for index, d in enumerate(json_response.get("output1")) if d.get('pdno') == "095700"), -1)
-        avr_price = json_response.get("output1")[index_of_odno].get("pchs_avg_pric")
-        print("update_session - avr_price", avr_price)
         return json_response.get("output1")
     

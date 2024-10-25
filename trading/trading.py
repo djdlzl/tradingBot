@@ -6,8 +6,10 @@ from datetime import datetime, timedelta
 from database.db_manager import DatabaseManager
 from utils.date_utils import DateUtils
 from api.kis_api import KISApi
+from api.kis_websocket import KISWebSocket
 import random
 import time
+import asyncio
 
 class TradingLogic:
     """
@@ -168,13 +170,14 @@ class TradingLogic:
         try:
             # 거래 세션을 조회
             sessions = db.load_trading_session()
+            db.close()
             if not sessions:
                 print("진행 중인 거래 세션이 없습니다.")
                 return
             
             # 주문 결과 리스트로 저장
             order_list = []
-            tot_ccld_qty
+
             for session in sessions:
                 random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count = session
 
@@ -184,6 +187,7 @@ class TradingLogic:
                 order_list.append(order_result)
             return order_list
         except Exception as e:
+            db.close()
             print("Error in trading session: ", e)
 
 
@@ -232,7 +236,7 @@ class TradingLogic:
         avr_price = 0
         # 거래 세션 생성
         db.save_trading_session(random_id, today, today, stock['ticker'], stock['name'], fund, spent_fund, quantity, avr_price, count)
-        
+        db.close()
         return True
 
 
@@ -271,8 +275,7 @@ class TradingLogic:
         print("place_order_session:  주문 실행", order_result)
         
         # 'rt_cd': '1' 세션 취소
-        print(order_result['rt_cd'], count, ticker)
-        if order_result['rt_cd'] and count == 0:
+        if order_result['rt_cd'] == '1' and count == 0:
             print("실행됨")
             db.delete_session_one_row(id)
 
@@ -298,7 +301,7 @@ class TradingLogic:
             for index ,session in enumerate(sessions, start=0):
                 random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count = session
                 self.update_session(random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count, order_list[index])
-                
+            db.close()
         except Exception as e:
             print("Error in update_trading_session: ", e)
             
@@ -330,10 +333,10 @@ class TradingLogic:
             real_quantity = result.get('output1')[0].get('tot_ccld_qty')
             
             # 매입단가
-            result = self.kis_api.balance_inquiry()
+            result = self.kis_api.balance_inquiry(ticker)
             index_of_odno = next((index for index, d in enumerate(result) if d.get('pdno') == ticker), -1)
             avr_price = result[index_of_odno].get("pchs_avg_pric")
-            avr_price = int(avr_price)
+            avr_price = int(float(avr_price))
             print("update_session - avr_price", avr_price)
         else:
             print("주문 번호가 없습니다. 사유: ", order_result.get('msg1'))
@@ -388,9 +391,10 @@ class TradingLogic:
         # 세션에 할당된 자금 조회
         db = DatabaseManager()
         sessions = db.load_trading_session()
+        db.close()
         session_fund = 0
         for session in sessions:
-            random_id, start_date, current_date, ticker, name, fund, spent_fund, count = session
+            fund = session[5]
             session_fund += int(fund)
         
         try:
@@ -421,10 +425,12 @@ class TradingLogic:
             selected_stock = db.get_selected_stocks()  # selected_stocks 조회
             if selected_stock is not None:
                 db.delete_selected_stock_by_no(selected_stock['no'])  # no로 삭제 
+                db.close()
                 return selected_stock
             else:
+                db.close()
                 return None
-
+            
         except Exception as e:
             print(f"Error allocating funds: {e}")
             return None
@@ -434,17 +440,15 @@ class TradingLogic:
 ###############################    실시간 메서드   ####################################
 ######################################################################################
 
-    def live_get_price(self):
-        db =DatabaseManager()
+    def monitor_for_selling(self):
+        db = DatabaseManager()
         sessions = db.load_trading_session()
+        db.close()
+        kis_websocket = KISWebSocket()
+        approval_key = asyncio.run(kis_websocket._ensure_approval(is_mock=True))
         
-        tickers = []
-        
+        ### 세션 모니터링을 어떻게 쓰레드를 나눠서 실행할건지 고민해야 함.
         for session in sessions:
-            tickers.append(session[3])
-            
-        print(tickers)
+            ticker, quantity, avr_price = session[3], session[7], session[8]
+            asyncio.run(kis_websocket.realtime_quote_subscribe(approval_key, ticker, quantity, avr_price))
         
-        for ticker in tickers:
-            live_price = self.kis_api.live_get_price(ticker)
-            print(live_price)

@@ -5,7 +5,6 @@ from requests.exceptions import RequestException
 from config.config import R_APP_KEY, R_APP_SECRET, M_APP_KEY, M_APP_SECRET
 from datetime import datetime, timedelta
 from database.db_manager import DatabaseManager
-from trading.trading import TradingLogic
 import time
 import asyncio
 import websockets
@@ -13,7 +12,7 @@ import logging
 
 
 class KISWebSocket:
-    def __init__(self):
+    def __init__(self, callback=None):
         self.headers = {"content-type": "utf-8"}
         self.db_manager = DatabaseManager()
         self.real_approval = None
@@ -22,7 +21,7 @@ class KISWebSocket:
         self.mock_approval_expires_at = None
         self.hashkey = None
         self.upper_limit_stocks = {}
-        self.ws = None
+        self.callback = callback
 
 ######################################################################################
 #########################    인증 관련 메서드   #######################################
@@ -108,7 +107,7 @@ class KISWebSocket:
             tr_id (str, optional): 거래 ID
         """
         approval_key = self._ensure_approval(is_mock)
-        self.headers["approval_key"] = approval_key
+        self.mock_approval = approval_key
         self.headers["appkey"] = M_APP_KEY if is_mock else R_APP_KEY
         self.headers["appsecret"] = M_APP_SECRET if is_mock else R_APP_SECRET
         if tr_id:
@@ -116,14 +115,15 @@ class KISWebSocket:
         self.headers["tr_type"] = "1"
         self.headers["custtype"] = "P"
 
-    async def realtime_quote_subscribe(self, ticker):
+    async def realtime_quote_subscribe(self, approval_key, ticker, quantity, avr_price):
         """실시간 호가 구독"""
-     
+
+
         # WebSocket 연결 설정
-        url = 'ws://ops.koreainvestment.com:31000'  # 모의투자 웹소켓 URL
+        url = 'ws://ops.koreainvestment.com:31000/tryitout/H0STASP0'  # 모의투자 웹소켓 URL
         
         connect_headers = {
-            "approval_key": self.mock_approval,
+            "approval_key": approval_key,
             "custtype": "P",
             "tr_type": "1",
             "content-type": "utf-8"
@@ -135,16 +135,17 @@ class KISWebSocket:
                 "header": connect_headers,
                 "body": {
                     "input":{
-                    "tr_id": "H0STASP0",  # 실시간 호가 TR ID
-                    "tr_key": "058450"
+                        "tr_id": "H0STASP0",  # 실시간 호가 TR ID
+                        "tr_key": ticker
                    }
                 }
             }
-            
+
             # 구독 요청
             await websocket.send(json.dumps(request_data))
-            logging.info("Subscribed to real-time quotes for %s", ticker)
-            trading = TradingLogic()
+            
+            print("Subscribed to real-time quotes for %s", ticker, quantity, avr_price)
+            print("Subscribed to real-",json.dumps(request_data))
 
             while True:
                 try:
@@ -157,13 +158,13 @@ class KISWebSocket:
                     # 실시간 데이터 처리
 
                     print("이까지 성공")    
-                    await self.monitoring_for_selling(data, 3, trading)
+                    await self.monitoring_for_selling(data, ticker, quantity, avr_price)
                             
                 except websockets.ConnectionClosed:
-                    logging.error("WebSocket connection closed")
+                    print("WebSocket connection closed")
                     break
                 except Exception as e:
-                    logging.error("Error processing data: %s", e)
+                    print("Error processing data: %s", e)
                     
     # async def process_data(self, data):
     #     data = json.loads(data)
@@ -172,13 +173,15 @@ class KISWebSocket:
     #     print(f"Current price of {self.ticker}: {current_price}")
     #     # 여기에 추가적인 로직 구현 (예: 특정 가격에 도달했을 때 알림 등)
 
-    async def monitoring_for_selling(self, data, avr_price, tradingInstance): # 실제 거래 시간에 값이 받아와지는지 확인 필요
+    async def monitoring_for_selling(self, data, ticker, quantity, avr_price): # 실제 거래 시간에 값이 받아와지는지 확인 필요
         recvvalue = data.split('^')
-        print("monitoring_for_selling",recvvalue)
+        min_price = int(recvvalue[14])
         if recvvalue:
-            if recvvalue[14] > avr_price * 1.18:
-                tradingInstance.sell_order()
-                print("성공")
+            if min_price: # > avr_price * 1.17:
+                print("recvvalue[14]: ", min_price)
+                if self.callback:
+                    await self.callback(ticker, quantity)
+                print("매도 성공")
             else:
                 print("값이 없습니다.")
 
