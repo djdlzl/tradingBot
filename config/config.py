@@ -1,5 +1,5 @@
 """
-전체 설정 파일
+중요데이터 설정 파일
 """
 import os
 from dotenv import load_dotenv

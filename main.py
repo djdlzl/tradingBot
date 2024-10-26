@@ -92,7 +92,7 @@ def test():
     테스트 프로세스
     """
     trading = TradingLogic()
-
+    trading.test()
     # #####상한가 조회#############    
     # print("시작")
     # trading.fetch_and_save_previous_upper_limit_stocks()
@@ -116,7 +116,7 @@ async def test_websocket():
     #####웹소켓 테스트############
     approval_key = await kis_websocket._ensure_approval(is_mock=True)
     print(approval_key)
-    
+
 
 
 

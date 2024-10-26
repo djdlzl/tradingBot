@@ -2,14 +2,15 @@
 api와 db 모듈을 사용해서 실제 트레이딩에 사용될 로직 모듈을 개발
 """
 
-from datetime import datetime, timedelta
+import random
+import time
+import asyncio
+from datetime import datetime, timedelta, date
 from database.db_manager import DatabaseManager
 from utils.date_utils import DateUtils
 from api.kis_api import KISApi
 from api.kis_websocket import KISWebSocket
-import random
-import time
-import asyncio
+from config.condition import days_later
 
 class TradingLogic:
     """
@@ -18,7 +19,20 @@ class TradingLogic:
     def __init__(self):
         self.kis_api = KISApi()
         self.date_utils = DateUtils()
+
+    def test(self):
+        # current_date = datetime.now()
+        # target_date = DateUtils.get_business_days(current_date, current_date + timedelta(days=7))[5]  # 5영업일 후
+        # print(f"매수일: {current_date.date()}, 목표 매도일: {target_date.date()}")
+        today = datetime.now().date()
+        print(today)
+        current_day = DateUtils.get_target_date(today, days_later)
+        print(current_day)
         
+        today = datetime.now().date()  # 현재 날짜와 시간 가져오기
+        current_day = self.date_utils.is_business_day(today)
+        print(current_day)
+
 ######################################################################################
 #########################    주문 메서드   ###################################
 ######################################################################################
@@ -56,7 +70,7 @@ class TradingLogic:
                         for stock in upper_limit_stocks['output']]
             
             # 오늘 날짜 가져오기
-            today = datetime.now()  # 현재 날짜와 시간 가져오기
+            today = datetime.now().date()  # 현재 날짜와 시간 가져오기 - .date()로 2024-00-00 형태로 변경
             current_day = self.date_utils.is_business_day(today)
             
             # 데이터베이스에 저장
@@ -118,7 +132,7 @@ class TradingLogic:
         """
         2개월 전 데이터 삭제
         """
-        today = datetime.now()  # 현재 날짜와 시간 가져오기
+        today = datetime.now().date() # 현재 날짜와 시간 가져오기
         current_day = self.date_utils.is_business_day(today)
         all_holidays = self.date_utils.get_holidays()
         
@@ -449,6 +463,6 @@ class TradingLogic:
         
         ### 세션 모니터링을 어떻게 쓰레드를 나눠서 실행할건지 고민해야 함.
         for session in sessions:
-            ticker, quantity, avr_price = session[3], session[7], session[8]
-            asyncio.run(kis_websocket.realtime_quote_subscribe(approval_key, ticker, quantity, avr_price))
-        
+            start_date, ticker, quantity, avr_price = session[1], session[3], session[7], session[8]
+            target_date = self.date_utils.get_target_date(date.fromisoformat(str(start_date).split()[0]), days_later)
+            asyncio.run(kis_websocket.realtime_quote_subscribe(approval_key, ticker, quantity, avr_price, target_date))

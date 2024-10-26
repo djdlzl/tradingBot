@@ -115,7 +115,7 @@ class KISWebSocket:
         self.headers["tr_type"] = "1"
         self.headers["custtype"] = "P"
 
-    async def realtime_quote_subscribe(self, approval_key, ticker, quantity, avr_price):
+    async def realtime_quote_subscribe(self, approval_key, ticker, quantity, avr_price, target_date):
         """실시간 호가 구독"""
 
 
@@ -152,13 +152,11 @@ class KISWebSocket:
                     data = await websocket.recv()
                     # PINGPONG 처리
                     if '"tr_id":"PINGPONG"' in data:
-                        await websocket.pong(data)
+                        await websocket.pong(data) 
                         continue
                         
                     # 실시간 데이터 처리
-
-                    print("이까지 성공")    
-                    await self.monitoring_for_selling(data, ticker, quantity, avr_price)
+                    await self.monitoring_for_selling(data, ticker, quantity, avr_price, target_date)
                             
                 except websockets.ConnectionClosed:
                     print("WebSocket connection closed")
@@ -173,12 +171,21 @@ class KISWebSocket:
     #     print(f"Current price of {self.ticker}: {current_price}")
     #     # 여기에 추가적인 로직 구현 (예: 특정 가격에 도달했을 때 알림 등)
 
-    async def monitoring_for_selling(self, data, ticker, quantity, avr_price): # 실제 거래 시간에 값이 받아와지는지 확인 필요
+    async def monitoring_for_selling(self, data, ticker, quantity, avr_price, target_date): # 실제 거래 시간에 값이 받아와지는지 확인 필요
+        print("실행은 되냐")
         recvvalue = data.split('^')
-        min_price = int(recvvalue[14])
+        print("monitoring_for_selling: ",recvvalue)
+        try:
+            target_price = int(recvvalue[14])
+        except:
+            print("recvvalue 데이터 없음")
+        today = datetime.now().date()
+        print("monitoring_for_selling- ",today)
+        print("monitoring_for_selling - ",target_date)
+        print("값 비교: ",today+timedelta(days=7) > target_date)
         if recvvalue:
-            if min_price: # > avr_price * 1.17:
-                print("recvvalue[14]: ", min_price)
+            if today > target_date: # > avr_price * 1.17:
+                print("recvvalue[14]: ", target_price)
                 if self.callback:
                     await self.callback(ticker, quantity)
                 print("매도 성공")
