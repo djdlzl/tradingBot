@@ -115,10 +115,10 @@ class KISWebSocket:
         self.headers["tr_type"] = "1"
         self.headers["custtype"] = "P"
 
-    async def realtime_quote_subscribe(self, approval_key, ticker, quantity, avr_price, target_date):
+    async def realtime_quote_subscribe(self, ticker, quantity, avr_price, target_date):
         """실시간 호가 구독"""
 
-
+        approval_key = await self._ensure_approval(is_mock=True)
         # WebSocket 연결 설정
         url = 'ws://ops.koreainvestment.com:31000/tryitout/H0STASP0'  # 모의투자 웹소켓 URL
         
@@ -182,13 +182,13 @@ class KISWebSocket:
         today = datetime.now().date()
         print("monitoring_for_selling- ",today)
         print("monitoring_for_selling - ",target_date)
-        print("값 비교: ",today+timedelta(days=7) > target_date)
+        print("값 비교: ",today < target_date)
         if recvvalue:
-            if today > target_date: # > avr_price * 1.17:
-                print("recvvalue[14]: ", target_price)
-                if self.callback:
-                    await self.callback(ticker, quantity)
-                print("매도 성공")
+            if today < target_date: # > avr_price * 1.17:
+                # print("recvvalue[14]: ", target_price)
+
+                res = self.callback(ticker, quantity)
+                print("매도 성공:   ", res)
             else:
                 print("값이 없습니다.")
 

@@ -92,7 +92,7 @@ def test():
     테스트 프로세스
     """
     trading = TradingLogic()
-    trading.test()
+
     # #####상한가 조회#############    
     # print("시작")
     # trading.fetch_and_save_previous_upper_limit_stocks()
@@ -126,8 +126,7 @@ if __name__ == "__main__":
     
     asyncio.run(test_websocket())
     test()
-    # asyncio.run()을 사용하여 비동기 함수 실행
-    print("asyncio.run(test_websocket()) 성공!")
+
     # 매일 15시 30분에 fetch_and_save_upper_limit_stocks 실행
     scheduler.add_job(threaded_job, 'cron', hour=GET_ULS_HOUR, minute=GET_ULS_MINUTE, args=[fetch_and_save_upper_limit_stocks])
     scheduler.start()
