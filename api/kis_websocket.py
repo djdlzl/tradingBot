@@ -119,6 +119,7 @@ class KISWebSocket:
         """실시간 호가 구독"""
 
         approval_key = await self._ensure_approval(is_mock=True)
+        
         # WebSocket 연결 설정
         url = 'ws://ops.koreainvestment.com:31000/tryitout/H0STASP0'  # 모의투자 웹소켓 URL
         
@@ -156,23 +157,18 @@ class KISWebSocket:
                         continue
                         
                     # 실시간 데이터 처리
-                    await self.monitoring_for_selling(data, ticker, quantity, avr_price, target_date)
-                            
+                    res = await self.monitoring_for_selling(data, ticker, quantity, avr_price, target_date)
+                    if res is True:
+                        break                           
                 except websockets.ConnectionClosed:
                     print("WebSocket connection closed")
                     break
                 except Exception as e:
                     print("Error processing data: %s", e)
-                    
-    # async def process_data(self, data):
-    #     data = json.loads(data)
-    #     # 실제 데이터 구조에 맞게 조정 필요
-    #     current_price = float(data.get('stck_prpr', 0))  # 현재가
-    #     print(f"Current price of {self.ticker}: {current_price}")
-    #     # 여기에 추가적인 로직 구현 (예: 특정 가격에 도달했을 때 알림 등)
+
 
     async def monitoring_for_selling(self, data, ticker, quantity, avr_price, target_date): # 실제 거래 시간에 값이 받아와지는지 확인 필요
-        print("실행은 되냐")
+
         recvvalue = data.split('^')
         print("monitoring_for_selling: ",recvvalue)
         try:
@@ -182,21 +178,14 @@ class KISWebSocket:
         today = datetime.now().date()
         print("monitoring_for_selling- ",today)
         print("monitoring_for_selling - ",target_date)
+        print("monitoring_for_selling - target_price",target_price)
         print("값 비교: ",today < target_date)
         if recvvalue:
             if today < target_date: # > avr_price * 1.17:
                 # print("recvvalue[14]: ", target_price)
 
-                res = self.callback(ticker, quantity)
-                print("매도 성공:   ", res)
+                res = self.callback(ticker, quantity, recvvalue[14])
+                print("매도 :   ", res)
+                return True
             else:
                 print("값이 없습니다.")
-
-    # async def run(self):
-    #     while True:
-    #         try:
-    #             await self.connect_and_subscribe()
-    #         except Exception as e:
-    #             print(f"An error occurred: {e}")
-    #             print("Retrying in 5 seconds...")
-    #             await asyncio.sleep(5)

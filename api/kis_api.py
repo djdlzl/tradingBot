@@ -365,62 +365,63 @@ class KISApi:
 
         return stock_price_info['output']['stck_prpr'], stock_price_info['output']['temp_stop_yn']  # 현재가 반환, 기본값은 0
     
-    # def get_my_cash(self):
-    #     """
-    #     계좌 잔고 현금 확인 및 return
-    #     """
-        
-    #     # url="https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/trading/inquire-psbl-order"
-    #     url="https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/inquire-psbl-order"
-    #     body = {
-    #         "CANO": M_ACCOUNT_NUMBER,
-    #         "ACNT_PRDT_CD": "01",
-    #         "PDNO": "",
-    #         "ORD_UNPR": "",
-    #         "ORD_DVSN": "01",
-    #         "CMA_EVLU_AMT_ICLD_YN": "N",
-    #         "OVRS_ICLD_YN": "N"
-    #     }
-                
-    #     self._get_hashkey(body, is_mock=True)
-    #     self._set_headers(is_mock=True, tr_id="VTTC8908R")
-    #     self.headers["hashkey"] = self.hashkey
-        
-    #     response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
-    #     json_response = response.json()
-    #     # print(json.dumps(json_response, indent=2))
-    #     return json_response.get('')
-        
-    def get_balance(self):
+    def get_my_cash(self):
         """
-        계좌 예수금 확인 및 return
+        계좌 잔고 현금 확인 및 return
         """
         
         # url="https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/trading/inquire-psbl-order"
-        url="https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/inquire-balance"
+        url="https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/inquire-psbl-order"
         body = {
             "CANO": M_ACCOUNT_NUMBER,
             "ACNT_PRDT_CD": "01",
-            "AFHR_FLPR_YN": "N",
-            "OFL_YN": "",
-            "INQR_DVSN": "02",
-            "UNPR_DVSN": "01",
-            "FUND_STTL_ICLD_YN": "N",
-            "FNCG_AMT_AUTO_RDPT_YN": "N",
-            "PRCS_DVSN": "01",
-            "CTX_AREA_FK100": "",
-            "CTX_AREA_NK100": ""
+            "PDNO": "",
+            "ORD_UNPR": "",
+            "ORD_DVSN": "01",
+            "CMA_EVLU_AMT_ICLD_YN": "N",
+            "OVRS_ICLD_YN": "N"
         }
                 
         self._get_hashkey(body, is_mock=True)
-        self._set_headers(is_mock=True, tr_id="VTTC8434R")
+        self._set_headers(is_mock=True, tr_id="VTTC8908R")
         self.headers["hashkey"] = self.hashkey
         
         response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
         json_response = response.json()
         # print(json.dumps(json_response, indent=2))
-        # print(json.dumps(json_response.get('output2')[0].get('dnca_tot_amt'), indent=2))
+        # print(json_response.get('output').get('nrcvb_buy_amt'))
         return json_response
+        
+    # def get_balance(self):
+    #     """
+    #     계좌 예수금 확인 및 return
+    #     """
+        
+    #     # url="https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/trading/inquire-psbl-order"
+    #     url="https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/inquire-balance"
+    #     body = {
+    #         "CANO": M_ACCOUNT_NUMBER,
+    #         "ACNT_PRDT_CD": "01",
+    #         "AFHR_FLPR_YN": "N",
+    #         "OFL_YN": "",
+    #         "INQR_DVSN": "02",
+    #         "UNPR_DVSN": "01",
+    #         "FUND_STTL_ICLD_YN": "N",
+    #         "FNCG_AMT_AUTO_RDPT_YN": "N",
+    #         "PRCS_DVSN": "01",
+    #         "CTX_AREA_FK100": "",
+    #         "CTX_AREA_NK100": ""
+    #     }
+                
+    #     self._get_hashkey(body, is_mock=True)
+    #     self._set_headers(is_mock=True, tr_id="VTTC8434R")
+    #     self.headers["hashkey"] = self.hashkey
+        
+    #     response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
+    #     json_response = response.json()
+    #     # print(json.dumps(json_response, indent=2))
+    #     # print(json.dumps(json_response.get('output2')[0].get('dnca_tot_amt'), indent=2))
+    #     return json_response
 
 ######################################################################################
 ################################    주문 메서드   ###################################
@@ -450,6 +451,9 @@ class KISApi:
         }
         self.headers["hashkey"] = None
 
+        #test
+        print("파라미터 확인", ticker, quantity)
+        
         response = requests.post(url=url, data=json.dumps(data), headers=self.headers, timeout=10)
         json_response = response.json()
 

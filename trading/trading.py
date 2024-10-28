@@ -45,11 +45,13 @@ class TradingLogic:
         return res
     
     
-    def sell_order(self, ticker, quantity):
+    def sell_order(self, ticker, quantity, price=None):
         """
         주식 매수
         """
-        res = self.kis_api.sell_order(ticker, quantity)
+        price = price
+        res = self.kis_api.sell_order(ticker, quantity, price=None)
+        print(res)
         return res
         
 ######################################################################################
@@ -260,7 +262,7 @@ class TradingLogic:
 
         :param ticker: 종목 코드
         :param fund: 투자 금액
-        :param count: 매수 수량
+        :param count: 매수 횟수
         :param id: 세션 ID
         :param start_date: 거래 시작 날짜
         :param current_date: 현재 날짜
@@ -290,7 +292,7 @@ class TradingLogic:
         
         # 'rt_cd': '1' 세션 취소
         if order_result['rt_cd'] == '1' and count == 0:
-            print("실행됨")
+            print("첫 주문 실패 시 세션 삭제")
             db.delete_session_one_row(id)
 
         db.close()
@@ -399,9 +401,9 @@ class TradingLogic:
         """
         
         #전체 예수금 조회
-        data = self.kis_api.get_balance()
-        balance = float(data.get('output2')[0].get('dnca_tot_amt'))
-        
+        data = self.kis_api.get_my_cash()
+        balance = float(data.get('output').get('nrcvb_buy_amt'))
+        print(balance)
         # 세션에 할당된 자금 조회
         db = DatabaseManager()
         sessions = db.load_trading_session()
@@ -450,6 +452,20 @@ class TradingLogic:
             return None
 
 
+        
+######################################################################################
+###############################    실시간 메서드   ####################################
+######################################################################################
+
+    def monitor_for_selling(self, session_info):
+        kis_websocket = KISWebSocket(self.sell_order)
+        
+        #세션 정보 풀기
+        ticker, quantity, avr_price, target_date = session_info
+        
+        asyncio.run(kis_websocket.realtime_quote_subscribe(ticker, quantity, avr_price, target_date))
+
+
     def get_session_info(self):
         """
         매도 모니터링에 필요한 세션 정보 받아오기
@@ -464,22 +480,7 @@ class TradingLogic:
             start_date, ticker, quantity, avr_price = session[1], session[3], session[7], session[8]
             #강제 매도 일자
             target_date = self.date_utils.get_target_date(date.fromisoformat(str(start_date).split()[0]), days_later)
+            info_list = ticker, quantity, avr_price, target_date
+            sessions_info.append(info_list)
             
-        
-######################################################################################
-###############################    실시간 메서드   ####################################
-######################################################################################
-
-    def monitor_for_selling(self):
-        db = DatabaseManager()
-        sessions = db.load_trading_session()
-        db.close()
-        kis_websocket = KISWebSocket(self.sell_order)
-        approval_key = asyncio.run(kis_websocket._ensure_approval(is_mock=True))
-        
-        ### 세션 모니터링을 어떻게 쓰레드를 나눠서 실행할건지 고민해야 함.
-        for session in sessions:
-            start_date, ticker, quantity, avr_price = session[1], session[3], session[7], session[8]
-            #강제 매도 일자
-            target_date = self.date_utils.get_target_date(date.fromisoformat(str(start_date).split()[0]), days_later)
-            asyncio.run(kis_websocket.realtime_quote_subscribe(approval_key, ticker, quantity, avr_price, target_date))
+        return sessions_info

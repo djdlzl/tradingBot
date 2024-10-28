@@ -92,30 +92,34 @@ def test():
     테스트 프로세스
     """
     trading = TradingLogic()
+    kis_api = KISApi()
 
-    # #####상한가 조회#############    
-    # print("시작")
-    # trading.fetch_and_save_previous_upper_limit_stocks()
-    # print("상한가 저장")
+    #####상한가 조회#############    
+    print("시작")
+    trading.fetch_and_save_previous_upper_limit_stocks()
+    print("상한가 저장")
 
-    # ######매수가능 상한가 종목 조회###########
-    # trading.select_stocks_to_buy() # 2일째 장 마감때 저장
-    # print("상한가 선별 및 저장 완료")
+    ######매수가능 상한가 종목 조회###########
+    trading.select_stocks_to_buy() # 2일째 장 마감때 저장
+    print("상한가 선별 및 저장 완료")
     
-    # print("start_trading_session 실행 시작")
-    # order_list = trading.start_trading_session()
+    print("start_trading_session 실행 시작")
+    order_list = trading.start_trading_session()
     
-    # time.sleep(20)
-    # print("load_and_update_trading_session 실행 시작")
-    # trading.load_and_update_trading_session(order_list)
-    asyncio.run(trading.monitor_for_selling())
+    time.sleep(20)
+    print("load_and_update_trading_session 실행 시작")
+    trading.load_and_update_trading_session(order_list)
+
+    ####### websocket 모니터링 실행
+    sessions_info = trading.get_session_info()
+    asyncio.run(trading.monitor_for_selling(sessions_info[0]))
+
+    # trading.sell_order("037270", "121")
+    # kis_api.get_my_cash()
     
 async def test_websocket():
     kis_websocket = KISWebSocket()
 
-    #####웹소켓 테스트############
-    approval_key = await kis_websocket._ensure_approval(is_mock=True)
-    print(approval_key)
 
 
 
@@ -124,7 +128,7 @@ if __name__ == "__main__":
 
     scheduler = BackgroundScheduler()
     
-    asyncio.run(test_websocket())
+    # asyncio.run(test_websocket())
     test()
 
     # 매일 15시 30분에 fetch_and_save_upper_limit_stocks 실행
