@@ -18,11 +18,104 @@ import time
 from datetime import datetime
 from trading.trading import TradingLogic
 from apscheduler.schedulers.background import BackgroundScheduler
-from config.config import GET_ULS_HOUR, GET_ULS_MINUTE
+from apscheduler.triggers.cron import CronTrigger
+from config.condition import GET_ULS_HOUR, GET_ULS_MINUTE, GET_SELECT_HOUR, GET_SELECT_MINUTE
 from database.db_manager import DatabaseManager
 from api.kis_api import KISApi
 from api.kis_websocket import KISWebSocket
 import asyncio
+
+class MainProcess:
+    def __init__(self):
+        self.stop_event = threading.Event()
+        self.db_lock = threading.Lock()
+        self.threads = {}
+        self.scheduler = BackgroundScheduler(timezone='Asia/Seoul')
+        self.trading = TradingLogic()
+
+######################################################################################
+#################################    메서드 합치기   #####################################
+######################################################################################
+
+    def schedule_manager(self):
+        """스케줄 작업을 관리하는 메서드"""
+        try:
+            # 첫 번째 스케줄 작업: 상한가 종목 조회 (15:30)
+            self.scheduler.add_job(
+                self.trading.fetch_and_save_previous_upper_limit_stocks,
+                CronTrigger(hour=GET_ULS_HOUR, minute=GET_ULS_MINUTE)
+                )
+
+            # 두 번째 스케줄 작업: 매수 종목 선정 (08:50)
+            self.scheduler.add_job(
+                self.trading.select_stocks_to_buy,
+                CronTrigger(hour=GET_SELECT_HOUR, minute=GET_SELECT_MINUTE)
+                )
+            
+            # 스케줄러 시작
+            self.scheduler.start()
+            print("스케줄러 시작됨")
+            
+            # 스케줄러 실행 유지
+            while not self.stop_event.is_set():
+                time.sleep(1)
+
+        except Exception as e:
+            print(f"스케줄 관리자 에러: {str(e)}")
+        finally:
+            self.scheduler.shutdown()
+
+    def trading_cycle(self):        
+        """매수-모니터링-매도 사이클 실행"""
+        while not self.stop_event.is_set():
+            try:
+                with self.db_lock:
+                    #  print("세션 시작: start_trading_session 실행 시작")
+                    order_list = self.trading.start_trading_session()
+                    
+                time.sleep(20)
+                with self.db_lock:
+                    #  print("세션 저장: load_and_update_trading_session 실행 시작")
+                    self.trading.load_and_update_trading_session(order_list)
+
+                ####### websocket 모니터링 실행
+                sessions_info = self.trading.get_session_info()
+                asyncio.run(self.trading.monitor_for_selling(sessions_info[0]))
+
+            except Exception as e:
+                print(f"트레이딩 사이클 에러: {str(e)}")
+
+######################################################################################
+##################################    스레드 관리   #####################################
+######################################################################################
+
+    def start_all(self):
+        """모든 스레드 시작"""
+        # 스케줄 관리 스레드
+        scheduler_thread = threading.Thread(
+            target=self.schedule_manager,
+            name="Schedule_Manager"
+        )
+        
+        scheduler_thread.start()
+        self.threads['scheduler'] = scheduler_thread
+        
+        # 트레이딩 스레드들
+        for i in range(3):
+            thread = threading.Thread(
+                target=self.trading_cycle,
+                name=f"Trading_{i}"
+            )
+            thread.start()
+            self.threads[f'trading_{i}'] = thread
+
+
+    def stop_all(self):
+        """모든 스레드 종료"""
+        self.stop_event.set()
+        for name, thread in self.threads.items():
+            thread.join()
+            print(f"{name} 스레드 종료됨")
 
 def fetch_and_save_upper_limit_stocks():
     """
@@ -69,24 +162,6 @@ def threaded_job(func):
     thread.start()
 
 
-
-# def session_start():
-#     # 거래 세션 확인
-#     trading = TradingLogic()
-#     scheduler = BackgroundScheduler()
-    
-#     #2주 전 데이터 주기적으로 삭제
-#     trading.delete_old_stocks()
-    
-#     #거래 세션 확인
-#     session_info = trading.check_trading_session()
-#     print(f"현재 세션 수: {session_info['session']}, 슬롯 수: {session_info['slot']}")
-    
-#     #새 세션에 할당할 자금 계산
-#     funds = trading.calculate_funds(session_info['slot'])
-    
-
-
 def test():
     """
     테스트 프로세스
@@ -127,12 +202,14 @@ async def test_websocket():
 if __name__ == "__main__":
 
     scheduler = BackgroundScheduler()
-    
+    trading = TradingLogic()
     # asyncio.run(test_websocket())
     test()
 
     # 매일 15시 30분에 fetch_and_save_upper_limit_stocks 실행
-    scheduler.add_job(threaded_job, 'cron', hour=GET_ULS_HOUR, minute=GET_ULS_MINUTE, args=[fetch_and_save_upper_limit_stocks])
+    scheduler.add_job(threaded_job, CronTrigger(hour=GET_ULS_HOUR, minute=GET_ULS_MINUTE), args=[trading.fetch_and_save_previous_upper_limit_stocks])
+    # 매일 8시 50분에 select_stocks_to_buy 실행
+    scheduler.add_job(threaded_job, CronTrigger(hour=GET_SELECT_HOUR, minute=GET_SELECT_MINUTE), args=[trading.select_stocks_to_buy])
     scheduler.start()
     # 프로그램이 종료되지 않도록 유지
     try:

@@ -18,15 +18,6 @@ M_ACCOUNT_NUMBER = os.getenv('M_ACCOUNT_NUMBER')
 
 # API URLs
 BASE_URL = "https://openapi.koreainvestment.com:9443"
-TICKER_URL = f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-price"
-TRADE_URL = f"https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/order-cash"
 
 # Database
 DB_NAME = "quant_trading.db"
-
-# Trading parameters
-MAX_PRICE_DROP_PERCENT = -8
-
-# About Time
-GET_ULS_HOUR = 5
-GET_ULS_MINUTE = 44

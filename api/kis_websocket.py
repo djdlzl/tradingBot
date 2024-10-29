@@ -3,6 +3,7 @@ import requests
 import logging
 from requests.exceptions import RequestException
 from config.config import R_APP_KEY, R_APP_SECRET, M_APP_KEY, M_APP_SECRET
+from config.condition import SELLING_POINT
 from datetime import datetime, timedelta
 from database.db_manager import DatabaseManager
 import time
@@ -151,20 +152,21 @@ class KISWebSocket:
             while True:
                 try:
                     data = await websocket.recv()
-                    # PINGPONG 처리
-                    if '"tr_id":"PINGPONG"' in data:
-                        await websocket.pong(data) 
-                        continue
+                    # # PINGPONG 처리
+                    # if '"tr_id":"PINGPONG"' in data:
+                    #     await websocket.pong(data) 
+                    #     continue
                         
                     # 실시간 데이터 처리
-                    res = await self.monitoring_for_selling(data, ticker, quantity, avr_price, target_date)
-                    if res is True:
-                        break                           
+                    sell_completed = await self.monitoring_for_selling(data, ticker, quantity, avr_price, target_date)
+                    if sell_completed is True:
+                        return
                 except websockets.ConnectionClosed:
                     print("WebSocket connection closed")
                     break
                 except Exception as e:
                     print("Error processing data: %s", e)
+                    break
 
 
     async def monitoring_for_selling(self, data, ticker, quantity, avr_price, target_date): # 실제 거래 시간에 값이 받아와지는지 확인 필요
@@ -173,19 +175,19 @@ class KISWebSocket:
         print("monitoring_for_selling: ",recvvalue)
         try:
             target_price = int(recvvalue[14])
-        except:
-            print("recvvalue 데이터 없음")
+        except Exception as e:
+            print("recvvalue 데이터 없음", e)
         today = datetime.now().date()
-        print("monitoring_for_selling- ",today)
-        print("monitoring_for_selling - ",target_date)
-        print("monitoring_for_selling - target_price",target_price)
-        print("값 비교: ",today < target_date)
+        # print("monitoring_for_selling- ",today)
+        # print("monitoring_for_selling - ",target_date)
+        # print("monitoring_for_selling - target_price",target_price)
+        # print("값 비교: ",today > target_date) 
         if recvvalue:
-            if today < target_date: # > avr_price * 1.17:
+            if today > target_date or target_price > (avr_price * SELLING_POINT):
                 # print("recvvalue[14]: ", target_price)
 
-                res = self.callback(ticker, quantity, recvvalue[14])
-                print("매도 :   ", res)
+                sell_completed = self.callback(ticker, quantity, recvvalue[14])
+                print("매도 :   ", sell_completed)
                 return True
             else:
                 print("값이 없습니다.")

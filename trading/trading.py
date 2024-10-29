@@ -10,7 +10,7 @@ from database.db_manager import DatabaseManager
 from utils.date_utils import DateUtils
 from api.kis_api import KISApi
 from api.kis_websocket import KISWebSocket
-from config.condition import days_later
+from config.condition import DAYS_LATER
 
 class TradingLogic:
     """
@@ -26,7 +26,7 @@ class TradingLogic:
         # print(f"매수일: {current_date.date()}, 목표 매도일: {target_date.date()}")
         today = datetime.now().date()
         print(today)
-        current_day = DateUtils.get_target_date(today, days_later)
+        current_day = DateUtils.get_target_date(today, DAYS_LATER)
         print(current_day)
         
         today = datetime.now().date()  # 현재 날짜와 시간 가져오기
@@ -197,6 +197,9 @@ class TradingLogic:
             for session in sessions:
                 random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count = session
 
+                if count == '9':
+                    print(name,"은 9번의 거래를 진행해 넘어갔습니다.")
+                    continue
                 # 세션 정보로 주식 주문
                 # self.place_order_and_update_session(random_id, start_date, current_date, ticker, name, fund, spent_fund, count)
                 order_result = self.place_order_session(random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count)
@@ -479,7 +482,7 @@ class TradingLogic:
         for session in sessions:
             start_date, ticker, quantity, avr_price = session[1], session[3], session[7], session[8]
             #강제 매도 일자
-            target_date = self.date_utils.get_target_date(date.fromisoformat(str(start_date).split()[0]), days_later)
+            target_date = self.date_utils.get_target_date(date.fromisoformat(str(start_date).split()[0]), DAYS_LATER)
             info_list = ticker, quantity, avr_price, target_date
             sessions_info.append(info_list)
             
