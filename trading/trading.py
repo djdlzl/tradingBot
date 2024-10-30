@@ -11,6 +11,9 @@ from utils.date_utils import DateUtils
 from api.kis_api import KISApi
 from api.kis_websocket import KISWebSocket
 from config.condition import DAYS_LATER
+from concurrent.futures import ThreadPoolExecutor
+import nest_asyncio
+nest_asyncio.apply()
 
 class TradingLogic:
     """
@@ -181,8 +184,6 @@ class TradingLogic:
             if result == None:
                 break
         
-        print("add_new_trading_session 새 세션 생성 완료")
-        
         try:
             # 거래 세션을 조회
             sessions = db.load_trading_session()
@@ -197,13 +198,16 @@ class TradingLogic:
             for session in sessions:
                 random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count = session
 
+                # 9번 거래한 종목은 더이상 매수하지 않고 대기
                 if count == '9':
                     print(name,"은 9번의 거래를 진행해 넘어갔습니다.")
                     continue
+                
                 # 세션 정보로 주식 주문
                 # self.place_order_and_update_session(random_id, start_date, current_date, ticker, name, fund, spent_fund, count)
                 order_result = self.place_order_session(random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count)
                 order_list.append(order_result)
+                
             return order_list
         except Exception as e:
             db.close()
@@ -457,17 +461,35 @@ class TradingLogic:
 
         
 ######################################################################################
-###############################    실시간 메서드   ####################################
+###############################    모니터링 메서드   ####################################
 ######################################################################################
 
-    def monitor_for_selling(self, session_info):
-        kis_websocket = KISWebSocket(self.sell_order)
-        
-        #세션 정보 풀기
-        ticker, quantity, avr_price, target_date = session_info
-        
-        asyncio.run(kis_websocket.realtime_quote_subscribe(ticker, quantity, avr_price, target_date))
+    async def monitor_for_selling(self, session_info):
+        """
+        session_info 요소:
+        session_id, ticker, quantity, avr_price, target_date
+        """
+        session_id, ticker, quantity, avr_price, target_date = session_info
 
+        kis_websocket = KISWebSocket(self.sell_order)
+        try:
+            # complete = asyncio.run(kis_websocket.realtime_quote_subscribe(ticker, quantity, avr_price, target_date))
+            complete = await kis_websocket.realtime_quote_subscribe(ticker, quantity, avr_price, target_date)
+            print("realtime_quote_subscribe 실행함.")
+            if complete:
+                print("모니터링이 정상적으로 종료되었습니다.")
+            else:
+                print("비정상 종료")
+        except Exception as e:
+            print(f"모니터링 오류 (세션 {session_id}): {e}")
+
+        return session_id
+
+
+    def delete_finished_session(self, session_id):
+        db = DatabaseManager()
+        db.delete_session_one_row(session_id)
+        
 
     def get_session_info(self):
         """
@@ -480,10 +502,10 @@ class TradingLogic:
         sessions_info = []
         
         for session in sessions:
-            start_date, ticker, quantity, avr_price = session[1], session[3], session[7], session[8]
+            session_id, start_date, ticker, quantity, avr_price = session[0], session[1], session[3], session[7], session[8]
             #강제 매도 일자
             target_date = self.date_utils.get_target_date(date.fromisoformat(str(start_date).split()[0]), DAYS_LATER)
-            info_list = ticker, quantity, avr_price, target_date
+            info_list = session_id, ticker, quantity, avr_price, target_date
             sessions_info.append(info_list)
             
         return sessions_info
