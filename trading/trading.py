@@ -12,8 +12,7 @@ from api.kis_api import KISApi
 from api.kis_websocket import KISWebSocket
 from config.condition import DAYS_LATER
 from concurrent.futures import ThreadPoolExecutor
-import nest_asyncio
-nest_asyncio.apply()
+
 
 class TradingLogic:
     """
@@ -464,26 +463,30 @@ class TradingLogic:
 ###############################    모니터링 메서드   ####################################
 ######################################################################################
 
-    async def monitor_for_selling(self, session_info):
+    async def monitor_for_selling(self, sessions_info):
         """
-        session_info 요소:
+        sessions_info 요소:
         session_id, ticker, quantity, avr_price, target_date
         """
-        session_id, ticker, quantity, avr_price, target_date = session_info
+        # session_id, ticker, quantity, avr_price, target_date = sessions_info
 
+        is_running = True
         kis_websocket = KISWebSocket(self.sell_order)
+                
         try:
-            # complete = asyncio.run(kis_websocket.realtime_quote_subscribe(ticker, quantity, avr_price, target_date))
-            complete = await kis_websocket.realtime_quote_subscribe(ticker, quantity, avr_price, target_date)
+            # 웹소켓 연결 및 모니터링 시작
+            complete = await kis_websocket.start_monitoring(sessions_info)
             print("realtime_quote_subscribe 실행함.")
+            
+            # 모니터링 상태 확인
             if complete:
                 print("모니터링이 정상적으로 종료되었습니다.")
             else:
                 print("비정상 종료")
+                
         except Exception as e:
-            print(f"모니터링 오류 (세션 {session_id}): {e}")
+            print(f"모니터링 오류: {e}")
 
-        return session_id
 
 
     def delete_finished_session(self, session_id):

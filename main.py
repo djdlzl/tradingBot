@@ -141,19 +141,28 @@ class MainProcess:
                 print(f"모니터링 사이클 에러: {str(e)}")
                 time.sleep(10)
 
-    def run_monitoring(self, session_info):
-        """모니터링을 위한 스레드 실행"""
+    def run_monitoring(self):
+        """새로운 이벤트 루프를 생성하여 모니터링 실행"""
         try:
             # 새로운 이벤트 루프 생성
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             
-            # 비동기 작업 실행
-            loop.run_until_complete(self.trading.monitor_for_selling(session_info))
+            trading = TradingLogic()
+            sessions_info = trading.get_session_info()
+            
+            # 이벤트 루프에서 코루틴 실행
+            loop.run_until_complete(trading.monitor_for_selling(sessions_info))
+            
         except Exception as e:
-            print(f"모니터링 실행 오류 (세션 {session_info[0]}): {e}")
+            print(f"모니터링 실행 오류: {e}")
         finally:
-            loop.close()  # 이벤트 루프 종료
+            # 이벤트 루프 정리
+            try:
+                loop.close()
+            except:
+                pass
+
 
 ######################################################################################
 ##################################    스레드 관리   #####################################
@@ -172,13 +181,13 @@ class MainProcess:
         
         # 트레이딩 스레드들
      
-        trading_thread = threading.Thread(
-            target=self.trading_cycle,
-            name="trading_cycle"
-            )
+        # trading_thread = threading.Thread(
+        #     target=self.run_monitoring,
+        #     name="run_monitoring"
+        #     )
         
-        trading_thread.start()
-        self.threads['trading'] = trading_thread  # threads 딕셔너리에 추가
+        # trading_thread.start()
+        # self.threads['trading'] = trading_thread  # threads 딕셔너리에 추가
 
 
 
@@ -259,7 +268,7 @@ def test():
 
     ####### websocket 모니터링 실행
     sessions_info = trading.get_session_info()
-    trading.monitor_for_selling(sessions_info[0])
+    asyncio.run(trading.monitor_for_selling(sessions_info))
 
     # trading.sell_order("037270", "121")
     # kis_api.get_my_cash()
@@ -267,6 +276,7 @@ def test():
 
 
 if __name__ == "__main__":
-
+    # test()
     main_process = MainProcess()
     main_process.start_all()
+    main_process.run_monitoring()
