@@ -36,6 +36,35 @@ class KISWebSocket:
         
 
 ######################################################################################
+##################################    매도 로직   #####################################
+######################################################################################
+
+    async def monitoring_for_selling(self, recvvalue, session_id, ticker, quantity, avr_price, liquidation_date): # 실제 거래 시간에 값이 받아와지는지 확인 필요
+
+        print("monitoring_for_selling: ",recvvalue)
+        
+        # 구독 성공 메시지 체크
+        if len(recvvalue) == 1 and "SUBSCRIBE SUCCESS" in recvvalue[0]:
+            print("Subscription successful")
+            return False
+        
+        try:
+            target_price = int(recvvalue[14])
+        except Exception as e:
+            print("recvvalue 데이터 없음", e)
+            return False
+        today = datetime.now().date()
+             
+        if today > liquidation_date or target_price > (avr_price * SELLING_POINT):
+            sell_completed = self.callback(session_id, ticker, quantity, target_price)
+            print("매도 :   ", sell_completed)
+            return True
+        else:
+            print("값이 없습니다.")
+            return False
+
+
+######################################################################################
 ##############################    인증 관련 메서드   #####################################
 ######################################################################################
 
@@ -276,7 +305,7 @@ class KISWebSocket:
 ##############################    모니터링 메서드   #######################################
 ######################################################################################
 
-    async def _monitor_ticker(self, session_id, ticker, quantity, avr_price, target_date):
+    async def _monitor_ticker(self, session_id, ticker, quantity, avr_price, liquidation_date):
         """개별 종목 모니터링 및 매도 처리"""
         while self.is_connected and ticker in self.subscribed_tickers:
 
@@ -292,7 +321,7 @@ class KISWebSocket:
 
                     # 매도 조건 확인
                     sell_completed = await self.monitoring_for_selling(
-                        recvvalue, session_id, ticker, quantity, avr_price, target_date
+                        recvvalue, session_id, ticker, quantity, avr_price, liquidation_date
                     )
                     
                     if sell_completed:
@@ -305,7 +334,7 @@ class KISWebSocket:
                 return False
                 
 
-    # async def _monitor_ticker(self, ticker, quantity, avr_price, target_date):
+    # async def _monitor_ticker(self, ticker, quantity, avr_price, liquidation_date):
     #     """개별 종목 모니터링"""
     #     while ticker in self.subscribed_tickers:
     #         try:
@@ -314,7 +343,7 @@ class KISWebSocket:
                 
     #             if '"tr_id":"PINGPONG"' in data:
     #                 continue
-    #             sell_completed = await self.monitoring_for_selling(recvvalue, ticker, quantity, avr_price, target_date)
+    #             sell_completed = await self.monitoring_for_selling(recvvalue, ticker, quantity, avr_price, liquidation_date)
     #             if sell_completed:
     #                 await self.unsubscribe_ticker(ticker)
     #                 print(f"{ticker} 호가 감시를 종료합니다.")
@@ -328,90 +357,59 @@ class KISWebSocket:
 ##############################    레거시 메서드   #######################################
 ######################################################################################
             
-    async def realtime_quote_subscribe(self, ticker, quantity, avr_price, target_date):
-        """실시간 호가 구독"""
-        approval_key = await self._ensure_approval(is_mock=True)
+    # async def realtime_quote_subscribe(self, ticker, quantity, avr_price, liquidation_date):
+    #     """실시간 호가 구독"""
+    #     approval_key = await self._ensure_approval(is_mock=True)
         
-        # WebSocket 연결 설정
-        url = 'ws://ops.koreainvestment.com:31000/tryitout/H0STASP0'  # 모의투자 웹소켓 URL
+    #     # WebSocket 연결 설정
+    #     url = 'ws://ops.koreainvestment.com:31000/tryitout/H0STASP0'  # 모의투자 웹소켓 URL
         
-        connect_headers = {
-            "approval_key": approval_key,
-            "custtype": "P",
-            "tr_type": "1",
-            "content-type": "utf-8"
-        }
-        try:
-            async with websockets.connect(url, extra_headers=connect_headers) as websocket:
-                # 실시간 호가 요청 데이터 구성
-                print("WebSocket 연결 성공")
-                request_data = {
-                    "header": connect_headers,
-                    "body": {
-                        "input":{
-                            "tr_id": "H0STASP0",  # 실시간 호가 TR ID
-                            "tr_key": ticker
-                    }
-                    }
-                }
+    #     connect_headers = {
+    #         "approval_key": approval_key,
+    #         "custtype": "P",
+    #         "tr_type": "1",
+    #         "content-type": "utf-8"
+    #     }
+    #     try:
+    #         async with websockets.connect(url, extra_headers=connect_headers) as websocket:
+    #             # 실시간 호가 요청 데이터 구성
+    #             print("WebSocket 연결 성공")
+    #             request_data = {
+    #                 "header": connect_headers,
+    #                 "body": {
+    #                     "input":{
+    #                         "tr_id": "H0STASP0",  # 실시간 호가 TR ID
+    #                         "tr_key": ticker
+    #                 }
+    #                 }
+    #             }
 
-                # 구독 요청
-                await websocket.send(json.dumps(request_data))
+    #             # 구독 요청
+    #             await websocket.send(json.dumps(request_data))
                 
-                print("Subscribed to real-time quotes for %s", ticker, quantity, avr_price)
-                print("Subscribed to real-",json.dumps(request_data))
+    #             print("Subscribed to real-time quotes for %s", ticker, quantity, avr_price)
+    #             print("Subscribed to real-",json.dumps(request_data))
 
-                while True:
-                    try:
-                        data = await websocket.recv()
-                        recvvalue = data.split('^')
-                        # PINGPONG 처리
-                        if '"tr_id":"PINGPONG"' in data:
-                            await websocket.pong(data) 
-                            continue
+    #             while True:
+    #                 try:
+    #                     data = await websocket.recv()
+    #                     recvvalue = data.split('^')
+    #                     # PINGPONG 처리
+    #                     if '"tr_id":"PINGPONG"' in data:
+    #                         await websocket.pong(data) 
+    #                         continue
                         
-                        # 실시간 데이터 처리
-                        sell_completed = await self.monitoring_for_selling(recvvalue, ticker, quantity, avr_price, target_date)
-                        if sell_completed is True:
-                            print("호가 감시를 종료합니다.")
-                            return True
-                    except websockets.ConnectionClosed:
-                        print("WebSocket connection closed")
-                        return False
-                    except Exception as e:
-                        print("Error processing data: %s", e)
-                        return False
-        except Exception as e:
-            print(f"WebSocket 연결 실패: {e}")
-            return False
-
-
-    async def monitoring_for_selling(self, recvvalue, session_id, ticker, quantity, avr_price, target_date): # 실제 거래 시간에 값이 받아와지는지 확인 필요
-
-        print("monitoring_for_selling: ",recvvalue)
-        
-        # 구독 성공 메시지 체크
-        if len(recvvalue) == 1 and "SUBSCRIBE SUCCESS" in recvvalue[0]:
-            print("Subscription successful")
-            return False
-        
-        try:
-            target_price = int(recvvalue[15])
-        except Exception as e:
-            print("recvvalue 데이터 없음", e)
-            return False
-        today = datetime.now().date()
-        
-        # print("monitoring_for_selling- ",today)
-        # print("monitoring_for_selling - ",target_date)
-        # print("monitoring_for_selling - target_price",target_price)
-        # print("값 비교: ",today > target_date) 
-        print("recvvalue[14]: ", target_price)
-        
-        if recvvalue: #today > target_date or target_price > (avr_price * SELLING_POINT):
-            sell_completed = self.callback(session_id, ticker, quantity, recvvalue[15])
-            print("매도 :   ", sell_completed)
-            return True
-        else:
-            print("값이 없습니다.")
-            return False
+    #                     # 실시간 데이터 처리
+    #                     sell_completed = await self.monitoring_for_selling(recvvalue, ticker, quantity, avr_price, liquidation_date)
+    #                     if sell_completed is True:
+    #                         print("호가 감시를 종료합니다.")
+    #                         return True
+    #                 except websockets.ConnectionClosed:
+    #                     print("WebSocket connection closed")
+    #                     return False
+    #                 except Exception as e:
+    #                     print("Error processing data: %s", e)
+    #                     return False
+    #     except Exception as e:
+    #         print(f"WebSocket 연결 실패: {e}")
+    #         return False

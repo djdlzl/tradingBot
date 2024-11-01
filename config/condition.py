@@ -14,7 +14,7 @@ selling_point_2 = 1
 
 
 # Trading parameters
-MAX_PRICE_DROP_PERCENT = -8
+MAX_PRICE_DROP_PERCENT = -7
 
 # 상한가 종목 받아오는 시간
 GET_ULS_HOUR = 17
