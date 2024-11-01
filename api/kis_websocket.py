@@ -117,7 +117,10 @@ class KISWebSocket:
     async def start_monitoring(self, sessions_info):
         """여러 종목 동시 모니터링 시작"""
         await self.connect_websocket()
-        
+        # 종목 구독
+        for session_id, ticker, qty, price, date in sessions_info:
+            await self.subscribe_ticker(ticker)        
+
         # 단일 웹소켓 수신 처리 시작
         asyncio.create_task(self._message_receiver())
         
@@ -125,11 +128,11 @@ class KISWebSocket:
         monitoring_tasks = []
         for session_id, ticker, qty, price, date in sessions_info:
             task = asyncio.create_task(
-                self._monitor_ticker(ticker, qty, price, date)
+                self._monitor_ticker(session_id, ticker, qty, price, date)
             )
             monitoring_tasks.append(task)
-            await self.subscribe_ticker(ticker)
-
+            print(f"{ticker} 모니터링 태스크 생성")  # 디버깅용
+            
         # 모든 모니터링 태스크 완료 대기
         results = await asyncio.gather(*monitoring_tasks, return_exceptions=True)
         return results
@@ -139,17 +142,29 @@ class KISWebSocket:
         while self.is_connected:
             try:
                 data = await self.websocket.recv()
+                # print(f"웹소켓 수신 데이터: {data}")  # 디버깅용
                 
                 if '"tr_id":"PINGPONG"' in data:
                     await self.websocket.pong(data)
                     continue
-                    
-                recvvalue = data.split('^')
-                ticker = recvvalue[0]  # 종목 코드 추출
                 
-                # 구독 중인 종목의 데이터만 큐에 추가
+                # 구독 성공 메시지 체크
+                if "SUBSCRIBE SUCCESS" in data:
+                    print("Subscription successful")
+                    data_dict = json.loads(data)
+                    ticker = data_dict['header']['tr_key']
+                    print("ticker: ",ticker)
+
+                recvvalue = data.split('^')
+                # 구분자로 분리된 데이터인 경우
+                if '|' in recvvalue:
+                    ticker = data.split('|')[-1]
+
+                
                 if ticker in self.subscribed_tickers:
+                    print(f"{ticker} 큐에 추가")  # 디버깅용
                     await self.message_queue.put((ticker, recvvalue))
+                    print(f"현재 큐 크기: {self.message_queue.qsize()}")  # 디버깅용
                     
             except Exception as e:
                 print(f"수신 에러: {e}")
@@ -261,17 +276,23 @@ class KISWebSocket:
 ##############################    모니터링 메서드   #######################################
 ######################################################################################
 
-    async def _monitor_ticker(self, ticker, quantity, avr_price, target_date):
+    async def _monitor_ticker(self, session_id, ticker, quantity, avr_price, target_date):
         """개별 종목 모니터링 및 매도 처리"""
         while self.is_connected and ticker in self.subscribed_tickers:
+
             try:
                 # 큐에서 해당 종목의 데이터 가져오기
-                recv_ticker, recvvalue = await self.message_queue.get()
+                data = await self.message_queue.get()
+                recv_ticker, recvvalue = data  # 튜플 언패킹
+                
+                print(f"받은 데이터: ticker={recv_ticker}, value={recvvalue}")  # 디버깅용
                 
                 if recv_ticker == ticker:
+                    print("_monitor_ticker, recv_ticker 실행된거냐")
+
                     # 매도 조건 확인
                     sell_completed = await self.monitoring_for_selling(
-                        recvvalue, ticker, quantity, avr_price, target_date
+                        recvvalue, session_id, ticker, quantity, avr_price, target_date
                     )
                     
                     if sell_completed:
@@ -365,7 +386,7 @@ class KISWebSocket:
             return False
 
 
-    async def monitoring_for_selling(self, recvvalue, ticker, quantity, avr_price, target_date): # 실제 거래 시간에 값이 받아와지는지 확인 필요
+    async def monitoring_for_selling(self, recvvalue, session_id, ticker, quantity, avr_price, target_date): # 실제 거래 시간에 값이 받아와지는지 확인 필요
 
         print("monitoring_for_selling: ",recvvalue)
         
@@ -375,7 +396,7 @@ class KISWebSocket:
             return False
         
         try:
-            target_price = int(recvvalue[14])
+            target_price = int(recvvalue[15])
         except Exception as e:
             print("recvvalue 데이터 없음", e)
             return False
@@ -388,7 +409,7 @@ class KISWebSocket:
         print("recvvalue[14]: ", target_price)
         
         if recvvalue: #today > target_date or target_price > (avr_price * SELLING_POINT):
-            sell_completed = self.callback(ticker, quantity, recvvalue[14])
+            sell_completed = self.callback(session_id, ticker, quantity, recvvalue[15])
             print("매도 :   ", sell_completed)
             return True
         else:

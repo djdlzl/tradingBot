@@ -47,13 +47,14 @@ class TradingLogic:
         return res
     
     
-    def sell_order(self, ticker, quantity, price=None):
+    def sell_order(self, session_id, ticker, quantity, price=None):
         """
         주식 매수
         """
         price = price
         res = self.kis_api.sell_order(ticker, quantity, price=None)
         print(res)
+        self.delete_finished_session(session_id)
         return res
         
 ######################################################################################
@@ -67,7 +68,6 @@ class TradingLogic:
         """
         upper_limit_stocks = self.kis_api.get_upper_limit_stocks()
         if upper_limit_stocks:
-            # self.kis_api.print_korean_response(upper_limit_stocks)
 
             # 상한가 종목 정보 추출
             stocks_info = [(stock['mksc_shrn_iscd'], stock['hts_kor_isnm'], stock['stck_prpr'], stock['prdy_ctrt']) 
@@ -188,7 +188,7 @@ class TradingLogic:
             sessions = db.load_trading_session()
             db.close()
             if not sessions:
-                print("진행 중인 거래 세션이 없습니다.")
+                print("start_trading_session - 진행 중인 거래 세션이 없습니다.")
                 return
             
             # 주문 결과 리스트로 저장
@@ -316,7 +316,7 @@ class TradingLogic:
             # 거래 세션을 조회
             sessions = db.load_trading_session()
             if not sessions:
-                print("진행 중인 거래 세션이 없습니다.")
+                print("load_and_update_trading_session - 진행 중인 거래 세션이 없습니다.")
                 return
             
             # 주문 결과 리스트로 저장
@@ -476,7 +476,7 @@ class TradingLogic:
         try:
             # 웹소켓 연결 및 모니터링 시작
             complete = await kis_websocket.start_monitoring(sessions_info)
-            print("realtime_quote_subscribe 실행함.")
+            print("콜백함수 실행함.")
             
             # 모니터링 상태 확인
             if complete:
@@ -492,6 +492,7 @@ class TradingLogic:
     def delete_finished_session(self, session_id):
         db = DatabaseManager()
         db.delete_session_one_row(session_id)
+        print(session_id, " 세션을 삭제했습니다.")
         
 
     def get_session_info(self):

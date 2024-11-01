@@ -16,7 +16,6 @@ class KISApi:
         """KISApi 클래스의 인스턴스를 초기화합니다."""
         self.headers = {"content-type": "application/json; charset=utf-8"}
         self.w_headers = {"content-type": "utf-8"}
-        self.db_manager = DatabaseManager()
         self.real_token = None
         self.mock_token = None
         self.real_token_expires_at = None
@@ -47,8 +46,10 @@ class KISApi:
         Returns:
             tuple: (액세스 토큰, 만료 시간) 또는 실패 시 (None, None)
         """
+        db_manager = DatabaseManager()
+        
         # Check if we have a valid cached token
-        cached_token, cached_expires_at = self.db_manager.get_token(token_type)
+        cached_token, cached_expires_at = db_manager.get_token(token_type)
         if cached_token and cached_expires_at > datetime.utcnow():
             logging.info("Using cached %s token", token_type)
             return cached_token, cached_expires_at
@@ -72,7 +73,8 @@ class KISApi:
                     expires_at = datetime.utcnow() + timedelta(seconds=token_data.get("expires_in", 86400))
                     
                     # Save the new token to the database
-                    self.db_manager.save_token(token_type, access_token, expires_at)
+                    db_manager.save_token(token_type, access_token, expires_at)
+                    db_manager.close()
                     
                     logging.info("Successfully obtained and cached %s token on attempt %d", token_type, attempt + 1)
                     return access_token, expires_at
@@ -85,7 +87,7 @@ class KISApi:
                     time.sleep(retry_delay)
                 else:
                     logging.error("Max retries reached. Unable to obtain %s token.", token_type)
-        
+        db_manager.close()
         return None, None
 
     def _ensure_token(self, is_mock):
@@ -112,8 +114,8 @@ class KISApi:
         """
         웹소켓 인증키 발급
         """
-    
-        cached_approval, cached_expires_at = self.db_manager.get_approval(approval_type)
+        db_manager = DatabaseManager()
+        cached_approval, cached_expires_at = db_manager.get_approval(approval_type)
         if cached_approval and cached_expires_at > datetime.utcnow():
             logging.info("Using cached %s approval", approval_type)
             return cached_approval, cached_expires_at
@@ -143,8 +145,8 @@ class KISApi:
                     expires_at = datetime.utcnow() + timedelta(seconds=86400)                    
 
                     # Save the new approval_key to the database
-                    self.db_manager.save_approval(approval_type, approval_key, expires_at)
-                    
+                    db_manager.save_approval(approval_type, approval_key, expires_at)
+                    db_manager.close()
                     logging.info("Successfully obtained and cached %s approval_key on attempt %d", approval_type, attempt + 1)
                     return approval_key, expires_at
                 else:

@@ -19,6 +19,8 @@ from datetime import datetime
 from trading.trading import TradingLogic
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.executors.pool import ThreadPoolExecutor
+import atexit
 from config.condition import GET_ULS_HOUR, GET_ULS_MINUTE, GET_SELECT_HOUR, GET_SELECT_MINUTE, ORDER_HOUR_1, ORDER_HOUR_2, ORDER_HOUR_3, ORDER_MINUTE_1, ORDER_MINUTE_2, ORDER_MINUTE_3
 from database.db_manager import DatabaseManager
 from api.kis_api import KISApi
@@ -31,123 +33,154 @@ class MainProcess:
         self.db_lock = threading.Lock()
         self.threads = {}
         self.scheduler = BackgroundScheduler(timezone='Asia/Seoul')
-        self.trading = TradingLogic()
+        # 스케줄러 설정
+        executors = {
+            'default': ThreadPoolExecutor(20)
+        }
+        self.scheduler = BackgroundScheduler(executors=executors)
+        # 프로그램 종료 시 스케줄러 정리
+        atexit.register(self.cleanup)
 
 ######################################################################################
-#################################    메서드 합치기   #####################################
+#################################    스케줄링 메서드   #####################################
 ######################################################################################
-
+    def cleanup(self):
+        """리소스 정리"""
+        try:
+            if self.scheduler and self.scheduler.running:
+                self.scheduler.shutdown(wait=False)
+        except:
+            pass
+        
     def schedule_manager(self):
         """스케줄 작업을 관리하는 메서드"""
+        
         try:
-            # 첫 번째 스케줄 작업: 상한가 종목 조회 (15:30)
-            self.scheduler.add_job(
-                self.trading.fetch_and_save_previous_upper_limit_stocks,
-                CronTrigger(hour=GET_ULS_HOUR, minute=GET_ULS_MINUTE)
-                )
+            trading = TradingLogic()
+            # 스케줄러가 이미 실행 중이면 중지
+            if self.scheduler.running:
+                self.scheduler.shutdown(wait=False)
 
-            # 두 번째 스케줄 작업: 매수 종목 선정 (08:50)
+            # 작업 추가
             self.scheduler.add_job(
-                self.trading.select_stocks_to_buy,
-                CronTrigger(hour=GET_SELECT_HOUR, minute=GET_SELECT_MINUTE)
-                )
-
-            # 매수 실행 - 첫번째 (14:20)
-            self.scheduler.add_job(
-                self.execute_buy_task,
-                CronTrigger(hour=ORDER_HOUR_1, minute=ORDER_MINUTE_1)
+                trading.fetch_and_save_previous_upper_limit_stocks,
+                CronTrigger(hour=GET_ULS_HOUR, minute=GET_ULS_MINUTE),
+                id='fetch_stocks',
+                replace_existing=True
             )
 
-            # 매수 실행 - 두번째 (14:40)
             self.scheduler.add_job(
-                self.execute_buy_task,
-                CronTrigger(hour=ORDER_HOUR_2, minute=ORDER_MINUTE_2)
+                trading.select_stocks_to_buy,
+                CronTrigger(hour=GET_SELECT_HOUR, minute=GET_SELECT_MINUTE),
+                id='select_stocks',
+                replace_existing=True
             )
 
-            # 매수 실행 - 세번째 (15:00)
             self.scheduler.add_job(
                 self.execute_buy_task,
-                CronTrigger(hour=ORDER_HOUR_3, minute=ORDER_MINUTE_3)
+                CronTrigger(hour=ORDER_HOUR_1, minute=ORDER_MINUTE_1),
+                id='buy_task_1',
+                replace_existing=True
+            )
+
+            self.scheduler.add_job(
+                self.execute_buy_task,
+                CronTrigger(hour=ORDER_HOUR_2, minute=ORDER_MINUTE_2),
+                id='buy_task_2',
+                replace_existing=True
+            )
+
+            self.scheduler.add_job(
+                self.execute_buy_task,
+                CronTrigger(hour=ORDER_HOUR_3, minute=ORDER_MINUTE_3),
+                id='buy_task_3',
+                replace_existing=True
             )
 
             # 스케줄러 시작
             self.scheduler.start()
             print("스케줄러 시작됨")
             print(f"등록된 작업: 상한가 조회({GET_ULS_HOUR}:{GET_ULS_MINUTE}), " 
-                f"종목 선정({GET_SELECT_HOUR}:{GET_SELECT_MINUTE}), "
-                f"매수 시간({ORDER_HOUR_1}:{ORDER_MINUTE_1}, "
-                f"{ORDER_HOUR_2}:{ORDER_MINUTE_2}, "
-                f"{ORDER_HOUR_3}:{ORDER_MINUTE_3})")
-            
+                  f"종목 선정({GET_SELECT_HOUR}:{GET_SELECT_MINUTE}), "
+                  f"매수 시간({ORDER_HOUR_1}:{ORDER_MINUTE_1}, "
+                  f"{ORDER_HOUR_2}:{ORDER_MINUTE_2}, "
+                  f"{ORDER_HOUR_3}:{ORDER_MINUTE_3})")
+
             # 스케줄러 실행 유지
             while not self.stop_event.is_set():
                 time.sleep(1)
-
+                
         except Exception as e:
             print(f"스케줄 관리자 에러: {str(e)}")
         finally:
-            if self.scheduler.running:  # 스케줄러가 실행 중일 때만 종료
+            if self.scheduler.running:
                 self.scheduler.shutdown()
 
     def execute_buy_task(self):
         """매수 태스크 실행"""
         try:
+            trading = TradingLogic()
             # 선별 종목 매수
             with self.db_lock:
-                order_list = self.trading.start_trading_session()
+                order_list = trading.start_trading_session()
             
             # 주문 처리 대기
             time.sleep(20)  
             
             # 매수 정보 세션에 저장
             with self.db_lock:
-                self.trading.load_and_update_trading_session(order_list)
+                trading.load_and_update_trading_session(order_list)
         except Exception as e:
             print(f"매수 태스크 실행 에러: {str(e)}")
 
+######################################################################################
+#################################    모니터링 사이클   #####################################
+######################################################################################
 
     def trading_cycle(self):
-        """모니터링-매도 사이클 실행"""
-        threads = []  # 실행 중인 스레드를 추적하는 리스트
+        trading = TradingLogic()
+        trading.fetch_and_save_previous_upper_limit_stocks()
+        # """모니터링-매도 사이클 실행"""
+        # threads = []  # 실행 중인 스레드를 추적하는 리스트
         
-        while not self.stop_event.is_set():
-            try:
-                # 현재 활성화된 세션 정보 가져오기
-                with self.db_lock:
-                    sessions_info = self.trading.get_session_info()
+        # while not self.stop_event.is_set():
+        #     try:
+        #         # 현재 활성화된 세션 정보 가져오기
+        #         with self.db_lock:
+        #             sessions_info = trading.get_session_info()
                 
-                for session_info in sessions_info:
-                    # session_info는 (session_id, ticker, quantity, avr_price, target_date) 형태의 튜플
-                    session_id = str(session_info[0])  # session_id를 문자열로 변환
+        #         for session_info in sessions_info:
+        #             # session_info는 (session_id, ticker, quantity, avr_price, target_date) 형태의 튜플
+        #             session_id = str(session_info[0])  # session_id를 문자열로 변환
                     
-                    # 이미 실행 중인 스레드가 있는지 확인
-                    if not any(thread.name == session_id for thread in threads):
-                        # 새로운 세션에 대해 스레드 생성
-                        thread = threading.Thread(
-                            target=self.run_monitoring,
-                            args=(session_info, )
-                        )
-                        thread.name = session_id
-                        thread.daemon = True  # 데몬 스레드로 설정
-                        thread.start()
-                        threads.append(thread)
+        #             # 이미 실행 중인 스레드가 있는지 확인
+        #             if not any(thread.name == session_id for thread in threads):
+        #                 # 새로운 세션에 대해 스레드 생성
+        #                 thread = threading.Thread(
+        #                     target=self.run_monitoring,
+        #                     args=(session_info, )
+        #                 )
+        #                 thread.name = session_id
+        #                 thread.daemon = True  # 데몬 스레드로 설정
+        #                 thread.start()
+        #                 threads.append(thread)
                 
-                # 완료된 스레드 제거 (죽은 스레드 정리)
-                threads = [t for t in threads if t.is_alive()]
+        #         # 완료된 스레드 제거 (죽은 스레드 정리)
+        #         threads = [t for t in threads if t.is_alive()]
                 
-                time.sleep(1)  # CPU 사용률 감소를 위한 짧은 대기
+        #         time.sleep(1)  # CPU 사용률 감소를 위한 짧은 대기
 
-            except Exception as e:
-                print(f"모니터링 사이클 에러: {str(e)}")
-                time.sleep(10)
+        #     except Exception as e:
+        #         print(f"모니터링 사이클 에러: {str(e)}")
+        #         time.sleep(10)
 
     def run_monitoring(self):
         """새로운 이벤트 루프를 생성하여 모니터링 실행"""
-        try:
-            # 새로운 이벤트 루프 생성
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
+        # 새로운 이벤트 루프 생성
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:    
             trading = TradingLogic()
             sessions_info = trading.get_session_info()
             
@@ -157,11 +190,31 @@ class MainProcess:
         except Exception as e:
             print(f"모니터링 실행 오류: {e}")
         finally:
-            # 이벤트 루프 정리
             try:
+                # 실행 중인 모든 태스크 가져오기
+                pending = asyncio.all_tasks(loop)
+                
+                # 현재 태스크 확인 및 제거
+                current = asyncio.current_task(loop)
+                if current and current in pending:
+                    pending.remove(current)
+                
+                # 남은 태스크들 취소
+                if pending:
+                    # 모든 태스크 취소
+                    for task in pending:
+                        task.cancel()
+                    
+                    # 태스크들이 정리될 때까지 대기
+                    loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+                
+                # 루프 종료
                 loop.close()
-            except:
-                pass
+                
+                # 루프 종료
+                loop.close()
+            except Exception as e:
+                print(f"이벤트 루프 정리 중 오류: {e}")
 
 
 ######################################################################################
@@ -170,15 +223,23 @@ class MainProcess:
 
     def start_all(self):
         """모든 스레드 시작"""
-        # 스케줄 관리 스레드
-        scheduler_thread = threading.Thread(
-            target=self.schedule_manager,
-            name="Schedule_Manager"
-        )
-        
-        scheduler_thread.start()
-        self.threads['scheduler'] = scheduler_thread
-        
+        try:
+            # 스케줄 관리 스레드
+            scheduler_thread = threading.Thread(
+                target=self.schedule_manager,
+                name="Schedule_Manager"
+            )
+            scheduler_thread.daemon = True  # 메인 프로그램 종료시 함께 종료
+            scheduler_thread.start()
+            self.threads['scheduler'] = scheduler_thread
+            
+            print("스케줄러 스레드 시작됨")
+            
+        except Exception as e:
+            print(f"스레드 시작 중 오류 발생: {e}")
+            self.cleanup()
+            
+            
         # 트레이딩 스레드들
      
         # trading_thread = threading.Thread(
@@ -250,25 +311,25 @@ def test():
     trading = TradingLogic()
     kis_api = KISApi()
 
-    # #####상한가 조회#############    
-    # print("시작")
-    # trading.fetch_and_save_previous_upper_limit_stocks()
-    # print("상한가 저장")
+    #####상한가 조회#############    
+    print("시작")
+    trading.fetch_and_save_previous_upper_limit_stocks()
+    print("상한가 저장")
 
-    # ######매수가능 상한가 종목 조회###########
-    # trading.select_stocks_to_buy() # 2일째 장 마감때 저장
-    # print("상한가 선별 및 저장 완료")
+    ######매수가능 상한가 종목 조회###########
+    trading.select_stocks_to_buy() # 2일째 장 마감때 저장
+    print("상한가 선별 및 저장 완료")
     
-    # print("start_trading_session 실행 시작")
-    # order_list = trading.start_trading_session()
+    print("start_trading_session 실행 시작")
+    order_list = trading.start_trading_session()
     
-    # time.sleep(20)
-    # print("load_and_update_trading_session 실행 시작")
-    # trading.load_and_update_trading_session(order_list)
+    time.sleep(20)
+    print("load_and_update_trading_session 실행 시작")
+    trading.load_and_update_trading_session(order_list)
 
-    ####### websocket 모니터링 실행
-    sessions_info = trading.get_session_info()
-    asyncio.run(trading.monitor_for_selling(sessions_info))
+    # ####### websocket 모니터링 실행
+    # sessions_info = trading.get_session_info()
+    # asyncio.run(trading.monitor_for_selling(sessions_info))
 
     # trading.sell_order("037270", "121")
     # kis_api.get_my_cash()
@@ -277,6 +338,20 @@ def test():
 
 if __name__ == "__main__":
     # test()
-    main_process = MainProcess()
-    main_process.start_all()
-    main_process.run_monitoring()
+    try:
+        main_process = MainProcess()
+        # 스케줄러 스레드 시작
+        main_process.start_all()
+        
+        # 모니터링 실행 (메인 스레드)
+        main_process.run_monitoring()
+        
+        # 모니터링이 끝나도 프로그램이 계속 실행되도록 유지
+        while not main_process.stop_event.is_set():
+            time.sleep(1)
+            
+    except KeyboardInterrupt:
+        print("\n프로그램 종료 요청됨")
+        main_process.stop_event.set()
+    finally:
+        main_process.cleanup()
