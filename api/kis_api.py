@@ -429,7 +429,42 @@ class KISApi:
 ################################    주문 메서드   ###################################
 ######################################################################################
 
-    def place_order(self, ticker, quantity):
+    # def place_order(self, ticker, quantity):
+    #     """
+    #     주식 주문을 실행합니다.
+
+    #     Args:
+    #         ticker (str): 종목 코드
+    #         order_type (str): 주문 유형
+    #         quantity (int): 주문 수량
+
+    #         Returns:
+    #         dict: 주문 실행 결과를 포함한 딕셔너리
+    #     """
+        
+        
+    #     self._set_headers(is_mock=True, tr_id="VTTC0802U")
+    #     url = "https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/order-cash"
+    #     data = {
+    #         "CANO": M_ACCOUNT_NUMBER,
+    #         "ACNT_PRDT_CD": "01",
+    #         "PDNO": ticker,
+    #         "ORD_DVSN": "01",
+    #         "ORD_QTY": str(quantity),
+    #         "ORD_UNPR": "0",
+    #     }
+    #     self.headers["hashkey"] = None
+
+    #     #test
+    #     print("파라미터 확인", ticker, quantity)
+        
+    #     response = requests.post(url=url, data=json.dumps(data), headers=self.headers, timeout=10)
+    #     json_response = response.json()
+
+    #     return json_response
+
+
+    def place_order(self, ticker, quantity, order_type=None, price=None):
         """
         주식 주문을 실행합니다.
 
@@ -441,21 +476,25 @@ class KISApi:
             Returns:
             dict: 주문 실행 결과를 포함한 딕셔너리
         """
-        self._set_headers(is_mock=True, tr_id="VTTC0802U")
+        
+        if order_type == 'buy':
+            tr_id_code = "VTTC0802U"
+        elif order_type == 'sell':
+            tr_id_code = "VTTC0801U"
+            
+        
+        self._set_headers(is_mock=True, tr_id=tr_id_code)
         url = "https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/order-cash"
         data = {
             "CANO": M_ACCOUNT_NUMBER,
             "ACNT_PRDT_CD": "01",
             "PDNO": ticker,
-            "ORD_DVSN": "01",
+            "ORD_DVSN": "01" if price is None else "00",  # 01: 시장가, 00: 지정가
             "ORD_QTY": str(quantity),
-            "ORD_UNPR": "0",
+            "ORD_UNPR": "0" if price is None else str(price),
         }
         self.headers["hashkey"] = None
 
-        #test
-        print("파라미터 확인", ticker, quantity)
-        
         response = requests.post(url=url, data=json.dumps(data), headers=self.headers, timeout=10)
         json_response = response.json()
 
@@ -492,13 +531,67 @@ class KISApi:
         return json_response
 
 
+    def cancel_order(self, order_num):
+        """
+        주문취소 API
+        """
+        url = "https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/order-rvsecncl"
+        body = {
+            "CANO": M_ACCOUNT_NUMBER,
+            "ACNT_PRDT_CD": "01",
+            "KRX_FWDG_ORD_ORGNO": "",
+            "ORGN_ODNO": order_num,
+            "ORD_DVSN": "01",
+            "RVSE_CNCL_DVSN_CD": "02", # 취소주문
+            "ORD_QTY": "0",
+            "ORD_UNPR": "0",
+            "QTY_ALL_ORD_YN": "Y"
+        }
+
+        self._get_hashkey(body, is_mock=True)
+        self._set_headers(is_mock=True, tr_id="VTTC0803U")
+        self.headers["hashkey"] = self.hashkey
+        
+        response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
+        json_response = response.json()
+        
+        return json_response
+
+
+    def revise_order(self, order_num):
+        """
+        주문취소 API
+        """
+        url = "https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/order-rvsecncl"
+        body = {
+            "CANO": M_ACCOUNT_NUMBER,
+            "ACNT_PRDT_CD": "01",
+            "KRX_FWDG_ORD_ORGNO": "",
+            "ORGN_ODNO": order_num,
+            "ORD_DVSN": "01",
+            "RVSE_CNCL_DVSN_CD": "01", #정정주문
+            "ORD_QTY": "0",
+            "ORD_UNPR": "0",
+            "QTY_ALL_ORD_YN": "Y"
+        }
+
+        self._get_hashkey(body, is_mock=True)
+        self._set_headers(is_mock=True, tr_id="VTTC0803U")
+        self.headers["hashkey"] = self.hashkey
+        
+        response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
+        json_response = response.json()
+        
+        return json_response
+
+
 ######################################################################################
 ################################    잔고 메서드   ###################################
 ######################################################################################
 
     def daily_order_execution_inquiry(self, order_num):
         """
-        사용한 자금 조회
+        주식일별주문체결조회
         """
         today = datetime.now()
         formatted_date = today.strftime('%Y%m%d')
@@ -511,7 +604,7 @@ class KISApi:
             "INQR_STRT_DT": formatted_date,
             "INQR_END_DT": formatted_date,
             "UNPR_DVSN": "01",
-            "SLL_BUY_DVSN_CD": "02",
+            "SLL_BUY_DVSN_CD": "00",
             "INQR_DVSN": "00",
             "PDNO": "", # 상품번호 ticker, 공란 - 전체조회
             "CCLD_DVSN": "00",
@@ -522,7 +615,7 @@ class KISApi:
             "CTX_AREA_FK100": "",
             "CTX_AREA_NK100": "",
         }
-                
+
         self._get_hashkey(body, is_mock=True)
         self._set_headers(is_mock=True, tr_id="VTTC8001R")
         self.headers["hashkey"] = self.hashkey
@@ -531,7 +624,11 @@ class KISApi:
         json_response = response.json()
         
         return json_response
-    
+
+
+
+
+
     def balance_inquiry(self, ticker):
 
         # url="https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/trading/inquire-daily-ccld"

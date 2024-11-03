@@ -337,21 +337,21 @@ def test():
 
 
 if __name__ == "__main__":
-    # test()
-    try:
-        main_process = MainProcess()
-        # 스케줄러 스레드 시작
-        main_process.start_all()
+    test()
+    # try:
+    #     main_process = MainProcess()
+    #     # 스케줄러 스레드 시작
+    #     main_process.start_all()
         
-        # 모니터링 실행 (메인 스레드)
-        main_process.run_monitoring()
+    #     # 모니터링 실행 (메인 스레드)
+    #     main_process.run_monitoring()
         
-        # 모니터링이 끝나도 프로그램이 계속 실행되도록 유지
-        while not main_process.stop_event.is_set():
-            time.sleep(1)
+    #     # 모니터링이 끝나도 프로그램이 계속 실행되도록 유지
+    #     while not main_process.stop_event.is_set():
+    #         time.sleep(1)
             
-    except KeyboardInterrupt:
-        print("\n프로그램 종료 요청됨")
-        main_process.stop_event.set()
-    finally:
-        main_process.cleanup()
+    # except KeyboardInterrupt:
+    #     print("\n프로그램 종료 요청됨")
+    #     main_process.stop_event.set()
+    # finally:
+    #     main_process.cleanup()

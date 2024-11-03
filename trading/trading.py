@@ -39,23 +39,53 @@ class TradingLogic:
 #########################    주문 메서드   ###################################
 ######################################################################################
 
-    def place_order(self, ticker, quantity):
+    def buy_order(self, ticker, quantity):
         """
         주식 매수
         """
-        res = self.kis_api.place_order(ticker, quantity)
+        res = self.kis_api.place_order(ticker, quantity, order_type='buy')
         return res
     
     
     def sell_order(self, session_id, ticker, quantity, price=None):
         """
         주식 매수
+        미체결 다시 주문하는 로직 업데이트
         """
-        price = price
-        res = self.kis_api.sell_order(ticker, quantity, price=None)
-        print(res)
+
+        order_result = self.kis_api.place_order(ticker, quantity, order_type='sell', price=price)
+        print(order_result)
+        
+        #주문 체결까지 기다리기
+        time.sleep(5)
+        
+        ### 미체결 로직 분리 필요
+        conclusion_result = self.kis_api.daily_order_execution_inquiry(order_result.get('output').get('ODNO'))
+        order_qty = conclusion_result.get('output2').get('tot_ord_qty')
+        filled_qty = conclusion_result.get('output2').get('tot_ccld_qty')
+        unfilled_qty = order_qty - filled_qty
+        
+        ### 미체결 수량이 0이상이면 실행 = 미체결이 존재하면 실행        
+        while unfilled_qty > 0:
+            
+            #주문취소
+            cancel_result = self.kis_api.cancel_order(order_result.get('output').get('ODNO'))
+            print(cancel_result)
+            
+            #재주문
+            reorder_result = self.kis_api.place_order(ticker, unfilled_qty, order_type='sell')
+            
+            #주문 체결까지 기다리기
+            time.sleep(5)
+            conclusion_result = self.kis_api.daily_order_execution_inquiry(reorder_result.get('output').get('ODNO'))
+            order_qty = conclusion_result.get('output2').get('tot_ord_qty')
+            filled_qty = conclusion_result.get('output2').get('tot_ccld_qty')
+            unfilled_qty = order_qty - filled_qty
+        
         self.delete_finished_session(session_id)
-        return res
+        
+        return True
+
         
 ######################################################################################
 #########################    상한가 조회 관련 메서드   #####################################
@@ -293,7 +323,7 @@ class TradingLogic:
 
         # 매수 주문을 진행
         quantity = int(quantity)
-        order_result = self.kis_api.place_order(ticker, quantity)
+        order_result = self.buy_order(ticker, quantity)
         print("place_order_session:  주문 실행", order_result)
         
         # 'rt_cd': '1' 세션 취소
@@ -470,7 +500,6 @@ class TradingLogic:
         """
         # session_id, ticker, quantity, avr_price, target_date = sessions_info
 
-        is_running = True
         kis_websocket = KISWebSocket(self.sell_order)
                 
         try:
