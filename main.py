@@ -21,7 +21,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.executors.pool import ThreadPoolExecutor
 import atexit
-from config.condition import GET_ULS_HOUR, GET_ULS_MINUTE, GET_SELECT_HOUR, GET_SELECT_MINUTE, ORDER_HOUR_1, ORDER_HOUR_2, ORDER_HOUR_3, ORDER_MINUTE_1, ORDER_MINUTE_2, ORDER_MINUTE_3
+from config.condition import GET_ULS_HOUR, GET_ULS_MINUTE, GET_SELECT_HOUR, GET_SELECT_MINUTE, ORDER_HOUR_1, ORDER_HOUR_2, ORDER_HOUR_3, ORDER_MINUTE_1, ORDER_MINUTE_2, ORDER_MINUTE_3,BUY_WAIT
 from database.db_manager import DatabaseManager
 from api.kis_api import KISApi
 from api.kis_websocket import KISWebSocket
@@ -123,10 +123,7 @@ class MainProcess:
             # 선별 종목 매수
             with self.db_lock:
                 order_list = trading.start_trading_session()
-            
-            # 주문 처리 대기
-            time.sleep(20)  
-            
+
             # 매수 정보 세션에 저장
             with self.db_lock:
                 trading.load_and_update_trading_session(order_list)
@@ -274,17 +271,11 @@ def fetch_and_save_upper_limit_stocks():
 def add_stocks():
     trading = TradingLogic()
     stocks = [
-        ("027970", "한국제지", 1350.0, 29.99),
-        ("016450", "한세예스24홀딩스", 7600.0, 29.97),
-        ("138610", "나이벡", 23450.0, 29.82),
-        ("361670", "삼영에스앤씨", 7020.0, 30.00),
-        ("053280", "예스24", 8290.0, 29.99),
-		("033320", "제이씨현시스템", 4120.0, 29.91),
-		("314130", "지놈앤컴퍼니", 4445.0, 29.91),
-		("066980", "한성크린텍", 2320.0, 29.91),
+        ("025560", "미래산업", 1305.0, 29.99),
+        ("307870", "비투엔", 981.0, 29.97)
     ]
 
-    trading.add_upper_limit_stocks("2024-10-14", stocks)
+    trading.add_upper_limit_stocks("2024-10-31", stocks)
 
 def delete_stocks():
     """
@@ -308,24 +299,29 @@ def test():
     """
     테스트 프로세스
     """
+    
+    
     trading = TradingLogic()
     kis_api = KISApi()
 
-    #####상한가 조회#############    
-    print("시작")
-    trading.fetch_and_save_previous_upper_limit_stocks()
-    print("상한가 저장")
+    res = kis_api.revise_order("00")
+    print("main:- ", res)
 
-    ######매수가능 상한가 종목 조회###########
-    trading.select_stocks_to_buy() # 2일째 장 마감때 저장
-    print("상한가 선별 및 저장 완료")
+    # #####상한가 조회#############    
+    # print("시작")
+    # trading.fetch_and_save_previous_upper_limit_stocks()
+    # print("상한가 저장")
+
+    # ######매수가능 상한가 종목 조회###########
+    # trading.select_stocks_to_buy() # 2일째 장 마감때 저장
+    # print("상한가 선별 및 저장 완료")
     
-    print("start_trading_session 실행 시작")
-    order_list = trading.start_trading_session()
+    # print("start_trading_session 실행 시작")
+    # order_list = trading.start_trading_session()
     
-    time.sleep(20)
-    print("load_and_update_trading_session 실행 시작")
-    trading.load_and_update_trading_session(order_list)
+    # time.sleep(20)
+    # print("load_and_update_trading_session 실행 시작")
+    # trading.load_and_update_trading_session(order_list)
 
     # ####### websocket 모니터링 실행
     # sessions_info = trading.get_session_info()
@@ -337,21 +333,22 @@ def test():
 
 
 if __name__ == "__main__":
-    test()
-    # try:
-    #     main_process = MainProcess()
-    #     # 스케줄러 스레드 시작
-    #     main_process.start_all()
+    # test()
+    add_stocks()
+    try:
+        main_process = MainProcess()
+        # 스케줄러 스레드 시작
+        main_process.start_all()
         
-    #     # 모니터링 실행 (메인 스레드)
-    #     main_process.run_monitoring()
+        # 모니터링 실행 (메인 스레드)
+        main_process.run_monitoring()
         
-    #     # 모니터링이 끝나도 프로그램이 계속 실행되도록 유지
-    #     while not main_process.stop_event.is_set():
-    #         time.sleep(1)
+        # 모니터링이 끝나도 프로그램이 계속 실행되도록 유지
+        while not main_process.stop_event.is_set():
+            time.sleep(1)
             
-    # except KeyboardInterrupt:
-    #     print("\n프로그램 종료 요청됨")
-    #     main_process.stop_event.set()
-    # finally:
-    #     main_process.cleanup()
+    except KeyboardInterrupt:
+        print("\n프로그램 종료 요청됨")
+        main_process.stop_event.set()
+    finally:
+        main_process.cleanup()

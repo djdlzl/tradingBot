@@ -49,18 +49,18 @@ class KISWebSocket:
             return False
         
         try:
-            target_price = int(recvvalue[14])
+            target_price = int(recvvalue[10])
         except Exception as e:
             print("recvvalue 데이터 없음", e)
             return False
         today = datetime.now().date()
              
-        if today > liquidation_date or target_price > (avr_price * SELLING_POINT):
+        if target_price: #today > liquidation_date or target_price > (avr_price * SELLING_POINT):
             sell_completed = self.callback(session_id, ticker, quantity, target_price)
             print("매도 :   ", sell_completed)
             return True
         else:
-            print("값이 없습니다.")
+            print("매도 조건 불일치")
             return False
 
 
@@ -317,8 +317,6 @@ class KISWebSocket:
                 print(f"받은 데이터: ticker={recv_ticker}, value={recvvalue}")  # 디버깅용
                 
                 if recv_ticker == ticker:
-                    print("_monitor_ticker, recv_ticker 실행된거냐")
-
                     # 매도 조건 확인
                     sell_completed = await self.monitoring_for_selling(
                         recvvalue, session_id, ticker, quantity, avr_price, liquidation_date

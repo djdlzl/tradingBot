@@ -3,7 +3,7 @@ import requests
 import logging
 from requests.exceptions import RequestException
 from utils.string_utils import unicode_to_korean
-from config.config import R_APP_KEY, R_APP_SECRET, M_APP_KEY, M_APP_SECRET, M_ACCOUNT_NUMBER
+from config.config import R_APP_KEY, R_APP_SECRET, M_APP_KEY, M_APP_SECRET, M_ACCOUNT_NUMBER, R_ACCOUNT_NUMBER
 from datetime import datetime, timedelta
 from database.db_manager import DatabaseManager
 import time
@@ -137,8 +137,6 @@ class KISApi:
                 approval_data = response.json()
                 print("#########response: ", approval_data)
                 
-                print("###############실패#############")
-
                 if "approval_key" in approval_data:
                     approval_key = approval_data["approval_key"]
 
@@ -535,6 +533,10 @@ class KISApi:
         """
         주문취소 API
         """
+        
+        # 주문번호는 8자리로 맞춰야 함
+        order_num = str(order_num).zfill(8)
+        
         url = "https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/order-rvsecncl"
         body = {
             "CANO": M_ACCOUNT_NUMBER,
@@ -552,7 +554,7 @@ class KISApi:
         self._set_headers(is_mock=True, tr_id="VTTC0803U")
         self.headers["hashkey"] = self.hashkey
         
-        response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
+        response = requests.post(url=url, headers=self.headers, json=body, timeout=10)
         json_response = response.json()
         
         return json_response
@@ -562,25 +564,32 @@ class KISApi:
         """
         주문취소 API
         """
+        print("revise_order:- ",order_num, type(order_num))
+        
+        # 주문번호는 8자리로 맞춰야 함
+        order_num = str(order_num).zfill(8)
+        
         url = "https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/order-rvsecncl"
         body = {
             "CANO": M_ACCOUNT_NUMBER,
             "ACNT_PRDT_CD": "01",
-            "KRX_FWDG_ORD_ORGNO": "",
+            "KRX_FWDG_ORD_ORGNO": "00950",
             "ORGN_ODNO": order_num,
             "ORD_DVSN": "01",
-            "RVSE_CNCL_DVSN_CD": "01", #정정주문
+            "RVSE_CNCL_DVSN_CD": "01", # 01:정정, 02:취소
             "ORD_QTY": "0",
             "ORD_UNPR": "0",
-            "QTY_ALL_ORD_YN": "Y"
+            "QTY_ALL_ORD_YN": "Y",
+            "ALGO_NO": ""
         }
-
+        print(body)
         self._get_hashkey(body, is_mock=True)
         self._set_headers(is_mock=True, tr_id="VTTC0803U")
         self.headers["hashkey"] = self.hashkey
         
-        response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
+        response = requests.post(url=url, headers=self.headers, json=body, timeout=10)
         json_response = response.json()
+        
         
         return json_response
 
@@ -595,7 +604,6 @@ class KISApi:
         """
         today = datetime.now()
         formatted_date = today.strftime('%Y%m%d')
-
         # url="https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/trading/inquire-daily-ccld"
         url="https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/inquire-daily-ccld"
         body = {

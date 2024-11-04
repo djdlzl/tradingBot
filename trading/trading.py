@@ -10,7 +10,7 @@ from database.db_manager import DatabaseManager
 from utils.date_utils import DateUtils
 from api.kis_api import KISApi
 from api.kis_websocket import KISWebSocket
-from config.condition import DAYS_LATER
+from config.condition import DAYS_LATER, BUY_PERCENT, BUY_WAIT, SELL_WAIT
 from concurrent.futures import ThreadPoolExecutor
 
 
@@ -43,52 +43,94 @@ class TradingLogic:
         """
         주식 매수
         """
-        res = self.kis_api.place_order(ticker, quantity, order_type='buy')
-        return res
-    
+        try:
+            # 매수 주문
+            order_result = self.kis_api.place_order(ticker, quantity, order_type='buy')
+            print("place_order_session:  주문 실행", order_result)
+            if order_result['rt_cd'] == '1':
+                return order_result
+            
+            time.sleep(BUY_WAIT)
+            # 미체결 수량 확인
+            unfilled_qty = self.order_complete_check(order_result)
+            
+            #정상 매수일 경우 return
+            if unfilled_qty == 0:
+                return order_result
+            
+            # 미체결 시 재주문 - 모듈화 필요
+            while unfilled_qty > 0:
+                # 미체결 주문 취소
+                cancel_result = self.kis_api.cancel_order(order_result.get('output').get('ODNO'))
+                print("cancel_result:- ",cancel_result)
+                
+                # 재주문
+                reorder_result = self.kis_api.place_order(ticker, quantity, order_type='buy')
+                print("새로운 매수 결과 reorder_result",reorder_result)
+                
+                # 매수 주문 후 대기
+                time.sleep(20)
+                
+                # 체결 완료 검증
+                unfilled_qty = self.order_complete_check(reorder_result)
+            
+            return reorder_result
+        except Exception as e:
+            print("buy_order 중 에러 발생 : ", e)
     
     def sell_order(self, session_id, ticker, quantity, price=None):
         """
         주식 매수
         미체결 다시 주문하는 로직 업데이트
         """
-
-        order_result = self.kis_api.place_order(ticker, quantity, order_type='sell', price=price)
-        print(order_result)
-        
-        #주문 체결까지 기다리기
-        time.sleep(5)
-        
-        ### 미체결 로직 분리 필요
-        conclusion_result = self.kis_api.daily_order_execution_inquiry(order_result.get('output').get('ODNO'))
-        order_qty = conclusion_result.get('output2').get('tot_ord_qty')
-        filled_qty = conclusion_result.get('output2').get('tot_ccld_qty')
-        unfilled_qty = order_qty - filled_qty
-        
-        ### 미체결 수량이 0이상이면 실행 = 미체결이 존재하면 실행        
-        while unfilled_qty > 0:
-            
-            #주문취소
-            cancel_result = self.kis_api.cancel_order(order_result.get('output').get('ODNO'))
-            print(cancel_result)
-            
-            #재주문
-            reorder_result = self.kis_api.place_order(ticker, unfilled_qty, order_type='sell')
+        try:
+            order_result = self.kis_api.place_order(ticker, quantity, order_type='sell', price=price)
+            print("sell_order:- ",order_result)
             
             #주문 체결까지 기다리기
-            time.sleep(5)
-            conclusion_result = self.kis_api.daily_order_execution_inquiry(reorder_result.get('output').get('ODNO'))
-            order_qty = conclusion_result.get('output2').get('tot_ord_qty')
-            filled_qty = conclusion_result.get('output2').get('tot_ccld_qty')
-            unfilled_qty = order_qty - filled_qty
-        
-        self.delete_finished_session(session_id)
-        
-        return True
+            time.sleep(SELL_WAIT)
+            
+            ### 미체결 확인
+            unfilled_qty = self.order_complete_check(order_result)
 
+            ### 미체결 수량이 0이상이면 실행 = 미체결이 존재하면 실행        
+            while unfilled_qty > 0:
+                
+                # 주문취소
+                cancel_result = self.kis_api.cancel_order(order_result.get('output').get('ODNO'))
+                print("cancel_result: - ",cancel_result)
+                
+                # 재주문
+                reorder_result = self.kis_api.place_order(ticker, unfilled_qty, order_type='sell')
+                print("새로운 매도 결과 reorder_result",reorder_result)
+
+                # 주문 체결까지 기다리기
+                time.sleep(SELL_WAIT)
+                
+                # 체결 완료 검증
+                unfilled_qty = self.order_complete_check(reorder_result)
+            
+            self.delete_finished_session(session_id)
+            
+            return True
+        except Exception as e:
+            print("sell_order 중 에러 발생 : ", e)
+
+    def order_complete_check(self, order_result):
+        print("order_complete_check 실행")
+        
+        #일별주문체결에서 총주문수량, 체결수량 확인
+        conclusion_result = self.kis_api.daily_order_execution_inquiry(order_result.get('output').get('ODNO'))
+        print("일별체결 결과: ", conclusion_result)
+        
+        #미체결수량 계산
+        unfilled_qty = conclusion_result.get('output1')[0].get('rmn_qty')
+        print("order_complete_check: - ", unfilled_qty)
+
+        return unfilled_qty 
         
 ######################################################################################
-#########################    상한가 조회 관련 메서드   #####################################
+#########################    상한가 조회 관련 메서드   #################################
 ######################################################################################
 
     def fetch_and_save_previous_upper_limit_stocks(self):
@@ -150,7 +192,7 @@ class TradingLogic:
             # 현재가 가져오기
             current_price, temp_stop_yn = self.kis_api.get_current_price(stock[0])
             # 매수 조건: 현재가가 상한가 당시 가격보다 -8% 이상 하락하지 않은 경우
-            if int(current_price) > (int(stock[2]) * 0.92) and temp_stop_yn=='N':  # -8% 이상 하락, 거래정지 N
+            if int(current_price) > (int(stock[2]) * BUY_PERCENT) and temp_stop_yn=='N':  # -8% 이상 하락, 거래정지 N
                 print(f"################ 매수 후보 종목: {stock[0]}, 종목명: {stock[1]} (현재가: {current_price}, 상한가 당시 가격: {stock[2]})")
                 selected_stocks.append(stock)
       
@@ -324,7 +366,6 @@ class TradingLogic:
         # 매수 주문을 진행
         quantity = int(quantity)
         order_result = self.buy_order(ticker, quantity)
-        print("place_order_session:  주문 실행", order_result)
         
         # 'rt_cd': '1' 세션 취소
         if order_result['rt_cd'] == '1' and count == 0:
