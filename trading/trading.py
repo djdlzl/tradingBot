@@ -65,7 +65,7 @@ class TradingLogic:
                 print("cancel_result:- ",cancel_result)
                 
                 # 재주문
-                reorder_result = self.kis_api.place_order(ticker, quantity, order_type='buy')
+                reorder_result = self.kis_api.place_order(ticker, unfilled_qty, order_type='buy')
                 print("새로운 매수 결과 reorder_result",reorder_result)
                 
                 # 매수 주문 후 대기
