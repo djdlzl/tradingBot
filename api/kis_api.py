@@ -498,6 +498,7 @@ class KISApi:
 
         return json_response
 
+
     def sell_order(self, ticker, quantity, price=None):
         """
         주식 매도 주문을 실행합니다.
@@ -582,7 +583,6 @@ class KISApi:
             "QTY_ALL_ORD_YN": "Y",
             "ALGO_NO": ""
         }
-        print(body)
         self._get_hashkey(body, is_mock=True)
         self._set_headers(is_mock=True, tr_id="VTTC0803U")
         self.headers["hashkey"] = self.hashkey
@@ -590,10 +590,32 @@ class KISApi:
         response = requests.post(url=url, headers=self.headers, json=body, timeout=10)
         json_response = response.json()
         
-        
         return json_response
 
 
+    def purchase_availability_inquiry(self, ticker):
+        """
+        주문가능조회
+        """
+        url = "https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/inquire-psbl-order"
+        body = {
+            "CANO": M_ACCOUNT_NUMBER,
+            "ACNT_PRDT_CD": "01",
+            "PDNO": ticker,
+            "ORD_UNPR": "",
+            "ORD_DVSN": "01",
+            "CMA_EVLU_AMT_ICLD_YN": "N",
+            "OVRS_ICLD_YN": "N"
+        }
+        
+        self._get_hashkey(body, is_mock=True)
+        self._set_headers(is_mock=True, tr_id="VTTC8908R")
+        self.headers["hashkey"] = self.hashkey
+
+        response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
+        json_response = response.json()
+        
+        return json_response
 ######################################################################################
 ################################    잔고 메서드   ###################################
 ######################################################################################

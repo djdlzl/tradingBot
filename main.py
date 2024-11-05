@@ -15,17 +15,17 @@
 
 import threading
 import time
+import atexit
+import asyncio
 from datetime import datetime
 from trading.trading import TradingLogic
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.executors.pool import ThreadPoolExecutor
-import atexit
 from config.condition import GET_ULS_HOUR, GET_ULS_MINUTE, GET_SELECT_HOUR, GET_SELECT_MINUTE, ORDER_HOUR_1, ORDER_HOUR_2, ORDER_HOUR_3, ORDER_MINUTE_1, ORDER_MINUTE_2, ORDER_MINUTE_3,BUY_WAIT
 from database.db_manager import DatabaseManager
 from api.kis_api import KISApi
 from api.kis_websocket import KISWebSocket
-import asyncio
 
 class MainProcess:
     def __init__(self):
@@ -134,43 +134,61 @@ class MainProcess:
 #################################    모니터링 사이클   #####################################
 ######################################################################################
 
-    def trading_cycle(self):
-        trading = TradingLogic()
-        trading.fetch_and_save_previous_upper_limit_stocks()
-        # """모니터링-매도 사이클 실행"""
-        # threads = []  # 실행 중인 스레드를 추적하는 리스트
+    # def trading_cycle(self):
+    #     """모니터링-매도 사이클 실행"""
+    #     trading = TradingLogic()
+    #     threads = []  # 실행 중인 스레드를 추적하는 리스트
         
-        # while not self.stop_event.is_set():
-        #     try:
-        #         # 현재 활성화된 세션 정보 가져오기
-        #         with self.db_lock:
-        #             sessions_info = trading.get_session_info()
+    #     while not self.stop_event.is_set():
+    #         try:
+    #             # 현재 활성화된 세션 정보 가져오기
+    #             with self.db_lock:
+    #                 sessions_info = trading.get_session_info()
                 
-        #         for session_info in sessions_info:
-        #             # session_info는 (session_id, ticker, quantity, avr_price, target_date) 형태의 튜플
-        #             session_id = str(session_info[0])  # session_id를 문자열로 변환
+    #             for session_info in sessions_info:
+    #                 # session_info는 (session_id, ticker, quantity, avr_price, target_date) 형태의 튜플
+    #                 session_id = str(session_info[0])  # session_id를 문자열로 변환
                     
-        #             # 이미 실행 중인 스레드가 있는지 확인
-        #             if not any(thread.name == session_id for thread in threads):
-        #                 # 새로운 세션에 대해 스레드 생성
-        #                 thread = threading.Thread(
-        #                     target=self.run_monitoring,
-        #                     args=(session_info, )
-        #                 )
-        #                 thread.name = session_id
-        #                 thread.daemon = True  # 데몬 스레드로 설정
-        #                 thread.start()
-        #                 threads.append(thread)
+    #                 # 이미 실행 중인 스레드가 있는지 확인
+    #                 if not any(thread.name == session_id for thread in threads):
+    #                     # 새로운 세션에 대해 스레드 생성
+    #                     thread = threading.Thread(
+    #                         target=self.run_monitoring,
+    #                         args=(session_info, )
+    #                     )
+    #                     thread.name = session_id
+    #                     thread.daemon = True  # 데몬 스레드로 설정
+    #                     thread.start()
+    #                     threads.append(thread)
                 
-        #         # 완료된 스레드 제거 (죽은 스레드 정리)
-        #         threads = [t for t in threads if t.is_alive()]
+    #             # 완료된 스레드 제거 (죽은 스레드 정리)
+    #             threads = [t for t in threads if t.is_alive()]
                 
-        #         time.sleep(1)  # CPU 사용률 감소를 위한 짧은 대기
+    #             time.sleep(1)  # CPU 사용률 감소를 위한 짧은 대기
 
-        #     except Exception as e:
-        #         print(f"모니터링 사이클 에러: {str(e)}")
-        #         time.sleep(10)
+    #         except Exception as e:
+    #             print(f"모니터링 사이클 에러: {str(e)}")
+    #             time.sleep(10)
 
+
+    # def run_monitoring(self, session_info):
+    #     """모니터링을 위한 스레드 실행"""
+    #     try:
+    #         trading = TradingLogic()
+            
+    #         # 새로운 이벤트 루프 생성
+    #         loop = asyncio.new_event_loop()
+    #         asyncio.set_event_loop(loop)
+            
+    #         # 비동기 작업 실행
+    #         loop.run_until_complete(trading.monitor_for_selling(session_info))
+    #     except Exception as e:
+    #         print(f"모니터링 실행 오류 (세션 {session_info[0]}): {e}")
+    #     finally:
+    #         loop.close()  # 이벤트 루프 종료
+
+
+############################## 백업 ####################################
     def run_monitoring(self):
         """새로운 이벤트 루프를 생성하여 모니터링 실행"""
         # 새로운 이벤트 루프 생성
@@ -232,21 +250,22 @@ class MainProcess:
             
             print("스케줄러 스레드 시작됨")
             
+            # 트레이딩 스레드들
+        
+            trading_thread = threading.Thread(
+                target=self.run_monitoring,
+                name="run_monitoring"
+                )
+            
+            trading_thread.start()
+            self.threads['trading'] = trading_thread  # threads 딕셔너리에 추가
+            print("모니터링 스레드 시작됨")
+
         except Exception as e:
             print(f"스레드 시작 중 오류 발생: {e}")
             self.cleanup()
+          
             
-            
-        # 트레이딩 스레드들
-     
-        # trading_thread = threading.Thread(
-        #     target=self.run_monitoring,
-        #     name="run_monitoring"
-        #     )
-        
-        # trading_thread.start()
-        # self.threads['trading'] = trading_thread  # threads 딕셔너리에 추가
-
 
 
     def stop_all(self):
@@ -255,6 +274,9 @@ class MainProcess:
         for name, thread in self.threads.items():
             thread.join()
             print(f"{name} 스레드 종료됨")
+
+##################################  이까지 클래스  ####################################
+
 
 def fetch_and_save_upper_limit_stocks():
     """
@@ -336,9 +358,6 @@ if __name__ == "__main__":
         main_process = MainProcess()
         # 스케줄러 스레드 시작
         main_process.start_all()
-        
-        # 모니터링 실행 (메인 스레드)
-        main_process.run_monitoring()
         
         # 모니터링이 끝나도 프로그램이 계속 실행되도록 유지
         while not main_process.stop_event.is_set():
