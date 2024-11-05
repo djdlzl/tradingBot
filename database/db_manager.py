@@ -470,16 +470,26 @@ class DatabaseManager:
             logging.error("Error saving trading session: %s", e)
             raise
 
-    def load_trading_session(self):
+    def load_trading_session(self, random_id=None):
         """
-        trading_session 테이블에서 모든 정보를 조회합니다.
-
-        :return: 거래 세션 정보 리스트
+        trading_session 테이블에서 정보를 조회합니다.
+        
+        Args:
+            random_id (str, optional): 조회할 세션의 ID. None인 경우 모든 세션을 조회합니다.
+        
+        Returns:
+            list: 거래 세션 정보 리스트. random_id가 주어진 경우 해당 세션만, 아니면 모든 세션을 반환
         """
         try:
-            self.cursor.execute('SELECT * FROM trading_session')
-            session = self.cursor.fetchall()
-            return session
+            if random_id is not None:
+                self.cursor.execute('''
+                    SELECT * FROM trading_session WHERE id = ?    
+                    ''', (random_id,))
+            else:
+                self.cursor.execute('SELECT * FROM trading_session')
+                
+            sessions = self.cursor.fetchall()
+            return sessions
         except sqlite3.Error as e:
             logging.error("Error loading trading session: %s", e)
             raise

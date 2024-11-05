@@ -306,7 +306,7 @@ def test():
 
     #####상한가 조회#############    
     print("시작")
-    trading.fetch_and_save_previous_upper_limit_stocks()
+    # trading.fetch_and_save_previous_upper_limit_stocks()
     print("상한가 저장")
 
     ######매수가능 상한가 종목 조회###########
@@ -330,7 +330,7 @@ def test():
 
 
 if __name__ == "__main__":
-    # test()
+    test()
 
     try:
         main_process = MainProcess()

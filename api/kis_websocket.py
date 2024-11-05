@@ -33,6 +33,7 @@ class KISWebSocket:
             "tr_type": "1",
             "content-type": "utf-8"
         }
+        self.active_tasks = {}
         
 
 ######################################################################################
@@ -49,15 +50,22 @@ class KISWebSocket:
             return False
         
         try:
-            target_price = int(recvvalue[10])
+            # 매도 목표가 정하기
+            target_price = int(recvvalue[14])
         except Exception as e:
             print("recvvalue 데이터 없음", e)
             return False
+        
         today = datetime.now().date()
              
         if target_price: #today > liquidation_date or target_price > (avr_price * SELLING_POINT):
+            # callback = trading.sell_order
             sell_completed = self.callback(session_id, ticker, quantity, target_price)
-            print("매도 :   ", sell_completed)
+            
+            # 매도 발생 시
+            await self.stop_monitoring(ticker)  # 해당 종목만 모니터링 중단
+            
+            print("매도 : ", sell_completed)
             return True
         else:
             print("매도 조건 불일치")
@@ -145,34 +153,88 @@ class KISWebSocket:
 
     async def start_monitoring(self, sessions_info):
         """여러 종목 동시 모니터링 시작"""
-        await self.connect_websocket()
-        # 종목 구독
-        for session_id, ticker, qty, price, date in sessions_info:
-            await self.subscribe_ticker(ticker)        
-
-        # 단일 웹소켓 수신 처리 시작
-        asyncio.create_task(self._message_receiver())
-        
-        # 각 종목별 모니터링 태스크 생성
-        monitoring_tasks = []
-        for session_id, ticker, qty, price, date in sessions_info:
-            task = asyncio.create_task(
-                self._monitor_ticker(session_id, ticker, qty, price, date)
-            )
-            monitoring_tasks.append(task)
-            print(f"{ticker} 모니터링 태스크 생성")  # 디버깅용
+        try:
+            # 실시간호가 모니터링 웹소켓 연결
+            await self.connect_websocket()
             
-        # 모든 모니터링 태스크 완료 대기
-        results = await asyncio.gather(*monitoring_tasks, return_exceptions=True)
-        return results
+            # 종목 구독
+            for session_id, ticker, qty, price, date in sessions_info:
+                await self.subscribe_ticker(ticker)        
+
+            # 단일 웹소켓 수신 처리 시작
+            asyncio.create_task(self._message_receiver())
+            
+            # 각 종목별 모니터링 태스크 생성
+            background_tasks = set()
+            for session_id, ticker, qty, price, date in sessions_info:
+                task = asyncio.create_task(
+                    self._monitor_ticker(session_id, ticker, qty, price, date)
+                )
+                task.add_done_callback(background_tasks.discard)
+                background_tasks.add(task)
+                self.active_tasks[ticker] = task
+                print(f"{ticker} 모니터링 태스크 생성")
+                
+
+        except Exception as e:
+            print(f"모니터링 중 오류 발생: {e}")
+            
+            
         
+        # 모든 태스크가 완료될 때까지 대기
+        while background_tasks:
+            done, _ = await asyncio.wait(
+                background_tasks,
+                return_when=asyncio.FIRST_COMPLETED
+            )
+            for task in done:
+                try:
+                    await task
+                except Exception as e:
+                    print(f"태스크에러: {e}")
+                    # 에러 발생한 태스크 제거하고 나머지 태스크 실행
+                    background_tasks.discard(task)
+        
+        
+                
+        
+        # 모든 모니터링 태스크 완료 대기
+        results = await asyncio.gather(*background_tasks, return_exceptions=True)
+        return results
+
+
+    async def stop_monitoring(self, ticker):
+        """특정 종목의 모니터링만 중단"""
+        if ticker in self.active_tasks:
+            task = self.active_tasks[ticker]
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+            del self.active_tasks[ticker]
+            print(f"{ticker} 모니터링 중단")
+
+
     async def _message_receiver(self):
         """웹소켓 메시지 수신 전담 코루틴"""
-        while self.is_connected:
+        while True:
             try:
+                if not self. is_connected:
+                    try:
+                        await self.connect_websocket()
+                        # 재연결 후 종목 재구독
+                        for ticker in self.subscribed_tickers:
+                            await self.subscribe_ticker(ticker)
+                    except Exception as e:
+                        print(f"재연결 실패: {e}")
+                        await asyncio.sleep(5)
+                        continue
+                    
                 data = await self.websocket.recv()
                 # print(f"웹소켓 수신 데이터: {data}")  # 디버깅용
                 
+                #웹소켓 연결상태 체크
                 if '"tr_id":"PINGPONG"' in data:
                     await self.websocket.pong(data)
                     continue
@@ -184,39 +246,46 @@ class KISWebSocket:
                     ticker = data_dict['header']['tr_key']
                     print("ticker: ",ticker)
 
+                # 데이터 가공
                 recvvalue = data.split('^')
                 # 구분자로 분리된 데이터인 경우
                 if '|' in recvvalue:
                     ticker = data.split('|')[-1]
 
-                
                 if ticker in self.subscribed_tickers:
                     print(f"{ticker} 큐에 추가")  # 디버깅용
                     await self.message_queue.put((ticker, recvvalue))
                     print(f"현재 큐 크기: {self.message_queue.qsize()}")  # 디버깅용
                     
+            except websockets.exceptions.ConnectionClosed:
+                print("웹소켓 연결이 끊어졌습니다. 재연결을 시도합니다.")
+                self.is_connected = False
+                continue
+                
             except Exception as e:
                 print(f"수신 에러: {e}")
                 self.is_connected = False
-                break
-                
+                await asyncio.sleep(1)  # 에러 발생시 잠시 대기
+                continue
 
     async def connect_websocket(self):
         """웹소켓 연결 설정"""
-        if self.is_connected:
-            return
-        
-        self.approval_key = await self._ensure_approval(is_mock=True)
-        url = 'ws://ops.koreainvestment.com:31000/tryitout/H0STASP0'
-        
-        self.connect_headers = {
-            "approval_key": self.approval_key,
-            "custtype": "P",
-            "tr_type": "1",
-            "content-type": "utf-8"
-        }
-        
         try:
+            # 웹소켓이 존재하고 연결되어 있는지 확인
+            if hasattr(self, 'websocket') and not self.websocket.closed:
+                print("이미 웹소켓이 연결되어 있습니다")
+                return
+            
+            self.approval_key = await self._ensure_approval(is_mock=True)
+            url = 'ws://ops.koreainvestment.com:31000/tryitout/H0STASP0'
+            
+            self.connect_headers = {
+                "approval_key": self.approval_key,
+                "custtype": "P",
+                "tr_type": "1",
+                "content-type": "utf-8"
+            }
+            
             self.websocket = await websockets.connect(url, extra_headers=self.connect_headers)
             self.is_connected = True
             print("WebSocket 연결 성공")
@@ -224,7 +293,33 @@ class KISWebSocket:
         except Exception as e:
             print(f"WebSocket 연결 실패: {e}")
             self.is_connected = False
-                
+                    
+########### 웹소켓 연결 코드 백업 ###############
+
+    # async def connect_websocket(self):
+    #     """웹소켓 연결 설정"""
+    #     if self.is_connected:
+    #         return
+        
+    #     self.approval_key = await self._ensure_approval(is_mock=True)
+    #     url = 'ws://ops.koreainvestment.com:31000/tryitout/H0STASP0'
+        
+    #     self.connect_headers = {
+    #         "approval_key": self.approval_key,
+    #         "custtype": "P",
+    #         "tr_type": "1",
+    #         "content-type": "utf-8"
+    #     }
+        
+    #     try:
+    #         self.websocket = await websockets.connect(url, extra_headers=self.connect_headers)
+    #         self.is_connected = True
+    #         print("WebSocket 연결 성공")
+
+    #     except Exception as e:
+    #         print(f"WebSocket 연결 실패: {e}")
+    #         self.is_connected = False
+
     async def close(self):
         """웹소켓 연결 종료"""
         if self.websocket:
@@ -355,6 +450,64 @@ class KISWebSocket:
 ##############################    레거시 메서드   #######################################
 ######################################################################################
             
+    async def realtime_quote_subscribe(self, ticker, quantity, avr_price, liquidation_date):
+        """실시간 호가 구독"""
+        try:
+            # WebSocket 연결
+            await self.connect_websocket()
+            
+            if not self.is_connected:
+                print("웹소켓 연결 실패")
+                return False
+
+            # 실시간 호가 요청 데이터 구성
+            request_data = {
+                "header": self.connect_headers,
+                "body": {
+                    "input":{
+                        "tr_id": "H0STASP0",  # 실시간 호가 TR ID
+                        "tr_key": ticker
+                    }
+                }
+            }
+
+            # 구독 요청
+            await self.websocket.send(json.dumps(request_data))
+            
+            print(f"Subscribed to real-time quotes for {ticker}, {quantity}, {avr_price}")
+            print("Subscribe request:", json.dumps(request_data))
+
+            while self.is_connected:
+                try:
+                    data = await self.websocket.recv()
+                    recvvalue = data.split('^')
+                    
+                    # PINGPONG 처리
+                    if '"tr_id":"PINGPONG"' in data:
+                        await self.websocket.pong(data) 
+                        continue
+                    
+                    # 실시간 데이터 처리
+                    sell_completed = await self.monitoring_for_selling(recvvalue, ticker, quantity, avr_price, liquidation_date)
+                    if sell_completed is True:
+                        print("호가 감시를 종료합니다.")
+                        return True
+                        
+                except websockets.ConnectionClosed:
+                    print("WebSocket connection closed")
+                    self.is_connected = False
+                    return False
+                    
+                except Exception as e:
+                    print(f"데이터 처리 중 에러 발생: {e}")
+                    return False
+                    
+        except Exception as e:
+            print(f"실시간 호가 구독 중 에러 발생: {e}")
+            return False
+            
+############  실시간호가 구독 레거시 백업  #################
+
     # async def realtime_quote_subscribe(self, ticker, quantity, avr_price, liquidation_date):
     #     """실시간 호가 구독"""
     #     approval_key = await self._ensure_approval(is_mock=True)
@@ -411,3 +564,4 @@ class KISWebSocket:
     #     except Exception as e:
     #         print(f"WebSocket 연결 실패: {e}")
     #         return False
+ 
