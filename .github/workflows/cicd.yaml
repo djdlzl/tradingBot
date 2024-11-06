@@ -2,7 +2,7 @@ name: livermore CI/CD
 
 on:
   push:
-    branches: [ main ]
+    branches: [ deploy ]
 
 
 jobs:
