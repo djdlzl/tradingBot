@@ -36,4 +36,4 @@ jobs:
           git pull &&
           pip install -r requirements.txt &&
           sudo systemctl restart livermore
-        '
+        ' 
