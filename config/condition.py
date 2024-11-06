@@ -11,7 +11,7 @@ DAYS_LATER = 7 #마지막 매수로부터 4일째
 
 # 매수 조건 퍼센테이지
 BUY_PERCENT = 0.92
-# 매수 주문 후 대기
+# 매수 주문 후 대기 / 초
 BUY_WAIT = 20
 
 ######################################################
@@ -19,15 +19,15 @@ BUY_WAIT = 20
 ######################################################
 
 #selling_point_1 이상일 때 1차 매도 - 일단 이것만 사용
-SELLING_POINT = 1.15
+SELLING_POINT = 1.10
 #selling_point_2 이상일 때 2차 매도
 SELLING_POINT_2 = 1
 
-# 매도 주문 후 대기
+# 매도 주문 후 대기 / 초
 SELL_WAIT = 3
 
 # Trading parameters
-MAX_PRICE_DROP_PERCENT = -7
+MAX_PRICE_DROP_PERCENT = -6
 
 
 ######################################################

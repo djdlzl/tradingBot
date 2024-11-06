@@ -133,7 +133,7 @@ class TradingLogic:
         
         #미체결수량 계산
         unfilled_qty = int(conclusion_result.get('output1')[0].get('rmn_qty'))
-        print("매도 order_complete_check: - ", unfilled_qty)
+        print("주문확인 order_complete_check: - ", unfilled_qty)
 
         return unfilled_qty 
         

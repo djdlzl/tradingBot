@@ -24,6 +24,7 @@ class KISWebSocket:
         self.callback = callback
         self.websocket = None
         self.subscribed_tickers = set()
+        self.ticker_queues = {}
         self.message_queue = asyncio.Queue()
         self.is_connected = False
         self.approval_key = None
@@ -40,13 +41,13 @@ class KISWebSocket:
 ##################################    매도 로직   #####################################
 ######################################################################################
 
-    async def monitoring_for_selling(self, recvvalue, session_id, ticker, quantity, avr_price, target_date): # 실제 거래 시간에 값이 받아와지는지 확인 필요
+    async def sell_condition(self, recvvalue, session_id, ticker, quantity, avr_price, target_date): # 실제 거래 시간에 값이 받아와지는지 확인 필요
 
-        print("monitoring_for_selling: ",recvvalue)
+        print("sell_condition: ",recvvalue)
         
         # 구독 성공 메시지 체크
         if len(recvvalue) == 1 and "SUBSCRIBE SUCCESS" in recvvalue[0]:
-            print("monitoring_for_selling - Subscription successful")
+            print("sell_condition - Subscription successful")
             return False
         
         try:
@@ -58,7 +59,7 @@ class KISWebSocket:
         
         today = datetime.now().date()
              
-        if target_price: #today > target_date or target_price > (avr_price * SELLING_POINT):
+        if target_price > avr_price * 1.02: #today > target_date or target_price > (avr_price * SELLING_POINT):
             # callback = trading.sell_order
             sell_completed = self.callback(session_id, ticker, quantity, target_price)
             
@@ -230,44 +231,32 @@ class KISWebSocket:
                 
                 # 웹소켓 응답 수신
                 data = await self.websocket.recv()
-                print(f"수신된 원본 데이터: {data}")  # 디버깅용
+                # print(f"수신된 원본 데이터: {data}")  # 디버깅용
             
                 #웹소켓 연결상태 체크
                 if '"tr_id":"PINGPONG"' in data:
                     await self.websocket.pong(data)
                     continue
 
-                try:
+
+                # 구독 성공 메시지 체크
+                if "SUBSCRIBE SUCCESS" in data:
                     # JSON 파싱 시도
                     data_dict = json.loads(data)
                     print("data_dict:",data_dict)
-                    # 구독 성공 메시지 체크
-                    if "SUBSCRIBE SUCCESS" in data:
-                        print("_message_receiver - Subscription successful")
-                        ticker = data_dict['header']['tr_key']
-                        print(f"구독 성공: {ticker}")
-                        continue
-
-                    # 실시간 데이터 처리
-                    if 'header' in data_dict and 'tr_key' in data_dict['header']:
-                        ticker = data_dict['header']['tr_key']
-                        if ticker in self.subscribed_tickers:
-                            print(f"실시간 데이터 수신 - 종목: {ticker}")
-                            await self.message_queue.put((ticker, data_dict))
-                            print(f"큐 상태 - 종목: {ticker}, 크기: {self.message_queue.qsize()}")
-                        continue
-
-                except json.JSONDecodeError:
-                    # JSON 파싱 실패한 경우 (실시간 호가 데이터일 수 있음)
-                    recvvalue = data.split('^')
-                    if len(recvvalue) > 1:  # 실제 호가 데이터인 경우
-                        if '|' in data:
-                            ticker = data.split('|')[-1]
-                            if ticker in self.subscribed_tickers:
-                                print(f"호가 데이터 수신 - 종목: {ticker}")
-                                await self.message_queue.put((ticker, recvvalue))
-                                print(f"큐 상태 - 종목: {ticker}, 크기: {self.message_queue.qsize()}")
-
+                    print("_message_receiver - Subscription successful")
+                    ticker = data_dict['header']['tr_key']
+                    print(f"구독 성공: {ticker}")
+                    continue
+                
+                # 실시간 호가 데이터일 경우
+                recvvalue = data.split('^')
+                # print("가공데이터",recvvalue)
+                if len(recvvalue) > 1:  # 실제 호가 데이터인 경우
+                    ticker = recvvalue[0].split('|')[-1]
+                    if ticker in self.subscribed_tickers:
+                        await self.ticker_queues[ticker].put((ticker, recvvalue))
+                            
             except websockets.exceptions.ConnectionClosed:
                 print("웹소켓 연결이 끊어졌습니다. 재연결을 시도합니다.")
                 self.is_connected = False
@@ -407,39 +396,36 @@ class KISWebSocket:
 
     async def _monitor_ticker(self, session_id, ticker, quantity, avr_price, target_date):
         """개별 종목 모니터링 및 매도 처리"""
-        print(f"{ticker} 모니터링 시작")
-        
+        # 해당 종목의 전용 큐 생성
+        if ticker not in self.ticker_queues:
+            self.ticker_queues[ticker] = asyncio.Queue()
+            
+        # 모니터링 프로세스 시작
         while self.is_connected and ticker in self.subscribed_tickers:
             try:
                 # 타임아웃을 설정하여 데이터 대기
                 try:
-                    data = await asyncio.wait_for(self.message_queue.get(), timeout=5.0) #message_queue에 데이터가 안들어오면 블로킹 대기
+                    print(f" {self.is_connected} {ticker} {self.subscribed_tickers} 모니터링 시작")
+                    data = await asyncio.wait_for(self.ticker_queues[ticker].get(), timeout=5.0)
                     recv_ticker, recvvalue = data
                     print(f"{ticker} 모니터링 - 데이터 수신: {recv_ticker}")
+ 
+                    # 매도 조건 확인
+                    sell_completed = await self.sell_condition(
+                        recvvalue, session_id, ticker, quantity, avr_price, target_date
+                    )
                     
-                    if recv_ticker == ticker:
-                        # 매도 조건 확인
-                        sell_completed = await self.monitoring_for_selling(
-                            recvvalue, session_id, ticker, quantity, avr_price, target_date
-                        )
-                        
-                        if sell_completed:
-                            await self.unsubscribe_ticker(ticker)
-                            print(f"{ticker} 매도 완료")
-                            return True
-                    else:
-                        # 다른 종목의 데이터는 다시 큐에 넣기
-                        await self.message_queue.put((recv_ticker, recvvalue))
-                        print(f"{ticker} 모니터링 - 다른 종목({recv_ticker}) 데이터 재큐잉")
-                    
-                    self.message_queue.task_done()
+                    if sell_completed:
+                        await self.unsubscribe_ticker(ticker)
+                        print(f"{ticker} 매도 완료")
+                        return True
+
+                    self.ticker_queues[ticker].task_done()
                     
                 except asyncio.TimeoutError:
-                    # 타임아웃 발생 시 상태 체크 및 로그 출력
                     current_time = datetime.now()
                     print(f"{ticker} 모니터링 중... ({current_time.strftime('%H:%M:%S')})")
                     
-                    # 여기에 시장 시간 체크 등 추가 로직 구현 가능
                     if not self._is_market_open():
                         print(f"{ticker} - 장 종료로 인한 대기 중")
                     continue
@@ -467,24 +453,6 @@ class KISWebSocket:
         # 장 운영 시간 체크
         return market_start <= now <= market_end
     
-    # async def _monitor_ticker(self, ticker, quantity, avr_price, target_date):
-    #     """개별 종목 모니터링"""
-    #     while ticker in self.subscribed_tickers:
-    #         try:
-    #             data = await self.websocket.recv()
-    #             recvvalue = data.split('^')
-                
-    #             if '"tr_id":"PINGPONG"' in data:
-    #                 continue
-    #             sell_completed = await self.monitoring_for_selling(recvvalue, ticker, quantity, avr_price, target_date)
-    #             if sell_completed:
-    #                 await self.unsubscribe_ticker(ticker)
-    #                 print(f"{ticker} 호가 감시를 종료합니다.")
-    #                 break
-                    
-    #         except Exception as e:
-    #             print(f"{ticker} 모니터링 중 에러: {e}")
-    #             break
 
 ######################################################################################
 ##############################    레거시 메서드   #######################################
@@ -528,7 +496,7 @@ class KISWebSocket:
                         continue
                     
                     # 실시간 데이터 처리
-                    sell_completed = await self.monitoring_for_selling(recvvalue, session_id, ticker, quantity, avr_price, target_date)
+                    sell_completed = await self.sell_condition(recvvalue, session_id, ticker, quantity, avr_price, target_date)
                     if sell_completed is True:
                         print("호가 감시를 종료합니다.")
                         return True
