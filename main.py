@@ -352,8 +352,6 @@ def test():
 
 
 if __name__ == "__main__":
-    test()
-
     try:
         main_process = MainProcess()
         # 스케줄러 스레드 시작
