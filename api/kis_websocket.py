@@ -59,7 +59,7 @@ class KISWebSocket:
         
         today = datetime.now().date()
              
-        if target_price > avr_price * 1.02: #today > target_date or target_price > (avr_price * SELLING_POINT):
+        if today > target_date or target_price > (avr_price * SELLING_POINT):
             # callback = trading.sell_order
             sell_completed = self.callback(session_id, ticker, quantity, target_price)
             
