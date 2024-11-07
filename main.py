@@ -107,7 +107,6 @@ class MainProcess:
             # 스케줄러 시작
             self.scheduler.start()
             
-            print("스케줄러 시작됨")
             print(f"등록된 작업: 상한가 조회({GET_ULS_HOUR}:{GET_ULS_MINUTE}), " 
                   f"종목 선정({GET_SELECT_HOUR}:{GET_SELECT_MINUTE}), "
                   f"매수 시간({ORDER_HOUR_1}:{ORDER_MINUTE_1}, "

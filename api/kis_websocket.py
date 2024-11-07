@@ -175,7 +175,7 @@ class KISWebSocket:
                 task.add_done_callback(background_tasks.discard)
                 background_tasks.add(task)
                 self.active_tasks[ticker] = task
-                print(f"{ticker} 모니터링 태스크 생성")
+                # print(f"{ticker} 모니터링 태스크 생성")
                 
 
         except Exception as e:
@@ -243,10 +243,8 @@ class KISWebSocket:
                 if "SUBSCRIBE SUCCESS" in data:
                     # JSON 파싱 시도
                     data_dict = json.loads(data)
-                    print("data_dict:",data_dict)
-                    print("_message_receiver - Subscription successful")
+                    # print("data_dict:",data_dict)
                     ticker = data_dict['header']['tr_key']
-                    print(f"구독 성공: {ticker}")
                     continue
                 
                 # 실시간 호가 데이터일 경우
@@ -255,7 +253,7 @@ class KISWebSocket:
                 if len(recvvalue) > 1:  # 실제 호가 데이터인 경우
                     ticker = recvvalue[0].split('|')[-1]
                     if ticker in self.subscribed_tickers:
-                        await self.ticker_queues[ticker].put((ticker, recvvalue))
+                        await self.ticker_queues[ticker].put((recvvalue))
                             
             except websockets.exceptions.ConnectionClosed:
                 print("웹소켓 연결이 끊어졌습니다. 재연결을 시도합니다.")
@@ -274,7 +272,7 @@ class KISWebSocket:
         try:
             # websocket 속성 존재 여부 먼저 확인
             if hasattr(self, 'websocket'):
-                print("현재 websocket 상태:", self.websocket)
+                # print("현재 websocket 상태:", self.websocket)
                 if self.websocket is not None:
                     try:
                         if not self.websocket.closed:
@@ -297,7 +295,7 @@ class KISWebSocket:
             
             self.websocket = await websockets.connect(url, extra_headers=self.connect_headers)
             self.is_connected = True
-            print("WebSocket 연결 성공")
+            # print("WebSocket 연결 성공")
 
         except Exception as e:
             print(f"WebSocket 연결 실패: {e}")
@@ -360,7 +358,7 @@ class KISWebSocket:
         try:
             await self.websocket.send(json.dumps(request_data))
             self.subscribed_tickers.add(ticker)
-            print(f"종목 구독 성공: {ticker}")
+            # print(f"종목 구독 성공: {ticker}")
         except Exception as e:
             print(f"종목 구독 실패: {ticker}, 에러: {e}")
 
@@ -403,13 +401,10 @@ class KISWebSocket:
         # 모니터링 프로세스 시작
         while self.is_connected and ticker in self.subscribed_tickers:
             try:
-                # 타임아웃을 설정하여 데이터 대기
                 try:
-                    print(f" {self.is_connected} {ticker} {self.subscribed_tickers} 모니터링 시작")
-                    data = await asyncio.wait_for(self.ticker_queues[ticker].get(), timeout=5.0)
-                    recv_ticker, recvvalue = data
-                    print(f"{ticker} 모니터링 - 데이터 수신: {recv_ticker}")
- 
+                # 타임아웃을 설정하여 데이터 대기
+                    recvvalue = await asyncio.wait_for(self.ticker_queues[ticker].get(), timeout=5.0)
+
                     # 매도 조건 확인
                     sell_completed = await self.sell_condition(
                         recvvalue, session_id, ticker, quantity, avr_price, target_date
@@ -419,18 +414,12 @@ class KISWebSocket:
                         await self.unsubscribe_ticker(ticker)
                         print(f"{ticker} 매도 완료")
                         return True
-
+                    
+                    # 큐 태스크 종료
                     self.ticker_queues[ticker].task_done()
-                    
-                except asyncio.TimeoutError:
-                    current_time = datetime.now()
-                    
-                    print(f"{ticker} 모니터링 중... ({current_time.strftime('%H:%M:%S')})")
-                    
-                    if not self._is_market_open():
-                        print(f"{ticker} - 장 종료로 인한 대기 중")
-                    continue
 
+                except asyncio.TimeoutError:
+                    continue
             except asyncio.CancelledError:
                 print(f"{ticker} 모니터링 취소됨")
                 return False
