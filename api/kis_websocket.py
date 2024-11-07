@@ -60,7 +60,6 @@ class KISWebSocket:
         today = datetime.now().date()
              
         if today > target_date or target_price > (avr_price * SELLING_POINT):
-            # callback = trading.sell_order
             sell_completed = self.callback(session_id, ticker, quantity, target_price)
             
             # 매도 발생 시
