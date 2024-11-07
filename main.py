@@ -57,9 +57,16 @@ class MainProcess:
         
         try:
             trading = TradingLogic()
-            # 스케줄러가 이미 실행 중이면 중지
-            if self.scheduler.running:
-                self.scheduler.shutdown(wait=False)
+
+            # 스케줄러 설정
+            executors = {
+                'default': ThreadPoolExecutor(20)
+            }
+            self.scheduler = BackgroundScheduler(
+                executors=executors,
+                timezone='Asia/Seoul',
+                daemon=False  # 데몬 스레드 비활성화
+            )
 
             # 작업 추가
             self.scheduler.add_job(
@@ -99,6 +106,7 @@ class MainProcess:
 
             # 스케줄러 시작
             self.scheduler.start()
+            
             print("스케줄러 시작됨")
             print(f"등록된 작업: 상한가 조회({GET_ULS_HOUR}:{GET_ULS_MINUTE}), " 
                   f"종목 선정({GET_SELECT_HOUR}:{GET_SELECT_MINUTE}), "
@@ -106,15 +114,17 @@ class MainProcess:
                   f"{ORDER_HOUR_2}:{ORDER_MINUTE_2}, "
                   f"{ORDER_HOUR_3}:{ORDER_MINUTE_3})")
 
-            # 스케줄러 실행 유지
-            while not self.stop_event.is_set():
+            # 명시적인 무한 루프로 스케줄러 유지
+            while True:
+                if self.stop_event.is_set():
+                    break
                 time.sleep(1)
                 
         except Exception as e:
             print(f"스케줄 관리자 에러: {str(e)}")
         finally:
             if self.scheduler.running:
-                self.scheduler.shutdown()
+                self.scheduler.shutdown(wait=False)
 
     def execute_buy_task(self):
         """매수 태스크 실행"""
@@ -350,18 +360,17 @@ def test():
     # kis_api.get_my_cash()
 
 
-
+        
 if __name__ == "__main__":
     try:
         main_process = MainProcess()
-        # 스케줄러 스레드 시작
         main_process.start_all()
         
-        # 모니터링이 끝나도 프로그램이 계속 실행되도록 유지
-        while not main_process.stop_event.is_set():
+        # 무한 루프로 메인 스레드 유지
+        while True:
             time.sleep(1)
             
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, SystemExit):
         print("\n프로그램 종료 요청됨")
         main_process.stop_event.set()
     finally:

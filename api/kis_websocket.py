@@ -424,6 +424,7 @@ class KISWebSocket:
                     
                 except asyncio.TimeoutError:
                     current_time = datetime.now()
+                    
                     print(f"{ticker} 모니터링 중... ({current_time.strftime('%H:%M:%S')})")
                     
                     if not self._is_market_open():
