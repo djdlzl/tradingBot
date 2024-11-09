@@ -22,10 +22,9 @@ from trading.trading import TradingLogic
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.executors.pool import ThreadPoolExecutor
-from config.condition import GET_ULS_HOUR, GET_ULS_MINUTE, GET_SELECT_HOUR, GET_SELECT_MINUTE, ORDER_HOUR_1, ORDER_HOUR_2, ORDER_HOUR_3, ORDER_MINUTE_1, ORDER_MINUTE_2, ORDER_MINUTE_3,BUY_WAIT
+from config.condition import GET_ULS_HOUR, GET_ULS_MINUTE, GET_SELECT_HOUR, GET_SELECT_MINUTE, ORDER_HOUR_1, ORDER_HOUR_2, ORDER_HOUR_3, ORDER_MINUTE_1, ORDER_MINUTE_2, ORDER_MINUTE_3
 from database.db_manager import DatabaseManager
 from api.kis_api import KISApi
-from api.kis_websocket import KISWebSocket
 
 class MainProcess:
     def __init__(self):
@@ -340,20 +339,20 @@ def test():
     trading.fetch_and_save_previous_upper_limit_stocks()
     print("상한가 저장")
 
-    # ######매수가능 상한가 종목 조회###########
-    # trading.select_stocks_to_buy() # 2일째 장 마감때 저장
-    # print("상한가 선별 및 저장 완료")
+    ######매수가능 상한가 종목 조회###########
+    trading.select_stocks_to_buy() # 2일째 장 마감때 저장
+    print("상한가 선별 및 저장 완료")
     
-    # print("start_trading_session 실행 시작")
-    # order_list = trading.start_trading_session()
+    print("start_trading_session 실행 시작")
+    order_list = trading.start_trading_session()
     
-    # time.sleep(20)
-    # print("load_and_update_trading_session 실행 시작")
-    # trading.load_and_update_trading_session(order_list)
+    time.sleep(20)
+    print("load_and_update_trading_session 실행 시작")
+    trading.load_and_update_trading_session(order_list)
 
-    # ####### websocket 모니터링 실행
-    # sessions_info = trading.get_session_info()
-    # asyncio.run(trading.monitor_for_selling(sessions_info))
+    ####### websocket 모니터링 실행
+    sessions_info = trading.get_session_info()
+    asyncio.run(trading.monitor_for_selling(sessions_info))
 
     # trading.sell_order("037270", "121")
     # kis_api.get_my_cash()
@@ -361,16 +360,17 @@ def test():
 
         
 if __name__ == "__main__":
-    try:
-        main_process = MainProcess()
-        main_process.start_all()
+    test()
+    # try:
+    #     main_process = MainProcess()
+    #     main_process.start_all()
         
-        # 무한 루프로 메인 스레드 유지
-        while True:
-            time.sleep(1)
+    #     # 무한 루프로 메인 스레드 유지
+    #     while True:
+    #         time.sleep(1)
             
-    except (KeyboardInterrupt, SystemExit):
-        print("\n프로그램 종료 요청됨")
-        main_process.stop_event.set()
-    finally:
-        main_process.cleanup()
+    # except (KeyboardInterrupt, SystemExit):
+    #     print("\n프로그램 종료 요청됨")
+    #     main_process.stop_event.set()
+    # finally:
+    #     main_process.cleanup()

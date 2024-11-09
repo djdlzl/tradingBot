@@ -21,3 +21,6 @@ BASE_URL = "https://openapi.koreainvestment.com:9443"
 
 # Database
 DB_NAME = "quant_trading.db"
+
+# Slack
+SLACK_TOKEN = os.getenv('SLACK_TOKEN')

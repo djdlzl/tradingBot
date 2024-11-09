@@ -8,6 +8,7 @@ import asyncio
 from datetime import datetime, timedelta, date
 from database.db_manager import DatabaseManager
 from utils.date_utils import DateUtils
+from utils.slack_logger import SlackLogger
 from api.kis_api import KISApi
 from api.kis_websocket import KISWebSocket
 from config.condition import DAYS_LATER, BUY_PERCENT, BUY_WAIT, SELL_WAIT
@@ -21,22 +22,13 @@ class TradingLogic:
     def __init__(self):
         self.kis_api = KISApi()
         self.date_utils = DateUtils()
+        self.slack_logger = SlackLogger()
 
-    def test(self):
-        # current_date = datetime.now()
-        # target_date = DateUtils.get_business_days(current_date, current_date + timedelta(days=7))[5]  # 5영업일 후
-        # print(f"매수일: {current_date.date()}, 목표 매도일: {target_date.date()}")
-        today = datetime.now().date()
-        print(today)
-        current_day = DateUtils.get_target_date(today, DAYS_LATER)
-        print(current_day)
-        
-        today = datetime.now().date()  # 현재 날짜와 시간 가져오기
-        current_day = self.date_utils.is_business_day(today)
-        print(current_day)
+    # def test(self):
+
 
 ######################################################################################
-#########################    주문 메서드   ###################################
+##################################    주문 메서드   ###################################
 ######################################################################################
 
     def buy_order(self, ticker, quantity):
@@ -44,11 +36,36 @@ class TradingLogic:
         주식 매수
         """
         try:
+            
+            # 매수 주문 전 로그
+            self.slack_logger.send_log(
+                level="INFO",
+                message="매수 주문 시작",
+                context={
+                    "종목코드": ticker,
+                    "주문수량": quantity,
+                    "주문타입": "매수"
+                }
+            )
+            
+            ##########################################################
+            
             # 매수 주문
             order_result = self.kis_api.place_order(ticker, quantity, order_type='buy')
             print("place_order_session:  주문 실행", ticker, order_result)
             
             if order_result['rt_cd'] == '1':
+                # 주문 실패 결과 로그
+                self.slack_logger.send_log(
+                    level="INFO" if order_result['rt_cd'] == "0" else "ERROR",
+                    message="매수 주문 결과",
+                    context={
+                        "종목코드": ticker,
+                        "주문번호": order_result.get('output', {}).get('ODNO'),
+                        "상태": "성공" if order_result['rt_cd'] == "0" else "실패",
+                        "메시지": order_result.get('msg1')
+                    }
+                )
                 return order_result
             
             time.sleep(BUY_WAIT)
@@ -56,7 +73,7 @@ class TradingLogic:
             unfilled_qty = self.order_complete_check(order_result)
             
             #정상 매수일 경우 return
-            if unfilled_qty == 0:
+            if unfilled_qty == 0:              
                 return order_result
             
             # 미체결 시 재주문 - 모듈화 필요
@@ -78,6 +95,22 @@ class TradingLogic:
                 
                 # 체결 완료 검증
                 unfilled_qty = self.order_complete_check(order_result)
+            
+                        
+            ###############################################################
+            
+            # 주문 결과 로그
+            self.slack_logger.send_log(
+                level="INFO" if order_result['rt_cd'] == "0" else "ERROR",
+                message="매수 주문 결과",
+                context={
+                    "종목코드": ticker,
+                    "주문번호": order_result.get('output', {}).get('ODNO'),
+                    "상태": "성공" if order_result['rt_cd'] == "0" else "실패",
+                    "메시지": order_result.get('msg1')
+                }
+            )
+            
             
             return order_result
         except Exception as e:
@@ -119,7 +152,7 @@ class TradingLogic:
                 unfilled_qty = self.order_complete_check(order_result)
             
             self.delete_finished_session(session_id)
-            
+
             return True
         except Exception as e:
             print("sell_order 중 에러 발생 : ", e)
@@ -264,6 +297,17 @@ class TradingLogic:
                 break
         
         try:
+            #SLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACK
+            # 세션 시작 로그
+            self.slack_logger.send_log(
+                level="INFO",
+                message="트레이딩 세션 시작",
+                context={
+                    "세션수": session_info['session'],
+                    "가용슬롯": session_info['slot']
+                }
+            )
+            
             # 거래 세션을 조회
             sessions = db.load_trading_session()
             db.close()
@@ -516,7 +560,7 @@ class TradingLogic:
                 avr_price = int(float(avr_price))
                 print("update_session - avr_price", avr_price)
             else:
-                print("주문 번호가 없습니다. 사유: ", order_result.get('msg1'))
+                print("주문 번호가 없습니다. 저장을 취소합니다. 사유: ", order_result.get('msg1'))
                 return
 
             # current date 갱신
@@ -534,7 +578,22 @@ class TradingLogic:
                 db.save_trading_session(random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count)
                 db.close()
 
-                print("세션 업데이트 완료")
+                #SLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACK
+                # 세션 업데이트 로그
+                self.slack_logger.send_log(
+                    level="INFO",
+                    message="세션 업데이트",
+                    context={
+                        "세션ID": random_id,
+                        "종목명": name,
+                        "투자금액": fund,
+                        "사용금액": spent_fund,
+                        "평균단가": avr_price,
+                        "보유수량": quantity,
+                        "거래횟수": count
+                    }
+                )
+                
             else:
                 print(f"주문 실패: {order_result.get('message')}")
                 db.close()

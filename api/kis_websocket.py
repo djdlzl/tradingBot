@@ -4,6 +4,7 @@ import logging
 from requests.exceptions import RequestException
 from config.config import R_APP_KEY, R_APP_SECRET, M_APP_KEY, M_APP_SECRET
 from config.condition import SELLING_POINT
+from utils.slack_logger import SlackLogger
 from datetime import datetime, timedelta
 from database.db_manager import DatabaseManager
 import time
@@ -35,6 +36,7 @@ class KISWebSocket:
             "content-type": "utf-8"
         }
         self.active_tasks = {}
+        self.slack_logger = SlackLogger()
         
 
 ######################################################################################
@@ -53,6 +55,21 @@ class KISWebSocket:
         try:
             # 매도 목표가 정하기
             target_price = int(recvvalue[15])
+            
+            #SLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACK
+            # 매도 조건 체크 로그
+            self.slack_logger.send_log(
+                level="INFO",
+                message="매도 조건 체크",
+                context={
+                    "종목코드": ticker,
+                    "현재가": target_price,
+                    "평균단가": avr_price,
+                    "목표일": target_date,
+                    "보유수량": quantity
+                }
+            )
+            
         except Exception as e:
             print("recvvalue 데이터 없음", e)
             return False
@@ -61,6 +78,19 @@ class KISWebSocket:
              
         if today > target_date or target_price > (avr_price * SELLING_POINT):
             sell_completed = self.callback(session_id, ticker, quantity, target_price)
+            
+            #SLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACK
+            # 매도 실행 로그
+            self.slack_logger.send_log(
+                level="WARNING",
+                message="매도 조건 충족",
+                context={
+                    "종목코드": ticker,
+                    "매도가": target_price,
+                    "매도사유": "기간만료" if today > target_date else "목표가 도달"
+                }
+            )
+            
             
             # 매도 발생 시
             await self.stop_monitoring(ticker)  # 해당 종목만 모니터링 중단
@@ -101,10 +131,7 @@ class KISWebSocket:
                 response = requests.post(url, headers=headers, json=body, timeout=10)
                 response.raise_for_status()
                 approval_data = response.json()
-                print("#########response: ", approval_data)
                 
-                print("###############실패#############")
-
                 if "approval_key" in approval_data:
                     self.approval_key = approval_data["approval_key"]
 
@@ -403,7 +430,6 @@ class KISWebSocket:
                 try:
                 # 타임아웃을 설정하여 데이터 대기
                     recvvalue = await asyncio.wait_for(self.ticker_queues[ticker].get(), timeout=5.0)
-
                     # 매도 조건 확인
                     sell_completed = await self.sell_condition(
                         recvvalue, session_id, ticker, quantity, avr_price, target_date
