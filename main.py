@@ -360,17 +360,16 @@ def test():
 
         
 if __name__ == "__main__":
-    test()
-    # try:
-    #     main_process = MainProcess()
-    #     main_process.start_all()
+    try:
+        main_process = MainProcess()
+        main_process.start_all()
         
-    #     # 무한 루프로 메인 스레드 유지
-    #     while True:
-    #         time.sleep(1)
+        # 무한 루프로 메인 스레드 유지
+        while True:
+            time.sleep(1)
             
-    # except (KeyboardInterrupt, SystemExit):
-    #     print("\n프로그램 종료 요청됨")
-    #     main_process.stop_event.set()
-    # finally:
-    #     main_process.cleanup()
+    except (KeyboardInterrupt, SystemExit):
+        print("\n프로그램 종료 요청됨")
+        main_process.stop_event.set()
+    finally:
+        main_process.cleanup()

@@ -5,3 +5,4 @@ python-dotenv
 websockets
 nest-asyncio==1.6.0
 slack_sdk
+requests

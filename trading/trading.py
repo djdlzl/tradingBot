@@ -111,7 +111,6 @@ class TradingLogic:
                 }
             )
             
-            
             return order_result
         except Exception as e:
             print("buy_order 중 에러 발생 : ", e)
@@ -721,7 +720,16 @@ class TradingLogic:
             session_id, start_date, ticker, quantity, avr_price = session[0], session[1], session[3], session[7], session[8]
             #강제 매도 일자
             target_date = self.date_utils.get_target_date(date.fromisoformat(str(start_date).split()[0]), DAYS_LATER)
-            info_list = session_id, ticker, quantity, avr_price, target_date
+            info_list = session_id, ticker, quantity, avr_price, start_date, target_date
             sessions_info.append(info_list)
             
         return sessions_info
+    
+    
+######################################################################################
+###############################    리포트 메서드   ####################################
+######################################################################################
+
+    # def daily_report(self):
+    #     sessions_info = self.get_session_info()
+    #     for session_id, ticker, qty, price, start_date, target_date in sessions_info:

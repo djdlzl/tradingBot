@@ -20,6 +20,9 @@ SELLING_POINT = 1.10
 #selling_point_2 이상일 때 2차 매도
 SELLING_POINT_2 = 1
 
+#selling_point_1 이상일 때 1차 매도 - 일단 이것만 사용
+RISK_MGMT = 0.93
+
 # 매도 주문 후 대기 / 초
 SELL_WAIT = 3
 

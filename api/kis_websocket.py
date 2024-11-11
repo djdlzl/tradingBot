@@ -3,7 +3,7 @@ import requests
 import logging
 from requests.exceptions import RequestException
 from config.config import R_APP_KEY, R_APP_SECRET, M_APP_KEY, M_APP_SECRET
-from config.condition import SELLING_POINT
+from config.condition import SELLING_POINT, RISK_MGMT
 from utils.slack_logger import SlackLogger
 from datetime import datetime, timedelta
 from database.db_manager import DatabaseManager
@@ -76,7 +76,7 @@ class KISWebSocket:
         
         today = datetime.now().date()
              
-        if today > target_date or target_price > (avr_price * SELLING_POINT):
+        if today > target_date or target_price > (avr_price * SELLING_POINT) or (avr_price * RISK_MGMT):
             sell_completed = self.callback(session_id, ticker, quantity, target_price)
             
             #SLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACK
@@ -186,7 +186,7 @@ class KISWebSocket:
             
             
             # 종목 구독
-            for session_id, ticker, qty, price, date in sessions_info:
+            for session_id, ticker, qty, price, start_date, target_date in sessions_info:
                 await self.subscribe_ticker(ticker)        
 
             # 단일 웹소켓 수신 처리 시작
@@ -194,9 +194,9 @@ class KISWebSocket:
             
             # 각 종목별 모니터링 태스크 생성
             background_tasks = set()
-            for session_id, ticker, qty, price, date in sessions_info:
+            for session_id, ticker, qty, price, start_date, target_date in sessions_info:
                 task = asyncio.create_task(
-                    self._monitor_ticker(session_id, ticker, qty, price, date)
+                    self._monitor_ticker(session_id, ticker, qty, price, target_date)
                 )
                 task.add_done_callback(background_tasks.discard)
                 background_tasks.add(task)
