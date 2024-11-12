@@ -24,6 +24,7 @@ import sqlite3
 import logging
 from datetime import datetime
 from config.config import DB_NAME
+from config.condition import BUY_DAY_AGO
 from utils.date_utils import DateUtils
 
 class DatabaseManager:
@@ -321,21 +322,25 @@ class DatabaseManager:
             logging.error("Error retrieving first selected stock: %s", e)
             return None
 
-    def get_upper_limit_stocks_two_days_ago(self):
+    def get_upper_limit_stocks_days_ago(self):
         """
-        영업일 기준으로 2일 전에 상한가를 기록한 종목의 ticker와 price를 반환합니다.
+        영업일 기준으로 3일 전에 상한가를 기록한 종목의 ticker와 price를 반환합니다.
 
         :return: 상한가 종목 ticker와 price 리스트
         """
+
+        # selected_stocks 테이블 초기화
+        self.delete_selected_stocks()  # 테이블 초기화
+
         today = datetime.now()
-        two_days_ago = DateUtils.get_previous_business_day(today, 2)  # 2 영업일 전 날짜 계산
-        print("two_days_ago: ",two_days_ago)
-        two_days_ago_str = two_days_ago.strftime('%Y-%m-%d')  # 문자열 형식으로 변환
+        days_ago = DateUtils.get_previous_business_day(today, BUY_DAY_AGO)  # 3 영업일 전 날짜 계산
+        print("days_ago: ",days_ago)
+        days_ago_str = days_ago.strftime('%Y-%m-%d')  # 문자열 형식으로 변환
 
         # 3 영업일 전의 상한가 종목 조회
         self.cursor.execute('''
             SELECT ticker, name, price FROM upper_limit_stocks WHERE date = ?
-        ''', (two_days_ago_str,))
+        ''', (days_ago_str,))
         return self.cursor.fetchall()  # ticker와 price 리스트 반환
 
 
@@ -350,9 +355,6 @@ class DatabaseManager:
             # no 갱신
             self.cursor.execute('SELECT MAX(no) FROM selected_stocks')
             max_no = self.cursor.fetchone()[0]
-
-            # selected_stocks 테이블 초기화
-            self.delete_selected_stocks()  # 테이블 초기화
 
             # no 값을 결정
             if max_no is None or max_no < 100:

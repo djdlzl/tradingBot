@@ -139,9 +139,64 @@ class MainProcess:
             print(f"매수 태스크 실행 에러: {str(e)}")
 
 ######################################################################################
-#################################    모니터링 실행   #####################################
+#################################    모니터링 사이클   #####################################
 ######################################################################################
 
+    # def trading_cycle(self):
+    #     """모니터링-매도 사이클 실행"""
+    #     trading = TradingLogic()
+    #     threads = []  # 실행 중인 스레드를 추적하는 리스트
+        
+    #     while not self.stop_event.is_set():
+    #         try:
+    #             # 현재 활성화된 세션 정보 가져오기
+    #             with self.db_lock:
+    #                 sessions_info = trading.get_session_info()
+                
+    #             for session_info in sessions_info:
+    #                 # session_info는 (session_id, ticker, quantity, avr_price, target_date) 형태의 튜플
+    #                 session_id = str(session_info[0])  # session_id를 문자열로 변환
+                    
+    #                 # 이미 실행 중인 스레드가 있는지 확인
+    #                 if not any(thread.name == session_id for thread in threads):
+    #                     # 새로운 세션에 대해 스레드 생성
+    #                     thread = threading.Thread(
+    #                         target=self.run_monitoring,
+    #                         args=(session_info, )
+    #                     )
+    #                     thread.name = session_id
+    #                     thread.daemon = True  # 데몬 스레드로 설정
+    #                     thread.start()
+    #                     threads.append(thread)
+                
+    #             # 완료된 스레드 제거 (죽은 스레드 정리)
+    #             threads = [t for t in threads if t.is_alive()]
+                
+    #             time.sleep(1)  # CPU 사용률 감소를 위한 짧은 대기
+
+    #         except Exception as e:
+    #             print(f"모니터링 사이클 에러: {str(e)}")
+    #             time.sleep(10)
+
+
+    # def run_monitoring(self, session_info):
+    #     """모니터링을 위한 스레드 실행"""
+    #     try:
+    #         trading = TradingLogic()
+            
+    #         # 새로운 이벤트 루프 생성
+    #         loop = asyncio.new_event_loop()
+    #         asyncio.set_event_loop(loop)
+            
+    #         # 비동기 작업 실행
+    #         loop.run_until_complete(trading.monitor_for_selling(session_info))
+    #     except Exception as e:
+    #         print(f"모니터링 실행 오류 (세션 {session_info[0]}): {e}")
+    #     finally:
+    #         loop.close()  # 이벤트 루프 종료
+
+
+############################## 백업 ####################################
     def run_monitoring(self):
         """새로운 이벤트 루프를 생성하여 모니터링 실행"""
         # 새로운 이벤트 루프 생성
@@ -218,7 +273,9 @@ class MainProcess:
             print(f"스레드 시작 중 오류 발생: {e}")
             self.cleanup()
           
-          
+            
+
+
     def stop_all(self):
         """모든 스레드 종료"""
         self.stop_event.set()
@@ -228,17 +285,93 @@ class MainProcess:
 
 ##################################  이까지 클래스  ####################################
 
-if __name__ == "__main__":
-    try:
-        main_process = MainProcess()
-        main_process.start_all()
+
+def fetch_and_save_upper_limit_stocks():
+    """
+    주기적으로 상한가 종목을 DB에 저장
+    """
+    trading = TradingLogic()
+    # trading_instacne.set_headers(is_mock=False, tr_id="FHKST130000C0")
+    while True:
+        now = datetime.now()
+        if now.hour == GET_ULS_HOUR and now.minute == GET_ULS_MINUTE:  # 매일 15시 30분에 실행
+            trading.fetch_and_save_previous_upper_limit_stocks()
+        time.sleep(1)  # 1분 대기
+
+def add_stocks():
+    trading = TradingLogic()
+    stocks = [
+        ("211270", "AP위성", 14950.0, 29.99),
+        ("361390", "제노코", 22100.0, 29.97),
+        ("460930", "현대힘스", 13390.0, 29.97)
+    ]
+
+    trading.add_upper_limit_stocks("2024-11-07", stocks)
+
+def delete_stocks():
+    """
+    특정일자 상한가 종목 삭제
+    필요 시 사용
+    """
+    db = DatabaseManager()
+    db.delete_upper_limit_stocks("2024-10-10")
+    db.close()
+
+def threaded_job(func):
+    """
+    APscheduler 사용을 위한 래퍼함수
+    스레드에서 실행할 작업을 감싸는 함수입니다.
+    """
+    thread = threading.Thread(target=func, daemon=True)
+    thread.start()
+
+
+def test():
+    """
+    테스트 프로세스
+    """
+    
+    
+    trading = TradingLogic()
+    kis_api = KISApi()
+    add_stocks()
+    # #####상한가 조회#############    
+    # print("시작")
+    # trading.fetch_and_save_previous_upper_limit_stocks()
+    # print("상한가 저장")
+
+    ######매수가능 상한가 종목 조회###########
+    trading.select_stocks_to_buy() # 2일째 장 마감때 저장
+    print("상한가 선별 및 저장 완료")
+    
+    # print("start_trading_session 실행 시작")
+    # order_list = trading.start_trading_session()
+    
+    # time.sleep(20)
+    # print("load_and_update_trading_session 실행 시작")
+    # trading.load_and_update_trading_session(order_list)
+
+    # ####### websocket 모니터링 실행
+    # sessions_info = trading.get_session_info()
+    # asyncio.run(trading.monitor_for_selling(sessions_info))
+
+    # # trading.sell_order("037270", "121")
+    # # kis_api.get_my_cash()
+
+
         
-        # 무한 루프로 메인 스레드 유지
-        while True:
-            time.sleep(1)
+if __name__ == "__main__":
+    test()
+    # try:
+    #     main_process = MainProcess()
+    #     main_process.start_all()
+        
+    #     # 무한 루프로 메인 스레드 유지
+    #     while True:
+    #         time.sleep(1)
             
-    except (KeyboardInterrupt, SystemExit):
-        print("\n프로그램 종료 요청됨")
-        main_process.stop_event.set()
-    finally:
-        main_process.cleanup()
+    # except (KeyboardInterrupt, SystemExit):
+    #     print("\n프로그램 종료 요청됨")
+    #     main_process.stop_event.set()
+    # finally:
+    #     main_process.cleanup()

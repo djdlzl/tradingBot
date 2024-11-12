@@ -224,9 +224,9 @@ class TradingLogic:
         
         # # 이전 selected_stocks 정보 삭제
         # self.init_selected_stocks()
-        
+
         selected_stocks = []
-        tickers_with_prices = db.get_upper_limit_stocks_two_days_ago()  # 2일 전 상한가 종목 가져오기
+        tickers_with_prices = db.get_upper_limit_stocks_days_ago()  # N일 전 상한가 종목 가져오기
         print(tickers_with_prices)
         for stock in tickers_with_prices:
             # 현재가 가져오기
@@ -439,7 +439,7 @@ class TradingLogic:
             time.sleep(1)
             print(result)
             print(result.get('output'))
-            if result.get('output').get('nrcvb_buy_qty') == '310':
+            if result.get('output').get('nrcvb_buy_qty') == '1':
                 print(f'{stock['name']} - 매수가 불가능하여 다시 받아옵니다.')
                 continue
             break
