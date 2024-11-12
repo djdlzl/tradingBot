@@ -76,27 +76,32 @@ class TradingLogic:
             if unfilled_qty == 0:              
                 return order_result
             
+            # 주문결과를 새 주문결과에 넣고 미체결 로직 실행
+            new_order_result = order_result
+            
             # 미체결 시 재주문 - 모듈화 필요
             while unfilled_qty > 0:
-                
+
                 # 미체결 주문 취소
-                cancel_result = self.kis_api.cancel_order(order_result.get('output').get('ODNO'))
+                cancel_result = self.kis_api.cancel_order(new_order_result.get('output').get('ODNO'))
                 print("cancel_result:- ",cancel_result)
 
                 # 초당 거래 건수 초과 방지
                 time.sleep(1)
 
                 # 재주문
-                order_result = self.kis_api.place_order(ticker, unfilled_qty, order_type='buy')
-                print("새로운 매수 결과 order_result",order_result)
-                
+                new_order_result = self.kis_api.place_order(ticker, unfilled_qty, order_type='buy')
+                print("새로운 매수 결과 new_order_result",new_order_result)
+
                 # 매수 주문 후 대기
                 time.sleep(BUY_WAIT)
-                
+
                 # 체결 완료 검증
-                unfilled_qty = self.order_complete_check(order_result)
-            
-                        
+                unfilled_qty = self.order_complete_check(new_order_result)
+
+
+
+
             ###############################################################
             
             # 주문 결과 로그
@@ -110,7 +115,7 @@ class TradingLogic:
                     "메시지": order_result.get('msg1')
                 }
             )
-            
+
             return order_result
         except Exception as e:
             print("buy_order 중 에러 발생 : ", e)
@@ -130,25 +135,28 @@ class TradingLogic:
             ### 미체결 확인
             unfilled_qty = self.order_complete_check(order_result)
 
+            # 주문결과를 새 주문결과에 넣고 미체결 로직 실행
+            new_order_result = order_result
+
             ### 미체결 수량이 0이상이면 실행 = 미체결이 존재하면 실행        
             while unfilled_qty > 0:
                 
                 # 주문취소
-                cancel_result = self.kis_api.cancel_order(order_result.get('output').get('ODNO'))
+                cancel_result = self.kis_api.cancel_order(new_order_result.get('output').get('ODNO'))
                 print("cancel_result: - ",cancel_result)
 
                 # 초당 거래 건수 초과 방지
                 time.sleep(1)
                 
                 # 재주문
-                order_result = self.kis_api.place_order(ticker, unfilled_qty, order_type='sell')
-                print("새로운 매도 결과 order_result",order_result)
+                new_order_result = self.kis_api.place_order(ticker, unfilled_qty, order_type='sell')
+                print("새로운 매도 결과 new_order_result",new_order_result)
 
                 # 주문 체결까지 기다리기
                 time.sleep(SELL_WAIT)
                 
                 # 체결 완료 검증
-                unfilled_qty = self.order_complete_check(order_result)
+                unfilled_qty = self.order_complete_check(new_order_result)
             
             self.delete_finished_session(session_id)
 
@@ -543,7 +551,7 @@ class TradingLogic:
         try:
             # API 초과 방지
             time.sleep(0.8)
-            
+
             db = DatabaseManager()
             odno = order_result.get('output', {}).get('ODNO')
             if odno is not None:
@@ -551,7 +559,7 @@ class TradingLogic:
                 result = self.kis_api.daily_order_execution_inquiry(odno)
                 real_spent_fund = result.get('output1')[0].get('tot_ccld_amt')
                 real_quantity = result.get('output1')[0].get('tot_ccld_qty')
-                
+
                 # 매입단가
                 result = self.kis_api.balance_inquiry(ticker)
                 index_of_odno = next((index for index, d in enumerate(result) if d.get('pdno') == ticker), -1)

@@ -341,11 +341,11 @@ def test():
     # print("상한가 저장")
 
     ######매수가능 상한가 종목 조회###########
-    trading.select_stocks_to_buy() # 2일째 장 마감때 저장
+    # trading.select_stocks_to_buy() # 2일째 장 마감때 저장
     print("상한가 선별 및 저장 완료")
     
     # print("start_trading_session 실행 시작")
-    # order_list = trading.start_trading_session()
+    order_list = trading.start_trading_session()
     
     # time.sleep(20)
     # print("load_and_update_trading_session 실행 시작")

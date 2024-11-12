@@ -62,18 +62,11 @@ class KISWebSocket:
         
         today = datetime.now().date()
              
-        if today > target_date or target_price > (avr_price * SELLING_POINT) or target_price < (avr_price * RISK_MGMT):
+             
+        # 조건1: 보유기간 만료로 매도
+        if today > target_date:
             sell_completed = self.callback(session_id, ticker, quantity, target_price)
             
-            #SLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACK
-            # 매도사유
-            if today > target_date:
-                cause = "기간만료"
-            elif target_price > (avr_price * SELLING_POINT):
-                cause = "주가 상승: 목표가 도달"
-            elif target_price < (avr_price * RISK_MGMT):
-                cause = "주가 하락: 리스크 관리차 매도"
-                
             # 매도 실행 로그
             self.slack_logger.send_log(
                 level="WARNING",
@@ -81,10 +74,47 @@ class KISWebSocket:
                 context={
                     "종목코드": ticker,
                     "매도가": target_price,
-                    "매도사유": cause
+                    "매도사유": "기간만료"
                 }
             )
             
+            # 매도 발생 시
+            await self.stop_monitoring(ticker)  # 해당 종목만 모니터링 중단
+            
+        # 조건2: 주가 상승으로 익절
+        if target_price > (avr_price * SELLING_POINT):
+            sell_completed = self.callback(session_id, ticker, quantity, target_price)
+
+            # 매도 실행 로그
+            self.slack_logger.send_log(
+                level="WARNING",
+                message="매도 조건 충족",
+                context={
+                    "종목코드": ticker,
+                    "매도가": target_price,
+                    "매도조건가": avr_price * SELLING_POINT,
+                    "매도사유": "주가 상승: 목표가 도달"
+                }
+            )
+            
+            # 매도 발생 시
+            await self.stop_monitoring(ticker)  # 해당 종목만 모니터링 중단
+            
+        # 조건3: 리스크 관리차 매도
+        if target_price < (avr_price * RISK_MGMT):
+            sell_completed = self.callback(session_id, ticker, quantity, target_price)
+
+            # 매도 실행 로그
+            self.slack_logger.send_log(
+                level="WARNING",
+                message="매도 조건 충족",
+                context={
+                    "종목코드": ticker,
+                    "매도가": target_price,
+                    "매도조건가": avr_price * RISK_MGMT,
+                    "매도사유": "주가 하락: 리스크 관리차 매도"
+                }
+            )
             
             # 매도 발생 시
             await self.stop_monitoring(ticker)  # 해당 종목만 모니터링 중단
