@@ -73,7 +73,7 @@ class KISWebSocket:
                 message="매도 조건 충족",
                 context={
                     "종목코드": ticker,
-                    "매도가": target_price,
+                    "매도목표일": target_date,
                     "매도사유": "기간만료"
                 }
             )
