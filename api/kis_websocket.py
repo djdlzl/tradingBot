@@ -202,8 +202,8 @@ class KISWebSocket:
 ##############################    웹소켓 연결   #######################################
 ######################################################################################
 
-    async def start_monitoring(self, sessions_info):
-        """여러 종목 동시 모니터링 시작"""
+    async def upper_limit_monitoring(self, sessions_info):
+        """상한가 눌림목매매 모니터링 시작"""
         try:
             # 실시간호가 모니터링 웹소켓 연결
             await self.connect_websocket()
@@ -249,6 +249,53 @@ class KISWebSocket:
         results = await asyncio.gather(*background_tasks, return_exceptions=True)
         return results
 
+
+    async def breakout_monitoring(self, stocks_info):
+        """호가 돌파매매 모니터링 시작"""
+        try:
+            # 실시간호가 모니터링 웹소켓 연결
+            await self.connect_websocket()
+            
+            
+            # 종목 구독
+            for session_id, ticker, qty, price, start_date, target_date in stocks_info:
+                await self.subscribe_ticker(ticker)        
+
+            # 단일 웹소켓 수신 처리 시작
+            asyncio.create_task(self._message_receiver())
+            
+            # 각 종목별 모니터링 태스크 생성
+            background_tasks = set()
+            for session_id, ticker, qty, price, start_date, target_date in stocks_info:
+                task = asyncio.create_task(
+                    self._monitor_ticker(session_id, ticker, qty, price, target_date)
+                )
+                task.add_done_callback(background_tasks.discard)
+                background_tasks.add(task)
+                self.active_tasks[ticker] = task
+                # print(f"{ticker} 모니터링 태스크 생성")
+                
+
+        except Exception as e:
+            print(f"모니터링 중 오류 발생: {e}")
+            
+        # 모든 태스크가 완료될 때까지 대기
+        while background_tasks:
+            done, _ = await asyncio.wait(
+                background_tasks,
+                return_when=asyncio.FIRST_COMPLETED
+            )
+            for task in done:
+                try:
+                    await task
+                except Exception as e:
+                    print(f"태스크에러: {e}")
+                    # 에러 발생한 태스크 제거하고 나머지 태스크 실행
+                    background_tasks.discard(task)
+        
+        # 모든 모니터링 태스크 완료 대기
+        results = await asyncio.gather(*background_tasks, return_exceptions=True)
+        return results        
 
     async def stop_monitoring(self, ticker):
         """특정 종목의 모니터링만 중단"""
@@ -322,7 +369,6 @@ class KISWebSocket:
         try:
             # websocket 속성 존재 여부 먼저 확인
             if hasattr(self, 'websocket'):
-                # print("현재 websocket 상태:", self.websocket)
                 if self.websocket is not None:
                     try:
                         if not self.websocket.closed:
@@ -350,32 +396,6 @@ class KISWebSocket:
         except Exception as e:
             print(f"WebSocket 연결 실패: {e}")
             self.is_connected = False
-                    
-########### 웹소켓 연결 코드 백업 ###############
-
-    # async def connect_websocket(self):
-    #     """웹소켓 연결 설정"""
-    #     if self.is_connected:
-    #         return
-        
-    #     self.approval_key = await self._ensure_approval(is_mock=True)
-    #     url = 'ws://ops.koreainvestment.com:31000/tryitout/H0STASP0'
-        
-    #     self.connect_headers = {
-    #         "approval_key": self.approval_key,
-    #         "custtype": "P",
-    #         "tr_type": "1",
-    #         "content-type": "utf-8"
-    #     }
-        
-    #     try:
-    #         self.websocket = await websockets.connect(url, extra_headers=self.connect_headers)
-    #         self.is_connected = True
-    #         print("WebSocket 연결 성공")
-
-    #     except Exception as e:
-    #         print(f"WebSocket 연결 실패: {e}")
-    #         self.is_connected = False
 
     async def close(self):
         """웹소켓 연결 종료"""

@@ -76,25 +76,27 @@ class TradingLogic:
             if unfilled_qty == 0:              
                 return order_result
             
+            new_order_result = order_result
+            
             # 미체결 시 재주문 - 모듈화 필요
             while unfilled_qty > 0:
                 
                 # 미체결 주문 취소
-                cancel_result = self.kis_api.cancel_order(order_result.get('output').get('ODNO'))
+                cancel_result = self.kis_api.cancel_order(new_order_result.get('output').get('ODNO'))
                 print("cancel_result:- ",cancel_result)
 
                 # 초당 거래 건수 초과 방지
                 time.sleep(1)
 
                 # 재주문
-                order_result = self.kis_api.place_order(ticker, unfilled_qty, order_type='buy')
-                print("새로운 매수 결과 order_result",order_result)
+                new_order_result = self.kis_api.place_order(ticker, unfilled_qty, order_type='buy')
+                print("새로운 매수 결과 new_order_result",new_order_result)
                 
                 # 매수 주문 후 대기
                 time.sleep(BUY_WAIT)
                 
                 # 체결 완료 검증
-                unfilled_qty = self.order_complete_check(order_result)
+                unfilled_qty = self.order_complete_check(new_order_result)
             
                         
             ###############################################################
@@ -130,25 +132,27 @@ class TradingLogic:
             ### 미체결 확인
             unfilled_qty = self.order_complete_check(order_result)
 
+            new_order_result = order_result
+
             ### 미체결 수량이 0이상이면 실행 = 미체결이 존재하면 실행        
             while unfilled_qty > 0:
                 
                 # 주문취소
-                cancel_result = self.kis_api.cancel_order(order_result.get('output').get('ODNO'))
+                cancel_result = self.kis_api.cancel_order(new_order_result.get('output').get('ODNO'))
                 print("cancel_result: - ",cancel_result)
 
                 # 초당 거래 건수 초과 방지
                 time.sleep(1)
                 
                 # 재주문
-                order_result = self.kis_api.place_order(ticker, unfilled_qty, order_type='sell')
-                print("새로운 매도 결과 order_result",order_result)
+                new_order_result = self.kis_api.place_order(ticker, unfilled_qty, order_type='sell')
+                print("새로운 매도 결과 new_order_result",new_order_result)
 
                 # 주문 체결까지 기다리기
                 time.sleep(SELL_WAIT)
                 
                 # 체결 완료 검증
-                unfilled_qty = self.order_complete_check(order_result)
+                unfilled_qty = self.order_complete_check(new_order_result)
             
             self.delete_finished_session(session_id)
 
@@ -170,7 +174,7 @@ class TradingLogic:
         return unfilled_qty 
         
 ######################################################################################
-#########################    상한가 조회 관련 메서드   #################################
+#########################    종목 조회 관련 메서드   #################################
 ######################################################################################
 
     def fetch_and_save_previous_upper_limit_stocks(self):
@@ -211,6 +215,8 @@ class TradingLogic:
             print(f"Error adding stocks: {e}")
         finally:
             db.close()
+
+
 
 ######################################################################################
 #########################    상한가 셀렉 메서드   ###################################
@@ -686,7 +692,7 @@ class TradingLogic:
         try:
             kis_websocket = KISWebSocket(self.sell_order)
             # 웹소켓 연결 및 모니터링 시작
-            complete = await kis_websocket.start_monitoring(sessions_info)
+            complete = await kis_websocket.upper_limit_monitoring(sessions_info)
             print("콜백함수 실행함.")
             
             # 모니터링 상태 확인
@@ -733,3 +739,23 @@ class TradingLogic:
     # def daily_report(self):
     #     sessions_info = self.get_session_info()
     #     for session_id, ticker, qty, price, start_date, target_date in sessions_info:
+
+
+######################################################################################
+#########################    호가 돌파매매 메서드   #################################
+######################################################################################
+
+    def breakout_trading(self,):
+        result = self.kis_api.get_volume_rank()
+        output = result.get('output')
+        selected_stocks = []
+        for stock in output:
+            hts_kor_isnm = stock['hts_kor_isnm'] #이름
+            mksc_shrn_iscd = stock['mksc_shrn_iscd'] #종목코드
+            prdy_ctrt = stock['prdy_ctrt'] #전일대비 상승률
+            vol_inrt = stock['vol_inrt'] #거래량증가율
+            acml_tr_pbmn = stock['acml_tr_pbmn'] #누적 거래 대금
+            
+            selected_stocks.append()
+            
+        # 
