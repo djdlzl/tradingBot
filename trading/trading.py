@@ -217,7 +217,17 @@ class TradingLogic:
             db.close()
 
 
+    def get_volume(self, ticker):
+        volumes = self.kis_api.get_stock_volume(ticker)
+        
+        print(f"최근 3일간 거래량: {volumes}")
 
+        # 거래량 비교
+        diff_1_2, diff_2_3 = self.kis_api.compare_volumes(volumes)
+        print(f"1일 전과 2일 전의 거래량 차이: {diff_1_2}%")
+        print(f"2일 전과 3일 전의 거래량 차이: {diff_2_3}%")
+        
+        
 ######################################################################################
 #########################    상한가 셀렉 메서드   ###################################
 ######################################################################################
@@ -235,6 +245,7 @@ class TradingLogic:
         tickers_with_prices = db.get_upper_limit_stocks_days_ago()  # N일 전 상한가 종목 가져오기
         print(tickers_with_prices)
         for stock in tickers_with_prices:
+            self.get_volume(stock[0])
             # 현재가 가져오기
             current_price, temp_stop_yn = self.kis_api.get_current_price(stock[0])
             # 매수 조건: 현재가가 상한가 당시 가격보다 -8% 이상 하락하지 않은 경우
@@ -490,13 +501,14 @@ class TradingLogic:
         # 매수 주문을 진행
         quantity = int(quantity)
         
-        while True:
-            order_result = self.buy_order(ticker, quantity)
-            
-            if order_result['msg1'] == '초당 거래건수를 초과하였습니다.':
-                print("초당 거래건수 초과 시 재시도")
-                continue
-            break
+        if count < 9:
+            while True:
+                order_result = self.buy_order(ticker, quantity)
+                
+                if order_result['msg1'] == '초당 거래건수를 초과하였습니다.':
+                    print("초당 거래건수 초과 시 재시도")
+                    continue
+                break
         
         # 'rt_cd': '1' 세션 취소
         if order_result['rt_cd'] == '1' and count == 0:
@@ -627,7 +639,7 @@ class TradingLogic:
         """
         
         #전체 예수금 조회
-        data = self.kis_api.get_my_cash()
+        data = self.kis_api.purchase_availability_inquiry()
         balance = float(data.get('output').get('nrcvb_buy_amt'))
         print(balance)
         # 세션에 할당된 자금 조회
@@ -750,12 +762,15 @@ class TradingLogic:
         output = result.get('output')
         selected_stocks = []
         for stock in output:
-            hts_kor_isnm = stock['hts_kor_isnm'] #이름
-            mksc_shrn_iscd = stock['mksc_shrn_iscd'] #종목코드
-            prdy_ctrt = stock['prdy_ctrt'] #전일대비 상승률
-            vol_inrt = stock['vol_inrt'] #거래량증가율
-            acml_tr_pbmn = stock['acml_tr_pbmn'] #누적 거래 대금
             
-            selected_stocks.append()
+            if int(prdy_ctrt) > 2:
+                hts_kor_isnm = stock['hts_kor_isnm'] #이름
+                mksc_shrn_iscd = stock['mksc_shrn_iscd'] #종목코드
+                prdy_ctrt = stock['prdy_ctrt'] #전일대비 상승률
+                vol_inrt = stock['vol_inrt'] #거래량증가율
+                acml_tr_pbmn = stock['acml_tr_pbmn'] #누적 거래 대금
+                info_list = hts_kor_isnm, mksc_shrn_iscd
+                selected_stocks.append()
             
         # 
+        

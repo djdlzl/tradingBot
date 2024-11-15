@@ -4,6 +4,7 @@ import logging
 from requests.exceptions import RequestException
 from utils.string_utils import unicode_to_korean
 from config.config import R_APP_KEY, R_APP_SECRET, M_APP_KEY, M_APP_SECRET, M_ACCOUNT_NUMBER, R_ACCOUNT_NUMBER
+from config.condition import BUY_DAY_AGO
 from datetime import datetime, timedelta
 from database.db_manager import DatabaseManager
 import time
@@ -145,10 +146,12 @@ class KISApi:
         """
         if is_mock:
             url = "https://openapivts.koreainvestment.com:29443/uapi/hashkey"
+            self._set_headers(is_mock=True)
+
         else:
             url = "https://openapi.koreainvestment.com:9443/uapi/hashkey"
-            # 모의 거래와 실제 거래에 따라 헤더 설정
-        self._set_headers(is_mock=True, tr_id="VTTC8908R")
+            self._set_headers(is_mock=False)
+
 
         
         try:
@@ -158,23 +161,6 @@ class KISApi:
             self.hashkey = tmp['HASH']
         except requests.exceptions.RequestException as e:
             print(f"An error occurred while fetching the hash key: {e}")
-
-    def _set_w_headers(self, is_mock=False, tr_id=None):
-        """
-        API 요청에 필요한 헤더를 설정합니다.
-
-        Args:
-            is_mock (bool): 모의 거래 여부
-            tr_id (str, optional): 거래 ID
-        """
-        approval_key = self._ensure_approval(is_mock)
-        self.w_headers["approval_key"] = approval_key
-        self.w_headers["appkey"] = M_APP_KEY if is_mock else R_APP_KEY
-        self.w_headers["appsecret"] = M_APP_SECRET if is_mock else R_APP_SECRET
-        if tr_id:
-            self.w_headers["tr_id"] = tr_id
-        self.w_headers["tr_type"] = "1"
-        self.w_headers["custtype"] = "P"
 
 ######################################################################################
 #########################    상한가 관련 메서드   #######################################
@@ -300,34 +286,7 @@ class KISApi:
         stock_price_info = self.get_stock_price(ticker)
 
         return stock_price_info['output']['stck_prpr'], stock_price_info['output']['temp_stop_yn']  # 현재가 반환, 기본값은 0
-    
-    def get_my_cash(self):
-        """
-        계좌 잔고 현금 확인 및 return
-        """
-        
-        # url="https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/trading/inquire-psbl-order"
-        url="https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/inquire-psbl-order"
-        body = {
-            "CANO": M_ACCOUNT_NUMBER,
-            "ACNT_PRDT_CD": "01",
-            "PDNO": "",
-            "ORD_UNPR": "",
-            "ORD_DVSN": "01",
-            "CMA_EVLU_AMT_ICLD_YN": "N",
-            "OVRS_ICLD_YN": "N"
-        }
-                
-        self._get_hashkey(body, is_mock=True)
-        self._set_headers(is_mock=True, tr_id="VTTC8908R")
-        self.headers["hashkey"] = self.hashkey
-        
-        response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
-        json_response = response.json()
-        # print(json.dumps(json_response, indent=2))
-        # print(json_response.get('output').get('nrcvb_buy_amt'))
-        return json_response
-        
+
     # def get_balance(self):
     #     """
     #     계좌 예수금 확인 및 return
@@ -529,7 +488,7 @@ class KISApi:
         return json_response
 
 
-    def purchase_availability_inquiry(self, ticker):
+    def purchase_availability_inquiry(self, ticker=None):
         """
         주문가능조회
         """
@@ -537,7 +496,7 @@ class KISApi:
         body = {
             "CANO": M_ACCOUNT_NUMBER,
             "ACNT_PRDT_CD": "01",
-            "PDNO": ticker,
+            "PDNO": "" if ticker is None else ticker,
             "ORD_UNPR": "",
             "ORD_DVSN": "01",
             "CMA_EVLU_AMT_ICLD_YN": "N",
@@ -628,9 +587,10 @@ class KISApi:
 ######################################################################################
 
     def get_volume_rank(self):
+        """ 거래량 상위 종목 조회 """
         self._set_headers(tr_id="FHPST01710000")
         url = "https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/volume-rank"
-        params = {
+        body = {
             "FID_COND_MRKT_DIV_CODE": "J",
             "FID_COND_SCR_DIV_CODE": "20171",
             "FID_INPUT_ISCD": "0000",
@@ -645,12 +605,71 @@ class KISApi:
         }
 
         try:
-            response = requests.get(url=url, params=params, headers=self.headers, timeout=10)
+            response = requests.get(url=url, params=body, headers=self.headers, timeout=10)
             response.raise_for_status()
             response_json = response.json()
-            print(json.dumps(response_json, indent=2, ensure_ascii=False))
+            # print(json.dumps(response_json, indent=2, ensure_ascii=False))
             
             return response_json
         except requests.RequestException as e:
             logging.error("An error occurred while fetching volume rank: %s", e)
             return None
+    
+    
+    def get_stock_volume(self, ticker, days=BUY_DAY_AGO):
+        """
+        지정된 종목의 최근 n일간의 거래량을 가져옵니다.
+        
+        Args:
+            ticker (str): 종목 코드
+            days (int): 조회할 일 수 (기본값: 3)
+        
+        Returns:
+            list: 최근 n일간의 거래량 리스트 (최신 날짜부터 과거 순으로)
+        """
+        
+        end_date = datetime.now().strftime("%Y%m%d")
+        start_date = (datetime.now() - timedelta(days=days)).strftime("%Y%m%d")
+        
+        url = "https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-daily-price"
+        body = {
+            "FID_COND_MRKT_DIV_CODE": "J",
+            "FID_INPUT_ISCD": ticker,
+            "FID_ORGAN_ADJUST_PRICE": "1",
+            "FID_PERIOD_DIV_CODE": "D",
+            "ST_DATE": start_date,
+            "END_DATE": end_date,
+        }
+        self._get_hashkey(body, is_mock=False)
+        self._set_headers(is_mock=False, tr_id="FHKST01010400")
+        
+        response = requests.get(url=url, params=body, headers=self.headers, timeout=10)
+        json_response = response.json()
+        
+        print(json.dumps(json_response, indent=2, ensure_ascii=False))
+        
+        volumes = []
+        for item in json_response.get('output', []):
+            volumes.append(int(item.get('acml_vol', '0')))
+        
+        return volumes[:days]  # 최근 n일간의 거래량만 반환
+    
+    def compare_volumes(self, volumes):
+        """
+        3일간의 거래량을 비교하고 차이를 백분율로 계산합니다.
+        
+        Args:
+            volumes (list): 3일간의 거래량 리스트 (최신 날짜부터 과거 순으로)
+        
+        Returns:
+            tuple: (1일 전과 2일 전의 차이 백분율, 2일 전과 3일 전의 차이 백분율)
+        """
+        if len(volumes) != 3:
+            raise ValueError("3일간의 거래량 데이터가 필요합니다.")
+        
+        day1, day2, day3 = volumes
+        
+        diff_1_2 = ((day1 - day2) / day2) * 100 if day2 != 0 else float('inf')
+        diff_2_3 = ((day2 - day3) / day3) * 100 if day3 != 0 else float('inf')
+        
+        return round(diff_1_2, 2), round(diff_2_3, 2)

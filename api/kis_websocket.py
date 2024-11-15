@@ -263,7 +263,7 @@ class KISWebSocket:
 
             # 단일 웹소켓 수신 처리 시작
             asyncio.create_task(self._message_receiver())
-            
+
             # 각 종목별 모니터링 태스크 생성
             background_tasks = set()
             for session_id, ticker, qty, price, start_date, target_date in stocks_info:
@@ -274,7 +274,7 @@ class KISWebSocket:
                 background_tasks.add(task)
                 self.active_tasks[ticker] = task
                 # print(f"{ticker} 모니터링 태스크 생성")
-                
+
 
         except Exception as e:
             print(f"모니터링 중 오류 발생: {e}")
@@ -292,7 +292,7 @@ class KISWebSocket:
                     print(f"태스크에러: {e}")
                     # 에러 발생한 태스크 제거하고 나머지 태스크 실행
                     background_tasks.discard(task)
-        
+
         # 모든 모니터링 태스크 완료 대기
         results = await asyncio.gather(*background_tasks, return_exceptions=True)
         return results        
