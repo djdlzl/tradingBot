@@ -43,87 +43,148 @@ class KISWebSocket:
 ##################################    매도 로직   #####################################
 ######################################################################################
 
-    async def sell_condition(self, recvvalue, session_id, ticker, quantity, avr_price, target_date): # 실제 거래 시간에 값이 받아와지는지 확인 필요
-
-        # print("sell_condition: ",recvvalue)
-        
-        # 구독 성공 메시지 체크
+    async def sell_condition(self, recvvalue, session_id, name, ticker, quantity, avr_price, target_date):
         if len(recvvalue) == 1 and "SUBSCRIBE SUCCESS" in recvvalue[0]:
-            # print("sell_condition - Subscription successful")
             return False
         
         try:
-            # 매도 목표가 정하기
             target_price = int(recvvalue[15])
-                       
         except Exception as e:
-            # print("recvvalue 데이터 없음", e)
             return False
         
         today = datetime.now().date()
-             
-             
+        
+        # 매도 사유와 조건을 먼저 확인
+        sell_reason = None
+        
         # 조건1: 보유기간 만료로 매도
         if today > target_date:
-            sell_completed = self.callback(session_id, ticker, quantity, target_price)
-            
-            # 매도 실행 로그
-            self.slack_logger.send_log(
-                level="WARNING",
-                message="매도 조건 충족",
-                context={
-                    "종목코드": ticker,
-                    "매도목표일": target_date,
-                    "매도사유": "기간만료"
-                }
-            )
-            
-            # 매도 발생 시
-            await self.stop_monitoring(ticker)  # 해당 종목만 모니터링 중단
-            
+            sell_reason = {
+                "매도사유": "기간만료",
+                "매도목표일": target_date
+            }
+        
         # 조건2: 주가 상승으로 익절
-        if target_price > (avr_price * SELLING_POINT):
-            sell_completed = self.callback(session_id, ticker, quantity, target_price)
-
-            # 매도 실행 로그
-            self.slack_logger.send_log(
-                level="WARNING",
-                message="매도 조건 충족",
-                context={
-                    "종목코드": ticker,
-                    "매도가": target_price,
-                    "매도조건가": avr_price * SELLING_POINT,
-                    "매도사유": "주가 상승: 목표가 도달"
-                }
-            )
-            
-            # 매도 발생 시
-            await self.stop_monitoring(ticker)  # 해당 종목만 모니터링 중단
-            
+        elif target_price > (avr_price * SELLING_POINT):
+            sell_reason = {
+                "매도사유": "주가 상승: 목표가 도달",
+                "매도가": target_price,
+                "매도조건가": avr_price * SELLING_POINT
+            }
+        
         # 조건3: 리스크 관리차 매도
-        if target_price < (avr_price * RISK_MGMT):
-            sell_completed = self.callback(session_id, ticker, quantity, target_price)
+        elif target_price < (avr_price * RISK_MGMT):
+            sell_reason = {
+                "매도사유": "주가 하락: 리스크 관리차 매도",
+                "매도가": target_price,
+                "매도조건가": avr_price * RISK_MGMT
+            }
+        
+        # 매도 조건이 충족되면 실행
+        if sell_reason:
+            # 매도 실행
+            sell_completed = await self.callback(session_id, ticker, quantity, target_price)
+            
+            if sell_completed:
+                # 매도 실행 로그
+                self.slack_logger.send_log(
+                    level="WARNING",
+                    message="매도 조건 충족",
+                    context={
+                        "종목코드": ticker,
+                        "종목이름":  name,
+                        **sell_reason
+                    }
+                )
+                
+                # 매도 발생 시 모니터링 중단
+                await self.stop_monitoring(ticker)
+                return True
+                
+        return False
 
-            # 매도 실행 로그
-            self.slack_logger.send_log(
-                level="WARNING",
-                message="매도 조건 충족",
-                context={
-                    "종목코드": ticker,
-                    "매도가": target_price,
-                    "매도조건가": avr_price * RISK_MGMT,
-                    "매도사유": "주가 하락: 리스크 관리차 매도"
-                }
-            )
+############################  코드 백업  ##############################
+    # async def sell_condition(self, recvvalue, session_id, ticker, quantity, avr_price, target_date): # 실제 거래 시간에 값이 받아와지는지 확인 필요
+
+    #     # print("sell_condition: ",recvvalue)
+        
+    #     # 구독 성공 메시지 체크
+    #     if len(recvvalue) == 1 and "SUBSCRIBE SUCCESS" in recvvalue[0]:
+    #         # print("sell_condition - Subscription successful")
+    #         return False
+        
+    #     try:
+    #         # 매도 목표가 정하기
+    #         target_price = int(recvvalue[15])
+                       
+    #     except Exception as e:
+    #         # print("recvvalue 데이터 없음", e)
+    #         return False
+        
+    #     today = datetime.now().date()
+             
+             
+    #     # 조건1: 보유기간 만료로 매도
+    #     if today > target_date:
+    #         sell_completed = await self.callback(session_id, ticker, quantity, target_price)
             
-            # 매도 발생 시
-            await self.stop_monitoring(ticker)  # 해당 종목만 모니터링 중단
+    #         # 매도 실행 로그
+    #         self.slack_logger.send_log(
+    #             level="WARNING",
+    #             message="매도 조건 충족",
+    #             context={
+    #                 "종목코드": ticker,
+    #                 "매도목표일": target_date,
+    #                 "매도사유": "기간만료"
+    #             }
+    #         )
             
-            # print("매도 : ", sell_completed)
-            return True
-        else:
-            # print("매도 조건 불일치")
-            return False
+    #         # 매도 발생 시
+    #         await self.stop_monitoring(ticker)  # 해당 종목만 모니터링 중단
+            
+    #     # 조건2: 주가 상승으로 익절
+    #     if target_price > (avr_price * SELLING_POINT):
+    #         sell_completed = await self.callback(session_id, ticker, quantity, target_price)
+
+    #         # 매도 실행 로그
+    #         self.slack_logger.send_log(
+    #             level="WARNING",
+    #             message="매도 조건 충족",
+    #             context={
+    #                 "종목코드": ticker,
+    #                 "매도가": target_price,
+    #                 "매도조건가": avr_price * SELLING_POINT,
+    #                 "매도사유": "주가 상승: 목표가 도달"
+    #             }
+    #         )
+
+    #         # 매도 발생 시
+    #         await self.stop_monitoring(ticker)  # 해당 종목만 모니터링 중단
+            
+    #     # 조건3: 리스크 관리차 매도
+    #     if target_price < (avr_price * RISK_MGMT):
+    #         sell_completed = await self.callback(session_id, ticker, quantity, target_price)
+
+    #         # 매도 실행 로그
+    #         self.slack_logger.send_log(
+    #             level="WARNING",
+    #             message="매도 조건 충족",
+    #             context={
+    #                 "종목코드": ticker,
+    #                 "매도가": target_price,
+    #                 "매도조건가": avr_price * RISK_MGMT,
+    #                 "매도사유": "주가 하락: 리스크 관리차 매도"
+    #             }
+    #         )
+            
+    #         # 매도 발생 시
+    #         await self.stop_monitoring(ticker)  # 해당 종목만 모니터링 중단
+            
+    #         # print("매도 : ", sell_completed)
+    #         return True
+    #     else:
+    #         # print("매도 조건 불일치")
+    #         return False
 
 
 ######################################################################################
@@ -210,7 +271,7 @@ class KISWebSocket:
             
             
             # 종목 구독
-            for session_id, ticker, qty, price, start_date, target_date in sessions_info:
+            for session_id, ticker, name, qty, price, start_date, target_date in sessions_info:
                 await self.subscribe_ticker(ticker)        
 
             # 단일 웹소켓 수신 처리 시작
@@ -218,9 +279,9 @@ class KISWebSocket:
             
             # 각 종목별 모니터링 태스크 생성
             background_tasks = set()
-            for session_id, ticker, qty, price, start_date, target_date in sessions_info:
+            for session_id, ticker, name, qty, price, start_date, target_date in sessions_info:
                 task = asyncio.create_task(
-                    self._monitor_ticker(session_id, ticker, qty, price, target_date)
+                    self._monitor_ticker(session_id, ticker, name, qty, price, target_date)
                 )
                 task.add_done_callback(background_tasks.discard)
                 background_tasks.add(task)
@@ -462,7 +523,7 @@ class KISWebSocket:
 ##############################    모니터링 메서드   #######################################
 ######################################################################################
 
-    async def _monitor_ticker(self, session_id, ticker, quantity, avr_price, target_date):
+    async def _monitor_ticker(self, session_id, ticker, name, quantity, avr_price, target_date):
         """개별 종목 모니터링 및 매도 처리"""
         # 해당 종목의 전용 큐 생성
         if ticker not in self.ticker_queues:
@@ -489,7 +550,7 @@ class KISWebSocket:
                     recvvalue = await asyncio.wait_for(self.ticker_queues[ticker].get(), timeout=5.0)
                     # 매도 조건 확인
                     sell_completed = await self.sell_condition(
-                        recvvalue, session_id, ticker, quantity, avr_price, target_date
+                        recvvalue, session_id, ticker, name, quantity, avr_price, target_date
                     )
                     
                     if sell_completed:

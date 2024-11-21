@@ -11,7 +11,7 @@ from utils.date_utils import DateUtils
 from utils.slack_logger import SlackLogger
 from api.kis_api import KISApi
 from api.kis_websocket import KISWebSocket
-from config.condition import DAYS_LATER, BUY_PERCENT, BUY_WAIT, SELL_WAIT
+from config.condition import DAYS_LATER, BUY_PERCENT, BUY_WAIT, SELL_WAIT, COUNT
 from concurrent.futures import ThreadPoolExecutor
 
 
@@ -338,8 +338,8 @@ class TradingLogic:
                 random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count = session
                 
                 # 9번 거래한 종목은 더이상 매수하지 않고 대기
-                if count == '9':
-                    print(name,"은 9번의 거래를 진행해 넘어갔습니다.")
+                if count == str(COUNT):
+                    print(name,"은 6번의 거래를 진행해 넘어갔습니다.")
                     continue
                 
                 # 세션 정보로 주식 주문
@@ -352,60 +352,6 @@ class TradingLogic:
             db.close()
             print("Error in trading session: ", e)
 
-
-        
-##################### start_trading_session 코드 백업 ###########################
-
-    # def start_trading_session(self):
-    #     """
-    #     거래 시작
-    #     """
-    #     db = DatabaseManager()
-
-    #     try:
-    #         # 거래 세션을 조회
-    #         sessions = db.load_trading_session()
-    #         # 새 종목 추가 시작
-    #         slot = len(sessions)
-
-    #         db.close()
-    #         # 세션이 존재할 경우 실행
-    #         if sessions:
-    #             # 주문 결과 리스트로 저장
-    #             order_list = []
-
-    #             for session in sessions:
-    #                 random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count = session
-
-    #                 # 9번 거래한 종목은 더이상 매수하지 않고 대기
-    #                 if count == '9':
-    #                     print(name,"은 9번의 거래를 진행해 넘어갔습니다.")
-    #                     continue
-                    
-    #                 # 세션 정보로 주식 주문
-    #                 order_result = self.place_order_session(random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count)                  
-    #                 order_list.append(order_result)
-            
-    #         # 새 종목 추가 시작
-    #         print("새 종목 추가 시작 ",slot)
-            
-    #         # 슬롯 없으면 주문결과 반환하고 종료
-    #         if slot == 0:
-    #             return order_list
-            
-    #         # 새 슬롯에 할당할 자금 계산
-    #         fund = self.calculate_funds(slot)
-            
-    #         # 남은 슬롯만큼 새 세션 생성 및 매수
-    #         for _ in range(slot):
-    #             result = self.add_new_trading_session(fund)
-    #             if result == None:
-    #                 break
-
-    #         return order_list
-    #     except Exception as e:
-    #         db.close()
-    #         print("Error in place order: ", e)
 
     def check_trading_session(self):
         """
@@ -490,18 +436,19 @@ class TradingLogic:
         price = int(result[0])
 
         # 매수할 금액 계산
-        amount_per_order = int(fund * 0.11)  # 각 매수 시 사용할 금액
+        ratio = round(100/COUNT) / 100 
+        fund_per_order = int(fund * ratio)  # 각 매수 시 사용할 금액
 
-        if count < 8:  # 0부터 7까지는 일반 매수
-            quantity = amount_per_order / price  # 매수 수량 계산
-        else:  # 9회차 매수 (count가 8일 때)
+        if count < COUNT-1:  # 0부터 COUNT-1까지는 일반 매수
+            quantity = fund_per_order / price  # 매수 수량 계산
+        else:  # COUNT회차 (마지막) 매수
             remaining_fund = fund - spent_fund  # 남은 자금 계산
             quantity = remaining_fund / price  # 남은 자금으로 매수 수량 계산
 
         # 매수 주문을 진행
         quantity = int(quantity)
         
-        if count < 9:
+        if count < COUNT:
             while True:
                 order_result = self.buy_order(ticker, quantity)
                 
@@ -735,10 +682,10 @@ class TradingLogic:
         sessions_info = []
         
         for session in sessions:
-            session_id, start_date, ticker, quantity, avr_price = session[0], session[1], session[3], session[7], session[8]
+            session_id, start_date, ticker, name, quantity, avr_price = session[0], session[1], session[3], session[4], session[7], session[8]
             #강제 매도 일자
             target_date = self.date_utils.get_target_date(date.fromisoformat(str(start_date).split()[0]), DAYS_LATER)
-            info_list = session_id, ticker, quantity, avr_price, start_date, target_date
+            info_list = session_id, ticker, name, quantity, avr_price, start_date, target_date
             sessions_info.append(info_list)
             
         return sessions_info

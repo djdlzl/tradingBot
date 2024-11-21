@@ -236,7 +236,7 @@ if __name__ == "__main__":
         # 무한 루프로 메인 스레드 유지
         while True:
             time.sleep(1)
-            
+
     except (KeyboardInterrupt, SystemExit):
         print("\n프로그램 종료 요청됨")
         main_process.stop_event.set()
