@@ -1,4 +1,4 @@
-# 가상 환경
+# 환경
 .venv/
 *.pyc
 __pycache__/
@@ -7,4 +7,5 @@ __pycache__/
 .DS_Store
 .env
 quant_trading.db
-test_main.py
+test_*
+*.bak

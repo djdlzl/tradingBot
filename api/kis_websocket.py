@@ -2,6 +2,7 @@ import json
 import requests
 import logging
 from requests.exceptions import RequestException
+from websockets.exceptions import ConnectionClosed
 from config.config import R_APP_KEY, R_APP_SECRET, M_APP_KEY, M_APP_SECRET
 from config.condition import SELLING_POINT, RISK_MGMT
 from utils.slack_logger import SlackLogger
@@ -413,15 +414,18 @@ class KISWebSocket:
                     if ticker in self.subscribed_tickers:
                         await self.ticker_queues[ticker].put((recvvalue))
                             
-            except websockets.exceptions.ConnectionClosed:
+            except ConnectionClosed:
                 print("웹소켓 연결이 끊어졌습니다. 재연결을 시도합니다.")
                 self.is_connected = False
+                self.websocket = None
+                await asyncio.sleep(1)
                 continue
                 
             except Exception as e:
                 print(f"수신 에러: {e}")
-                print(f"에러 발생 데이터: {data}")  # 디버깅용
+                print(f"에러 발생 데이터: {data if 'data' in locals() else 'No data'}")
                 self.is_connected = False
+                self.websocket = None
                 await asyncio.sleep(1)
                 continue
 
@@ -634,7 +638,7 @@ class KISWebSocket:
                         print("호가 감시를 종료합니다.")
                         return True
                         
-                except websockets.ConnectionClosed:
+                except ConnectionClosed:
                     print("WebSocket connection closed")
                     self.is_connected = False
                     return False

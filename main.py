@@ -178,7 +178,7 @@ class MainProcess:
                 
                 # 루프 종료
                 loop.close()
-                
+
                 # 루프 종료
                 loop.close()
             except Exception as e:

@@ -186,8 +186,7 @@ class TradingLogic:
         if upper_limit_stocks:
 
             # 상한가 종목 정보 추출
-            stocks_info = [(stock['mksc_shrn_iscd'], stock['hts_kor_isnm'], stock['stck_prpr'], stock['prdy_ctrt']) 
-                        for stock in upper_limit_stocks['output']]
+            stocks_info = [(stock['mksc_shrn_iscd'], stock['hts_kor_isnm'], stock['stck_prpr'], stock['prdy_ctrt']) for stock in upper_limit_stocks['output']]
             
             # 오늘 날짜 가져오기
             today = datetime.now().date()  # 현재 날짜와 시간 가져오기 - .date()로 2024-00-00 형태로 변경
@@ -197,6 +196,7 @@ class TradingLogic:
             db = DatabaseManager()
             if stocks_info:  # 리스트가 비어있지 않은 경우
                 db.save_upper_limit_stocks(current_day.strftime('%Y-%m-%d'), stocks_info)  # 날짜를 문자열로 변환하여 저장
+                print(current_day.strftime('%Y-%m-%d'), stocks_info)
             else:
                 print("상한가 종목이 없습니다.")
             db.close()
@@ -243,8 +243,9 @@ class TradingLogic:
 
         selected_stocks = []
         tickers_with_prices = db.get_upper_limit_stocks_days_ago()  # N일 전 상한가 종목 가져오기
-        print(tickers_with_prices)
+        print('tickers_with_prices:  ',tickers_with_prices)
         for stock in tickers_with_prices:
+            print('select_stocks_to_buy, get_volume: ', stock[0])
             self.get_volume(stock[0])
             # 현재가 가져오기
             current_price, temp_stop_yn = self.kis_api.get_current_price(stock[0])
@@ -588,7 +589,7 @@ class TradingLogic:
         #전체 예수금 조회
         data = self.kis_api.purchase_availability_inquiry()
         balance = float(data.get('output').get('nrcvb_buy_amt'))
-        print(balance)
+        print('calculate_funds: ',balance)
         # 세션에 할당된 자금 조회
         db = DatabaseManager()
         sessions = db.load_trading_session()
