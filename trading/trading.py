@@ -519,7 +519,7 @@ class TradingLogic:
                 real_quantity = result.get('output1')[0].get('tot_ccld_qty')
                 
                 # 매입단가
-                result = self.kis_api.balance_inquiry(ticker)
+                result = self.kis_api.balance_inquiry()
                 index_of_odno = next((index for index, d in enumerate(result) if d.get('pdno') == ticker), -1)
                 avr_price = result[index_of_odno].get("pchs_avg_pric")
                 avr_price = int(float(avr_price))

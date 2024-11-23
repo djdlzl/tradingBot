@@ -3,12 +3,11 @@ import requests
 import logging
 from requests.exceptions import RequestException
 from utils.string_utils import unicode_to_korean
-from config.config import R_APP_KEY, R_APP_SECRET, M_APP_KEY, M_APP_SECRET, M_ACCOUNT_NUMBER, R_ACCOUNT_NUMBER
+from config.config import R_APP_KEY, R_APP_SECRET, M_APP_KEY, M_APP_SECRET, M_ACCOUNT_NUMBER
 from config.condition import BUY_DAY_AGO
 from datetime import datetime, timedelta
 from database.db_manager import DatabaseManager
 import time
-from pprint import pprint
 
 
 
@@ -374,7 +373,8 @@ class KISApi:
             tr_id_code = "VTTC0802U"
         elif order_type == 'sell':
             tr_id_code = "VTTC0801U"
-            
+        else:
+            raise ValueError("Invalid order type. Must be 'buy' or 'sell'.")  # 추가된 코드: 잘못된 주문 유형 처리
         
         self._set_headers(is_mock=True, tr_id=tr_id_code)
         url = "https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/order-cash"
@@ -554,7 +554,7 @@ class KISApi:
 
 
 
-    def balance_inquiry(self, ticker):
+    def balance_inquiry(self):
 
         # url="https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/trading/inquire-daily-ccld"
         url="https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/inquire-balance"
