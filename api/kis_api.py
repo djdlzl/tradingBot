@@ -635,10 +635,10 @@ class KISApi:
         body = {
             "FID_COND_MRKT_DIV_CODE": "J",
             "FID_INPUT_ISCD": ticker,
-            "FID_ORGAN_ADJUST_PRICE": "1",
             "FID_PERIOD_DIV_CODE": "D",
-            "ST_DATE": start_date,
-            "END_DATE": end_date,
+            "FID_ORG_ADJ_PRC": "0",
+            # "ST_DATE": start_date,
+            # "END_DATE": end_date,
         }
         self._get_hashkey(body, is_mock=False)
         self._set_headers(is_mock=False, tr_id="FHKST01010400")

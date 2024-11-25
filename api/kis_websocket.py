@@ -64,7 +64,7 @@ class KISWebSocket:
         
         # 매도 사유와 조건을 먼저 확인
         sell_reason = None
-        
+        print('지점1')
         # 조건1: 보유기간 만료로 매도
         if today > target_date:
             sell_reason = {
@@ -94,7 +94,6 @@ class KISWebSocket:
                 async with self.locks[ticker]:
                     if sell_reason:  # 매도 조건 충족 시
                         try:
-                            
                             # 1. 매도 주문 실행
                             sell_completed = self.callback(session_id, ticker, quantity, target_price)
                             
@@ -317,7 +316,6 @@ class KISWebSocket:
         try:
             # 실시간호가 모니터링 웹소켓 연결
             await self.connect_websocket()
-            
             
             # 종목 구독
             for session_id, ticker, name, qty, price, start_date, target_date in sessions_info:
@@ -630,7 +628,7 @@ class KISWebSocket:
         # 해당 종목의 전용 큐 생성
         if ticker not in self.ticker_queues:
             self.ticker_queues[ticker] = asyncio.Queue()
-
+        
         #SLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACK
         # 모니터링 시작 로그
         self.slack_logger.send_log(

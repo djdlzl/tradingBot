@@ -4,6 +4,7 @@
 __pycache__/
 
 # 기타 제외할 파일/디렉토리
+test_*
 .DS_Store
 .env
 quant_trading.db
