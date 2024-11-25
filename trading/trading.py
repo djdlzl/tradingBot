@@ -339,9 +339,11 @@ class TradingLogic:
                 random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count = session
                 
                 # 9번 거래한 종목은 더이상 매수하지 않고 대기
-                if count == str(COUNT):
+                if count == COUNT:
                     print(name,"은 6번의 거래를 진행해 넘어갔습니다.")
                     continue
+                else:
+                    print('count 타입 변경 필요')
                 
                 # 세션 정보로 주식 주문
                 
