@@ -1,511 +1,351 @@
-"""
-데이터베이스 관리를 위한 DatabaseManager 클래스를 정의합니다.
-
-이 모듈은 SQLite 데이터베이스를 사용하여 트레이딩 봇의 데이터를 저장하고 관리합니다.
-주요 기능으로는 토큰 정보 저장 및 조회, 상한가 주식 정보 저장 및 조회 등이 있습니다.
-
-클래스:
-    DatabaseManager: 데이터베이스 연결 및 쿼리 실행을 관리합니다.
-
-의존성:
-    - sqlite3: SQLite 데이터베이스 연동
-    - logging: 로그 기록
-    - datetime: 날짜 및 시간 처리
-    - config.config: 데이터베이스 설정 정보
-
-사용 예:
-    db = DatabaseManager()
-    db.save_token("access", "token123", datetime.now())
-    db.insert_upper_limit_stock("2023-05-01", "005930", "삼성전자", 70000)
-    db.close()
-"""
-
-import sqlite3
+import mysql.connector
 import logging
 from datetime import datetime
-from config.config import DB_NAME
+from config.config import DB_CONFIG
 from config.condition import BUY_DAY_AGO
 from utils.date_utils import DateUtils
 
 class DatabaseManager:
-    """
-    Database 관리용 클래스
-    """
     def __init__(self):
         """
-        DatabaseManager 클래스의 생성자.
-        데이터베이스 연결을 초기화하고 필요한 테이블을 생성합니다.
+        DatabaseManager 클래스의 생성자
+        DB_CONFIG에는 다음 정보가 필요합니다:
+        - host: 데이터베이스 호스트
+        - user: 사용자명
+        - password: 비밀번호
+        - database: 데이터베이스명
         """
-        self.conn = sqlite3.connect(DB_NAME)
-        self.cursor = self.conn.cursor()
+        self.conn = mysql.connector.connect(**DB_CONFIG)
+        self.cursor = self.conn.cursor(buffered=True)
         self._create_tables()
 
     def _create_tables(self):
-        """
-        필요한 데이터베이스 테이블을 생성합니다.
-        """
-
+        """필요한 데이터베이스 테이블을 생성합니다."""
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS tokens (
-                token_type TEXT PRIMARY KEY,
+                token_type VARCHAR(50) PRIMARY KEY,
                 access_token TEXT,
-                expires_at TEXT
-            )
+                expires_at DATETIME
+            ) ENGINE=InnoDB
         ''')
 
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS approvals (
-                approval_type TEXT PRIMARY KEY,
+                approval_type VARCHAR(50) PRIMARY KEY,
                 approval_key TEXT,
-                expires_at TEXT
-            )
+                expires_at DATETIME
+            ) ENGINE=InnoDB
         ''')
 
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS upper_limit_stocks (
-                date TEXT,
-                ticker TEXT,
-                name TEXT,
-                price REAL,
-                upper_rate REAL,
-                PRIMARY KEY (date, ticker)
-            )
+                `date` DATE,
+                ticker VARCHAR(20),
+                name VARCHAR(100),
+                price DECIMAL(10,2),
+                upper_rate DECIMAL(5,2),
+                PRIMARY KEY (`date`, ticker)
+            ) ENGINE=InnoDB
         ''')
-
-
 
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS selected_stocks (
-                no INTEGER PRIMARY KEY,
-                date TEXT,
-                ticker TEXT,
-                name TEXT,
-                price REAL
-            )
+                no INT AUTO_INCREMENT PRIMARY KEY,
+                `date` DATE,
+                ticker VARCHAR(20),
+                name VARCHAR(100),
+                price DECIMAL(10,2)
+            ) ENGINE=InnoDB
         ''')
 
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS trading_session (
-                id INTEGER PRIMARY KEY,
-                start_date TEXT,
-                current_date TEXT,
-                ticker TEXT,
-                name TEXT,
-                fund INTEGER,
-                spent_fund INTEGER,
-                quantity INTEGER,
-                avr_price INTEGER,
-                count INTEGER
-            )
+                id INT PRIMARY KEY,
+                start_date DATE,
+                `current_date` DATE,
+                ticker VARCHAR(20),
+                name VARCHAR(100),
+                fund INT,
+                spent_fund INT,
+                quantity INT,
+                avr_price INT,
+                count INT
+            ) ENGINE=InnoDB
         ''')
-        
-        # ## 테이블 삭제
-        # self.cursor.execute('''
-        # DROP TABLE IF EXISTS trading_session
-        # ''')
-
-        
         self.conn.commit()
 
-
     def save_token(self, token_type, access_token, expires_at):
-        """
-        토큰 정보를 데이터베이스에 저장합니다.
-
-        :param token_type: 토큰 유형
-        :param access_token: 액세스 토큰
-        :param expires_at: 토큰 만료 시간
-        """
         try:
             self.cursor.execute('''
-            INSERT OR REPLACE INTO tokens (token_type, access_token, expires_at)
-            VALUES (?, ?, ?)
-            ''', (token_type, access_token, expires_at.isoformat()))
+                INSERT INTO tokens (token_type, access_token, expires_at)
+                VALUES (%s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    access_token = VALUES(access_token),
+                    expires_at = VALUES(expires_at)
+            ''', (token_type, access_token, expires_at))
             self.conn.commit()
-            logging.info("Token saved successfully: %s", token_type)
-        except sqlite3.Error as e:
+        except mysql.connector.Error as e:
             logging.error("Error saving token: %s", e)
             raise
 
-    def get_token(self, token_type):
-        """
-        지정된 유형의 토큰 정보를 데이터베이스에서 조회합니다.
 
-        :param token_type: 조회할 토큰 유형
-        :return: (액세스 토큰, 만료 시간) 튜플 또는 (None, None)
-        """
+    def get_token(self, token_type):
         try:
-            self.cursor.execute('SELECT access_token, expires_at FROM tokens WHERE token_type = ?', (token_type,))
+            self.cursor.execute(
+                'SELECT access_token, expires_at FROM tokens WHERE token_type = %s',
+                (token_type,)
+            )
             result = self.cursor.fetchone()
             if result:
                 access_token, expires_at_str = result
+                access_token = str(access_token)
+                expires_at_str = str(expires_at_str)
                 expires_at = datetime.fromisoformat(expires_at_str)
                 return access_token, expires_at
             return None, None
-        except sqlite3.Error as e:
+        except mysql.connector.Error as e:
             logging.error("Error retrieving token: %s", e)
             raise
 
     def save_approval(self, approval_type, approval_key, expires_at):
-        """
-        토큰 정보를 데이터베이스에 저장합니다.
-
-        :param approval_type: 토큰 유형
-        :param approval_key: 액세스 토큰
-        :param expires_at: 토큰 만료 시간
-        """
         try:
             self.cursor.execute('''
-            INSERT OR REPLACE INTO approvals (approval_type, approval_key, expires_at)
-            VALUES (?, ?, ?)
+                INSERT INTO approvals (approval_type, approval_key, expires_at)
+                VALUES (%s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    approval_key = VALUES(approval_key),
+                    expires_at = VALUES(expires_at)
             ''', (approval_type, approval_key, expires_at))
             self.conn.commit()
-            logging.info("Token saved successfully: %s", approval_type)
-        except sqlite3.Error as e:
-            logging.error("Error saving token: %s", e)
+            logging.info("Approval saved successfully: %s", approval_type)
+        except mysql.connector.Error as e:
+            logging.error("Error saving approval: %s", e)
             raise
 
     def get_approval(self, approval_type):
-        """
-        지정된 유형의 토큰 정보를 데이터베이스에서 조회합니다.
-
-        :param approval_type: 조회할 토큰 유형
-        :return: (액세스 토큰, 만료 시간) 튜플 또는 (None, None)
-        """
         try:
-            self.cursor.execute('SELECT approval_key, expires_at FROM approvals WHERE approval_type = ?', (approval_type,))
+            self.cursor.execute(
+                'SELECT approval_key, expires_at FROM approvals WHERE approval_type = %s',
+                (approval_type,)
+            )
             result = self.cursor.fetchone()
             if result:
                 approval_key, expires_at_str = result
+                approval_key = str(approval_key)
+                expires_at_str = str(expires_at_str)
                 expires_at = datetime.fromisoformat(expires_at_str)
                 return approval_key, expires_at
             return None, None
-        except sqlite3.Error as e:
-            logging.error("Error retrieving token: %s", e)
+        except mysql.connector.Error as e:
+            logging.error("Error retrieving approval: %s", e)
             raise
 
     def get_upper_limit_stocks(self, start_date, end_date):
-        """
-        지정된 기간 동안의 상한가 주식 정보를 조회합니다.
-
-        :param start_date: 시작 날짜 (문자열 형식: 'YYYY-MM-DD')
-        :param end_date: 종료 날짜 (문자열 형식: 'YYYY-MM-DD')
-        :return: 상한가 주식 정보 리스트 [(date, ticker, name, price), ...]
-        """
         try:
             self.cursor.execute('''
-            SELECT date, ticker, name, price FROM upper_limit_stocks
-            WHERE date BETWEEN ? AND ?
-            ORDER BY date, name
+                SELECT date, ticker, name, price 
+                FROM upper_limit_stocks 
+                WHERE date BETWEEN %s AND %s
+                ORDER BY date, name
             ''', (start_date, end_date))
             return self.cursor.fetchall()
-        except sqlite3.Error as e:
+        except mysql.connector.Error as e:
             logging.error("Error retrieving upper limit stocks: %s", e)
             raise
 
     def save_upper_limit_stocks(self, date, stocks):
-        """
-        상한가 주식 정보를 데이터베이스에 저장합니다.
-
-        :param date: 상한가 날짜 (문자열 형식: 'YYYY-MM-DD')
-        :param stocks: 상한가 주식 정보 리스트 [(ticker, name, price), ...]
-        """
         try:
-            print(date, stocks)
             for ticker, name, price, upper_rate in stocks:
                 self.cursor.execute('''
-                INSERT OR REPLACE INTO upper_limit_stocks (date, ticker, name, price, upper_rate)
-                VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO upper_limit_stocks 
+                    (date, ticker, name, price, upper_rate)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON DUPLICATE KEY UPDATE
+                        name = VALUES(name),
+                        price = VALUES(price),
+                        upper_rate = VALUES(upper_rate)
                 ''', (date, ticker, name, float(price), float(upper_rate)))
             self.conn.commit()
             logging.info("Saved upper limit stocks for date: %s", date)
-        except sqlite3.Error as e:
+        except mysql.connector.Error as e:
             logging.error("Error saving upper limit stocks: %s", e)
             raise
 
-    # def get_upper_limit_history(self, start_date, end_date):
-    #     """
-    #     지정된 기간 동안의 상한가 히스토리를 조회합니다.
-
-    #     :param start_date: 시작 날짜 (문자열 형식: 'YYYY-MM-DD')
-    #     :param end_date: 종료 날짜 (문자열 형식: 'YYYY-MM-DD')
-    #     :return: 상한가 히스토리 리스트 [(날짜, 종목명), ...]
-    #     """
-    #     try:
-    #         self.cursor.execute('''
-    #         SELECT * FROM upper_limit_history
-    #         WHERE date BETWEEN ? AND ?
-    #         ORDER BY date, name
-    #         ''', (start_date, end_date))
-    #         return self.cursor.fetchall()
-    #     except sqlite3.Error as e:
-    #         logging.error("Error retrieving upper limit history: %s", e)
-    #         raise
-
     def close(self):
-        """
-        데이터베이스 연결을 종료합니다.
-        """
         if self.conn:
             self.conn.close()
             logging.info("Database connection closed")
 
     def delete_upper_limit_stocks(self, date):
-        """
-        특정 날짜의 상한가 주식 정보를 삭제합니다.
-
-        :param date: 삭제할 날짜 (문자열 형식: 'YYYY-MM-DD')
-        """
         try:
-            self.cursor.execute('''
-            DELETE FROM upper_limit_stocks WHERE date = ?
-            ''', (date,))
+            self.cursor.execute(
+                'DELETE FROM upper_limit_stocks WHERE date = %s',
+                (date,)
+            )
             self.conn.commit()
             logging.info("Deleted upper limit stocks for date: %s", date)
-        except sqlite3.Error as e:
+        except mysql.connector.Error as e:
             logging.error("Error deleting upper limit stocks: %s", e)
             raise
 
     def delete_old_stocks(self, date):
-        """
-        upper_limit_stocks 테이블에서 2개월이 지난 상한가 종목을 삭제합니다.
-        """
         try:
-            self.cursor.execute('''
-                DELETE FROM upper_limit_stocks WHERE date < ?
-                ''', (date,))
+            self.cursor.execute(
+                'DELETE FROM upper_limit_stocks WHERE date < %s',
+                (date,)
+            )
             self.conn.commit()
             logging.info("Deleted upper limit stocks before date: %s", date)
-        except sqlite3.Error as e:
-            logging.error("Error deleting upper limit stocks: %s", e)
+        except mysql.connector.Error as e:
+            logging.error("Error deleting old stocks: %s", e)
             raise
-        
-    # def get_ticker(self, stock_name):
-    #     """
-    #     종목코드 조회
-    #     """
-    #     try:
-    #         self.cursor.execute('''
-    #         SELECT * FROM upper_limit_stocks WHERE name = ?
-    #         ''', (stock_name,))
-    #         result = self.cursor.fetchone()
-    #         return result
-    #     except sqlite3.Error as e:
-    #         logging.error("Error deleting upper limit stocks: %s", e)
-    #         raise
-
-######################################################################################
-#########################    선택된 종목 관련 메서드   ####################################
-######################################################################################
 
     def get_selected_stocks(self):
-        """
-        selected_stocks 테이블에서 첫 번째 종목을 조회합니다.
-
-        :return: (no, date, ticker, name, price, upper_rate) 튜플 또는 None
-        """
         try:
-            self.cursor.execute('SELECT * FROM selected_stocks ORDER BY no LIMIT 1')
+            self.cursor.execute('''
+                SELECT * FROM selected_stocks 
+                ORDER BY no 
+                LIMIT 1
+            ''')
             result = self.cursor.fetchone()
             if result:
-                data = {
+                return {
                     'no': int(result[0]),
                     'date': result[1],
                     'ticker': result[2],
                     'name': result[3],
                     'price': result[4]
                 }
-                return data  # 첫 번째 종목 반환
-            else:
-                return None
-        except sqlite3.Error as e:
-            logging.error("Error retrieving first selected stock: %s", e)
             return None
-
+        except mysql.connector.Error as e:
+            logging.error("Error retrieving selected stocks: %s", e)
+            return None
+        
     def get_upper_limit_stocks_days_ago(self):
-        """
-        영업일 기준으로 3일 전에 상한가를 기록한 종목의 ticker와 price를 반환합니다.
-
-        :return: 상한가 종목 ticker와 price 리스트
-        """
-
-        # selected_stocks 테이블 초기화
-        self.delete_selected_stocks()  # 테이블 초기화
-
-        today = datetime.now()
-        days_ago = DateUtils.get_previous_business_day(today, BUY_DAY_AGO)  # 3 영업일 전 날짜 계산
-        print("days_ago: ",days_ago)
-        days_ago_str = days_ago.strftime('%Y-%m-%d')  # 문자열 형식으로 변환
-
-        # 3 영업일 전의 상한가 종목 조회
-        self.cursor.execute('''
-            SELECT ticker, name, price FROM upper_limit_stocks WHERE date = ?
-        ''', (days_ago_str,))
-        return self.cursor.fetchall()  # ticker와 price 리스트 반환
-
+        try:
+            # selected_stocks 테이블 초기화
+            self.delete_selected_stocks()
+            
+            today = datetime.now()
+            days_ago = DateUtils.get_previous_business_day(today, BUY_DAY_AGO)
+            days_ago_str = days_ago.strftime('%Y-%m-%d')
+            
+            self.cursor.execute('''
+                SELECT ticker, name, price 
+                FROM upper_limit_stocks 
+                WHERE date = %s
+            ''', (days_ago_str,))
+            return self.cursor.fetchall()
+        except mysql.connector.Error as e:
+            logging.error("Error retrieving stocks from days ago: %s", e)
+            raise
 
     def save_selected_stocks(self, selected_stocks):
-        """
-        선택된 종목 정보를 데이터베이스에 저장합니다.
-
-        :param selected_stocks: 선택된 종목 리스트 [(ticker, name, price, upper_rate), ...]
-        """
         try:
-
             # no 갱신
             self.cursor.execute('SELECT MAX(no) FROM selected_stocks')
             max_no = self.cursor.fetchone()[0]
-
-            # no 값을 결정
+            
+            # no 값 결정
             if max_no is None or max_no < 100:
                 no = (max_no + 1) if max_no is not None else 1
             else:
                 no = 1  # 100에 도달하면 1로 리셋
-
-            today = DateUtils.get_previous_business_day(datetime.now(), 2)  # 영업일 기준으로 오늘 날짜 가져오기
-
-            for ticker, name, price in selected_stocks:  # 수정된 부분
-                self.cursor.execute('''
-                INSERT INTO selected_stocks (no, date, ticker, name, price)
-                VALUES (?, ?, ?, ?, ?)
-                ''', (no, today.strftime('%Y-%m-%d'), ticker, name, float(price))) 
                 
+            today = DateUtils.get_previous_business_day(datetime.now(), 2)
+            
+            for ticker, name, price in selected_stocks:
+                self.cursor.execute('''
+                    INSERT INTO selected_stocks 
+                    (no, date, ticker, name, price)
+                    VALUES (%s, %s, %s, %s, %s)
+                ''', (no, today.strftime('%Y-%m-%d'), ticker, name, float(price)))
                 no += 1
                 
             self.conn.commit()
             logging.info("Saved selected stocks successfully.")
-        except sqlite3.Error as e:
+        except mysql.connector.Error as e:
             logging.error("Error saving selected stocks: %s", e)
             raise
 
     def delete_selected_stocks(self):
-        """
-        selected_stocks 테이블의 모든 데이터를 삭제합니다.
-        """
         try:
             self.cursor.execute('DELETE FROM selected_stocks')
             self.conn.commit()
             logging.info("Deleted all records from selected_stocks table.")
-        except sqlite3.Error as e:
+        except mysql.connector.Error as e:
             logging.error("Error deleting selected stocks: %s", e)
             raise
 
     def delete_selected_stock_by_no(self, no):
-        """
-        특정 no에 해당하는 종목을 selected_stocks 테이블에서 삭제합니다.
-
-        :param no: 삭제할 종목의 no
-        """
         try:
-            self.cursor.execute('DELETE FROM selected_stocks WHERE no = ?', (no,))
+            self.cursor.execute('DELETE FROM selected_stocks WHERE no = %s', (no,))
             self.conn.commit()
             logging.info("Deleted stock with no: %d", no)
-            
-            # 삭제 후 no 값을 재정렬
             self.reorder_selected_stocks()
-        except sqlite3.Error as e:
+        except mysql.connector.Error as e:
             logging.error("Error deleting selected stock: %s", e)
             raise
 
     def reorder_selected_stocks(self):
-        """
-        selected_stocks 테이블의 no 값을 1부터 다시 정렬합니다.
-        """
         try:
-            # 트랜잭션 시작
-            self.conn.execute('BEGIN TRANSACTION')
-
-            # no 칼럼을 1부터 재정렬
             self.cursor.execute('''
-            UPDATE selected_stocks
-            SET no = (SELECT COUNT(*) FROM selected_stocks AS s WHERE s.rowid <= selected_stocks.rowid)
+                SET @count = 0;
+                UPDATE selected_stocks 
+                SET no = (@count:=@count+1) 
+                ORDER BY no;
             ''')
-
-            # AUTOINCREMENT 초기화 (필요한 경우)
-            self.cursor.execute('''
-            UPDATE sqlite_sequence SET seq = (SELECT MAX(no) FROM selected_stocks) WHERE name = 'selected_stocks'
-            ''')
-
-            # 변경사항 커밋
             self.conn.commit()
             logging.info("Reordered selected stocks successfully.")
-        except sqlite3.Error as e:
-            # 오류 발생 시 롤백
+        except mysql.connector.Error as e:
             self.conn.rollback()
             logging.error("Error reordering selected stocks: %s", e)
             raise
 
-
-######################################################################################
-#########################    트레이딩 세션 관련 메서드   ###################################
-######################################################################################
-
     def save_trading_session(self, random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count):
-        """
-        거래 세션 정보를 데이터베이스에 저장합니다.
-
-        :param start_date: 거래 시작 날짜
-        :param current_date: 현재 날짜
-        :param ticker: 종목 코드
-        :param name: 종목명
-        :param fund: 투자 금액
-        :param count: 매수 수량
-        """
         try:
             self.cursor.execute('''
-            INSERT INTO trading_session (id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-                start_date = excluded.start_date,
-                current_date = excluded.current_date,
-                ticker = excluded.ticker,
-                name = excluded.name,
-                fund = excluded.fund,
-                spent_fund = excluded.spent_fund,
-                quantity = excluded.quantity,
-                avr_price = excluded.avr_price,
-                count = excluded.count
+                INSERT INTO trading_session 
+                (id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    start_date = VALUES(start_date),
+                    current_date = VALUES(current_date),
+                    ticker = VALUES(ticker),
+                    name = VALUES(name),
+                    fund = VALUES(fund),
+                    spent_fund = VALUES(spent_fund),
+                    quantity = VALUES(quantity),
+                    avr_price = VALUES(avr_price),
+                    count = VALUES(count)
             ''', (random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count))
             self.conn.commit()
             logging.info("Trading session saved/updated successfully for ticker: %s", ticker)
-        except sqlite3.Error as e:
+        except mysql.connector.Error as e:
             logging.error("Error saving trading session: %s", e)
             raise
 
     def load_trading_session(self, random_id=None):
-        """
-        trading_session 테이블에서 정보를 조회합니다.
-        
-        Args:
-            random_id (str, optional): 조회할 세션의 ID. None인 경우 모든 세션을 조회합니다.
-        
-        Returns:
-            list: 거래 세션 정보 리스트. random_id가 주어진 경우 해당 세션만, 아니면 모든 세션을 반환
-        """
         try:
             if random_id is not None:
                 self.cursor.execute('''
-                    SELECT * FROM trading_session WHERE id = ?    
-                    ''', (random_id,))
+                    SELECT * FROM trading_session 
+                    WHERE id = %s
+                ''', (random_id,))
             else:
                 self.cursor.execute('SELECT * FROM trading_session')
-                
-            sessions = self.cursor.fetchall()
-            return sessions
-        except sqlite3.Error as e:
+            return self.cursor.fetchall()
+        except mysql.connector.Error as e:
             logging.error("Error loading trading session: %s", e)
             raise
-    
+
     def delete_session_one_row(self, session_id):
-        """
-        특정 ticker를 가진 row를 삭제합니다.
-        
-        :param ticker: 삭제할 row의 ticker
-        """
         try:
-            self.cursor.execute('DELETE FROM trading_session WHERE id = ?', (session_id,))
+            self.cursor.execute('DELETE FROM trading_session WHERE id = %s', (session_id,))
             self.conn.commit()
-            print("delete_session_one_row: 삭제 성공")
-        except sqlite3.Error as e:
-            print(f"An error occurred: {e}")
+            logging.info("Session row deleted successfully")
+        except mysql.connector.Error as e:
+            logging.error("Error deleting session row: %s", e)
             self.conn.rollback()
+            raise
+        

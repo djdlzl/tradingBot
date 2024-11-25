@@ -64,7 +64,7 @@ class KISWebSocket:
         
         # 매도 사유와 조건을 먼저 확인
         sell_reason = None
-        print('지점1')
+        
         # 조건1: 보유기간 만료로 매도
         if today > target_date:
             sell_reason = {
@@ -99,7 +99,6 @@ class KISWebSocket:
                             
                             # 2. 즉시 구독 해제
                             await self.unsubscribe_ticker(ticker)
-                            
                             
                             if sell_completed:
                                 # 3. 매도 실행 로그
