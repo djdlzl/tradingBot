@@ -37,29 +37,9 @@ class DatabaseManager:
             ) ENGINE=InnoDB
         ''')
 
-        self.cursor.execute('''
-            CREATE TABLE IF NOT EXISTS upper_limit_stocks (
-                `date` DATE,
-                ticker VARCHAR(20),
-                name VARCHAR(100),
-                price DECIMAL(10,2),
-                upper_rate DECIMAL(5,2),
-                PRIMARY KEY (`date`, ticker)
-            ) ENGINE=InnoDB
-        ''')
 
         self.cursor.execute('''
-            CREATE TABLE IF NOT EXISTS selected_stocks (
-                no INT AUTO_INCREMENT PRIMARY KEY,
-                `date` DATE,
-                ticker VARCHAR(20),
-                name VARCHAR(100),
-                price DECIMAL(10,2)
-            ) ENGINE=InnoDB
-        ''')
-
-        self.cursor.execute('''
-            CREATE TABLE IF NOT EXISTS trading_session (
+            CREATE TABLE IF NOT EXISTS trading_session_upper (
                 id INT PRIMARY KEY,
                 start_date DATE,
                 `current_date` DATE,
@@ -161,25 +141,26 @@ class DatabaseManager:
         except mysql.connector.Error as e:
             logging.error("Error retrieving approval: %s", e)
             raise
+#####################################################################################
 
-    def get_upper_limit_stocks(self, start_date, end_date):
+    def get_upper_stocks(self, start_date, end_date):
         try:
             self.cursor.execute('''
                 SELECT date, ticker, name, price 
-                FROM upper_limit_stocks 
+                FROM upper_stocks 
                 WHERE date BETWEEN %s AND %s
                 ORDER BY date, name
             ''', (start_date, end_date))
             return self.cursor.fetchall()
         except mysql.connector.Error as e:
-            logging.error("Error retrieving upper limit stocks: %s", e)
+            logging.error("Error retrieving upper stocks: %s", e)
             raise
 
-    def save_upper_limit_stocks(self, date, stocks):
+    def save_upper_stocks(self, date, stocks):
         try:
             for ticker, name, price, upper_rate in stocks:
                 self.cursor.execute('''
-                    INSERT INTO upper_limit_stocks 
+                    INSERT INTO upper_stocks 
                     (date, ticker, name, price, upper_rate)
                     VALUES (%s, %s, %s, %s, %s)
                     ON DUPLICATE KEY UPDATE
@@ -188,9 +169,9 @@ class DatabaseManager:
                         upper_rate = VALUES(upper_rate)
                 ''', (date, ticker, name, float(price), float(upper_rate)))
             self.conn.commit()
-            logging.info("Saved upper limit stocks for date: %s", date)
+            logging.info("Saved upper stocks for date: %s", date)
         except mysql.connector.Error as e:
-            logging.error("Error saving upper limit stocks: %s", e)
+            logging.error("Error saving upper stocks: %s", e)
             raise
 
     def save_upper_stocks(self, date, stocks):
@@ -216,26 +197,26 @@ class DatabaseManager:
             self.conn.close()
             logging.info("Database connection closed")
 
-    def delete_upper_limit_stocks(self, date):
+    def delete_upper_stocks(self, date):
         try:
             self.cursor.execute(
-                'DELETE FROM upper_limit_stocks WHERE date = %s',
+                'DELETE FROM upper_stocks WHERE date = %s',
                 (date,)
             )
             self.conn.commit()
-            logging.info("Deleted upper limit stocks for date: %s", date)
+            logging.info("Deleted upper stocks for date: %s", date)
         except mysql.connector.Error as e:
-            logging.error("Error deleting upper limit stocks: %s", e)
+            logging.error("Error deleting upper stocks: %s", e)
             raise
 
     def delete_old_stocks(self, date):
         try:
             self.cursor.execute(
-                'DELETE FROM upper_limit_stocks WHERE date < %s',
+                'DELETE FROM upper_stocks WHERE date < %s',
                 (date,)
             )
             self.conn.commit()
-            logging.info("Deleted upper limit stocks before date: %s", date)
+            logging.info("Deleted upper stocks before date: %s", date)
         except mysql.connector.Error as e:
             logging.error("Error deleting old stocks: %s", e)
             raise
@@ -243,7 +224,7 @@ class DatabaseManager:
     def get_selected_stocks(self):
         try:
             self.cursor.execute('''
-                SELECT * FROM selected_stocks 
+                SELECT * FROM selected_upper_stocks 
                 ORDER BY no 
                 LIMIT 1
             ''')
@@ -263,29 +244,27 @@ class DatabaseManager:
         
     def get_upper_limit_stocks_days_ago(self):
         try:
-            # selected_stocks 테이블 초기화
+            # selected_upper_stocks 테이블 초기화
             self.delete_selected_stocks()
             
             today = datetime.now()
             days_ago = DateUtils.get_previous_business_day(today, BUY_DAY_AGO)
             days_ago_str = days_ago.strftime('%Y-%m-%d')
-            print('days_ago_str: --',days_ago_str, type(days_ago_str))
+            
             self.cursor.execute('''
                 SELECT ticker, name, price 
-                FROM upper_limit_stocks 
-                WHERE DATE(date) = %s
+                FROM upper_stocks 
+                WHERE date = %s
             ''', (days_ago_str,))
-            stocks = self.cursor.fetchall()
-            print(stocks)
-            return stocks
+            return self.cursor.fetchall()
         except mysql.connector.Error as e:
             logging.error("Error retrieving stocks from days ago: %s", e)
             raise
 
-    def save_selected_stocks(self, selected_stocks):
+    def save_selected_stocks(self, selected_upper_stocks):
         try:
             # no 갱신
-            self.cursor.execute('SELECT MAX(no) FROM selected_stocks')
+            self.cursor.execute('SELECT MAX(no) FROM selected_upper_stocks')
             max_no = self.cursor.fetchone()[0]
             
             # no 값 결정
@@ -296,9 +275,9 @@ class DatabaseManager:
                 
             today = DateUtils.get_previous_business_day(datetime.now(), 2)
             
-            for ticker, name, price in selected_stocks:
+            for ticker, name, price in selected_upper_stocks:
                 self.cursor.execute('''
-                    INSERT INTO selected_stocks 
+                    INSERT INTO selected_upper_stocks 
                     (no, date, ticker, name, price)
                     VALUES (%s, %s, %s, %s, %s)
                 ''', (no, today.strftime('%Y-%m-%d'), ticker, name, float(price)))
@@ -312,16 +291,16 @@ class DatabaseManager:
 
     def delete_selected_stocks(self):
         try:
-            self.cursor.execute('DELETE FROM selected_stocks')
+            self.cursor.execute('DELETE FROM selected_upper_stocks')
             self.conn.commit()
-            logging.info("Deleted all records from selected_stocks table.")
+            logging.info("Deleted all records from selected_upper_stocks table.")
         except mysql.connector.Error as e:
             logging.error("Error deleting selected stocks: %s", e)
             raise
 
     def delete_selected_stock_by_no(self, no):
         try:
-            self.cursor.execute('DELETE FROM selected_stocks WHERE no = %s', (no,))
+            self.cursor.execute('DELETE FROM selected_upper_stocks WHERE no = %s', (no,))
             self.conn.commit()
             logging.info("Deleted stock with no: %d", no)
             self.reorder_selected_stocks()
@@ -333,7 +312,7 @@ class DatabaseManager:
         try:
             self.cursor.execute('''
                 SET @count = 0;
-                UPDATE selected_stocks 
+                UPDATE selected_upper_stocks 
                 SET no = (@count:=@count+1) 
                 ORDER BY no;
             ''')
@@ -344,10 +323,10 @@ class DatabaseManager:
             logging.error("Error reordering selected stocks: %s", e)
             raise
 
-    def save_trading_session(self, random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count):
+    def save_trading_session_upper(self, random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count):
         try:
             self.cursor.execute('''
-                INSERT INTO trading_session 
+                INSERT INTO trading_session_upper 
                 (id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
@@ -367,15 +346,15 @@ class DatabaseManager:
             logging.error("Error saving trading session: %s", e)
             raise
 
-    def load_trading_session(self, random_id=None):
+    def load_trading_session_upper(self, random_id=None):
         try:
             if random_id is not None:
                 self.cursor.execute('''
-                    SELECT * FROM trading_session 
+                    SELECT * FROM trading_session_upper 
                     WHERE id = %s
                 ''', (random_id,))
             else:
-                self.cursor.execute('SELECT * FROM trading_session')
+                self.cursor.execute('SELECT * FROM trading_session_upper')
             return self.cursor.fetchall()
         except mysql.connector.Error as e:
             logging.error("Error loading trading session: %s", e)
@@ -383,7 +362,7 @@ class DatabaseManager:
 
     def delete_session_one_row(self, session_id):
         try:
-            self.cursor.execute('DELETE FROM trading_session WHERE id = %s', (session_id,))
+            self.cursor.execute('DELETE FROM trading_session_upper WHERE id = %s', (session_id,))
             self.conn.commit()
             logging.info("Session row deleted successfully")
         except mysql.connector.Error as e:

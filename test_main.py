@@ -337,19 +337,19 @@ def test():
     kis_api = KISApi()
     
     
-    trading.get_volume('192390')
+    # kis_api.get_upAndDown_rank()
 
     #####상한가 조회#############    
     # print("시작")
-    # trading.fetch_and_save_previous_upper_limit_stocks()
-    # print("상한가 저장")
+    trading.fetch_and_save_previous_upper_limit_stocks()
+    print("상한가 저장")
 
     # ######매수가능 상한가 종목 조회###########
-    # trading.select_stocks_to_buy() # 3일째 장 마감때 저장
-    # print("상한가 선별 및 저장 완료")
+    trading.select_stocks_to_buy() # 3일째 장 마감때 저장
+    print("상한가 선별 및 저장 완료")
     
     # print("start_trading_session 실행 시작")
-    # order_list = trading.start_trading_session()
+    order_list = trading.start_trading_session()
     
     # time.sleep(20)
     # print("load_and_update_trading_session 실행 시작")

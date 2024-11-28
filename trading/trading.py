@@ -200,7 +200,9 @@ class TradingLogic:
             else:
                 print("상한가 종목이 없습니다.")
             db.close()
-            
+
+
+
             
     def add_upper_limit_stocks(self, add_date, stocks):
         """
@@ -245,8 +247,8 @@ class TradingLogic:
         tickers_with_prices = db.get_upper_limit_stocks_days_ago()  # N일 전 상한가 종목 가져오기
         print('tickers_with_prices:  ',tickers_with_prices)
         for stock in tickers_with_prices:
-            print('select_stocks_to_buy, get_volume: ', stock[0])
-            self.get_volume(stock[0])
+            # print('select_stocks_to_buy, get_volume: ', stock[0])
+            # self.get_volume(stock[0])
             # 현재가 가져오기
             current_price, temp_stop_yn = self.kis_api.get_current_price(stock[0])
             # 매수 조건: 현재가가 상한가 당시 가격보다 -8% 이상 하락하지 않은 경우
@@ -342,8 +344,7 @@ class TradingLogic:
                 if count == COUNT:
                     print(name,"은 6번의 거래를 진행해 넘어갔습니다.")
                     continue
-                else:
-                    print('count 타입 변경 필요')
+
                 
                 # 세션 정보로 주식 주문
                 
@@ -591,7 +592,7 @@ class TradingLogic:
         #전체 예수금 조회
         data = self.kis_api.purchase_availability_inquiry()
         balance = float(data.get('output').get('nrcvb_buy_amt'))
-        print('calculate_funds: ',balance)
+        print('calculate_funds - 가용 가능 현금: ',balance)
         # 세션에 할당된 자금 조회
         db = DatabaseManager()
         sessions = db.load_trading_session()
@@ -611,7 +612,7 @@ class TradingLogic:
             else:
                 allocated_funds = 0  # 슬롯이 없으면 빈 리스트 반환
                 
-            print("calculate_funds:  ", allocated_funds)
+            print("calculate_funds - allocated_funds: ", allocated_funds)
             return int(allocated_funds)
         except Exception as e:
             print(f"Error allocating funds: {e}")
@@ -723,4 +724,3 @@ class TradingLogic:
                 selected_stocks.append()
             
         # 
-        

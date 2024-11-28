@@ -243,8 +243,10 @@ class KISApi:
             "fid_trgt_cls_code":"0",
             "fid_trgt_exls_cls_code":"0",
             "fid_div_cls_code":"0",
-            "fid_rsfl_rate1":"",
-            "fid_rsfl_rate2":""
+            "fid_rsfl_rate1":"18",
+            "fid_rsfl_rate2":"29.5",
+            "fid_input_date_1": "20240314",
+            "fid_input_date_2": "20241124"
         }
         
         self._get_hashkey(body, is_mock=False)
@@ -252,10 +254,9 @@ class KISApi:
         self.headers["hashkey"] = self.hashkey
         
         response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
-        print("response status_code:", response.status_code )
-        print("response headers:", response.headers )
         
         updown = response.json()
+        print('상승 종목: ',json.dumps(updown, indent=2, ensure_ascii=False))
         return updown
 
 
@@ -646,7 +647,7 @@ class KISApi:
         response = requests.get(url=url, params=body, headers=self.headers, timeout=10)
         json_response = response.json()
         
-        print(json.dumps(json_response, indent=2, ensure_ascii=False))
+        # print(json.dumps(json_response, indent=2, e_ascii=False))
         
         volumes = []
         for item in json_response.get('output', []):
@@ -673,3 +674,4 @@ class KISApi:
         diff_2_3 = ((day2 - day3) / day3) * 100 if day3 != 0 else float('inf')
         
         return round(diff_1_2, 2), round(diff_2_3, 2)
+    
