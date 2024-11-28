@@ -60,3 +60,10 @@ ORDER_MINUTE_2 = 30
 # 매수 시간 3
 ORDER_HOUR_3 = 15
 ORDER_MINUTE_3 = 00
+
+
+
+#########
+
+
+BUY_DAY_AGO_UPPER = 2

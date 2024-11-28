@@ -256,7 +256,7 @@ class KISApi:
         response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
         
         updown = response.json()
-        print('상승 종목: ',json.dumps(updown, indent=2, ensure_ascii=False))
+        # print('상승 종목: ',json.dumps(updown, indent=2, ensure_ascii=False))
         return updown
 
 

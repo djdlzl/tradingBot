@@ -2,7 +2,7 @@ import mysql.connector
 import logging
 from datetime import datetime
 from config.config import DB_CONFIG
-from config.condition import BUY_DAY_AGO
+from config.condition import BUY_DAY_AGO_UPPER
 from utils.date_utils import DateUtils
 
 class DatabaseManager:
@@ -174,24 +174,6 @@ class DatabaseManager:
             logging.error("Error saving upper stocks: %s", e)
             raise
 
-    def save_upper_stocks(self, date, stocks):
-        try:
-            for ticker, name, price, upper_rate in stocks:
-                self.cursor.execute('''
-                    INSERT INTO upper_stocks 
-                    (date, ticker, name, price, upper_rate)
-                    VALUES (%s, %s, %s, %s, %s)
-                    ON DUPLICATE KEY UPDATE
-                        name = VALUES(name),
-                        price = VALUES(price),
-                        upper_rate = VALUES(upper_rate)
-                ''', (date, ticker, name, float(price), float(upper_rate)))
-            self.conn.commit()
-            logging.info("Saved upper stocks for date: %s", date)
-        except mysql.connector.Error as e:
-            logging.error("Error saving upper stocks: %s", e)
-            raise
-
     def close(self):
         if self.conn:
             self.conn.close()
@@ -248,7 +230,7 @@ class DatabaseManager:
             self.delete_selected_stocks()
             
             today = datetime.now()
-            days_ago = DateUtils.get_previous_business_day(today, BUY_DAY_AGO)
+            days_ago = DateUtils.get_previous_business_day(today, BUY_DAY_AGO_UPPER)
             days_ago_str = days_ago.strftime('%Y-%m-%d')
             
             self.cursor.execute('''

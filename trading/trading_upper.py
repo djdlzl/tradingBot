@@ -10,6 +10,7 @@ from database.db_manager_upper import DatabaseManager
 from utils.date_utils import DateUtils
 from utils.slack_logger import SlackLogger
 from api.kis_api import KISApi
+from api.krx_api import KRXApi
 from api.kis_websocket import KISWebSocket
 from config.condition import DAYS_LATER, BUY_PERCENT, BUY_WAIT, SELL_WAIT, COUNT, SLOT_UPPER
 from .trading_session import TradingSession
@@ -22,8 +23,13 @@ class TradingUpper(TradingSession):
     """
     def __init__(self):
         self.kis_api = KISApi()
+        self.krx_api = KRXApi()
         self.date_utils = DateUtils()
         self.slack_logger = SlackLogger()
+
+######################################################################################
+#########################    상승 종목 받아오기 / 저장   ###################################
+######################################################################################
 
     def fetch_and_save_previous_upper_stocks(self):
         """
@@ -34,7 +40,7 @@ class TradingUpper(TradingSession):
         if upper_stocks:
 
             # 상승 종목 정보 추출
-            stocks_info = [(stock['mksc_shrn_iscd'], stock['hts_kor_isnm'], stock['stck_prpr'], stock['prdy_ctrt']) for stock in upper_stocks['output']]
+            stocks_info = [(stock['stck_shrn_iscd'], stock['hts_kor_isnm'], stock['stck_prpr'], stock['prdy_ctrt']) for stock in upper_stocks['output']]
             
             # 오늘 날짜 가져오기
             today = datetime.now().date()  # 현재 날짜와 시간 가져오기 - .date()로 2024-00-00 형태로 변경
@@ -48,7 +54,86 @@ class TradingUpper(TradingSession):
             else:
                 print("상승 종목이 없습니다.")
             db.close()
+
+######################################################################################
+#########################    상한가 셀렉 메서드   ###################################
+######################################################################################
+
+    def select_stocks_to_buy(self):
+        """
+        2일 전 상한가 종목의 가격과 현재가를 비교하여 매수할 종목을 선정(선별)합니다.
+        """
+        db = DatabaseManager()
+        
+        # # 이전 selected_stocks 정보 삭제
+        # self.init_selected_stocks()
+
+        selected_stocks = []
+        tickers_with_prices = db.get_upper_limit_stocks_days_ago()  # N일 전 상한가 종목 가져오기
+        print('tickers_with_prices:  ',tickers_with_prices)
+        for stock in tickers_with_prices:
+            ticker, name, upper_price = stock[0],stock[1],stock[2]
+            # 조건1: 상승일 기준 15일 전까지 고가 20% 넘은 이력 여부 체크
+            condition_1 = self.krx_api.get_OHLCV()
             
+            # 조건2: 상승일 고가 - 매수일 현재가 -7.5% 체크
+            
+            # 조건3: 상승일 거래량 대비 다음날 거래량 20% 이상인지 체크
+            
+            # 조건4: 상장일 이후 1년 체크
+            
+            
+            # 현재가 가져오기
+            current_price, temp_stop_yn = self.kis_api.get_current_price(stock[0])
+            # 매수 조건: 현재가가 상한가 당시 가격보다 -8% 이상 하락하지 않은 경우
+            if int(current_price) > (int(stock[2]) * BUY_PERCENT) and temp_stop_yn=='N':  # -8% 이상 하락, 거래정지 N
+                print(f"################ 매수 후보 종목: {stock[0]}, 종목명: {stock[1]} (현재가: {current_price}, 상승일 종가 가격: {stock[2]})")
+                selected_stocks.append(stock)
+      
+        # 선택된 종목을 selected_stocks 테이블에 저장
+        if selected_stocks:
+            db.save_selected_stocks(selected_stocks)  # 선택된 종목 저장
+
+        db.close()
+        
+        return selected_stocks
+
+######################################################################################
+################################    삭제   ##########################################
+######################################################################################
+
+    def delete_old_stocks(self):
+        """
+        2개월 전 데이터 삭제
+        """
+        today = datetime.now().date() # 현재 날짜와 시간 가져오기
+        current_day = self.date_utils.is_business_day(today)
+        all_holidays = self.date_utils.get_holidays()
+        
+        old_data = current_day
+        for _ in range(40):
+            old_data -= timedelta(days=1)
+            while old_data.weekday() >= 5 or old_data in all_holidays:
+                old_data -= timedelta(days=1)
+                if old_data.weekday() == 6:
+                    old_data -= timedelta(days=1)
+        # 2개월 전의 날짜를 문자열로 변환
+        old_data_str = old_data.strftime('%Y-%m-%d')
+        
+        #DB에서 2개월 전 데이터 삭제
+        db = DatabaseManager()
+        db.delete_old_stocks(old_data_str)
+        db.close()
+
+
+    def init_selected_stocks(self):
+        """
+        selected_stock 테이블 초기화
+        """
+        db = DatabaseManager()
+        db.delete_selected_stocks()
+        db.close()
+
 
 ######################################################################################
 #########################    트레이딩 세션 관련 메서드   ###################################
@@ -73,7 +158,7 @@ class TradingUpper(TradingSession):
             # 세션 시작 로그
             self.slack_logger.send_log(
                 level="INFO",
-                message="트레이딩 세션 시작",
+                message="상승 눌림목매매 트레이딩 세션 시작",
                 context={
                     "세션수": session_info['session'],
                     "가용슬롯": session_info['slot']
@@ -119,12 +204,11 @@ class TradingUpper(TradingSession):
         
         # 현재 거래 세션의 수를 확인
         sessions = db.load_trading_session_upper()
-        session_count = db.cursor.fetchone()[0]
-        slot_count = SLOT_UPPER - session_count
+        slot_count = SLOT_UPPER - len(sessions)
 
         db.close()
         
-        return {'session': session_count, 'slot': slot_count}
+        return {'session': len(sessions), 'slot': slot_count}
 
 
     def add_new_trading_session(self, fund):
@@ -152,6 +236,7 @@ class TradingUpper(TradingSession):
             # 종목 정보
             stock = self.allocate_stock()
             if stock is None:
+                print("선택된 종목이 없습니다.")
                 return None
             
             # 주문 가능 종목 확인
@@ -348,7 +433,7 @@ class TradingUpper(TradingSession):
         print('calculate_funds - 가용 가능 현금: ',balance)
         # 세션에 할당된 자금 조회
         db = DatabaseManager()
-        sessions = db.load_trading_session()
+        sessions = db.load_trading_session_upper()
         db.close()
         session_fund = 0
         for session in sessions:
