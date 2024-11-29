@@ -233,6 +233,9 @@ if __name__ == "__main__":
         main_process = MainProcess()
         main_process.start_all()
         
+        start_time = datetime.now().strftime('%y%m%d - %X')
+        print("리버모어 시작 - ", start_time)
+        
         # 무한 루프로 메인 스레드 유지
         while True:
             time.sleep(1)
