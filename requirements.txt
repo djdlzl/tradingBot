@@ -8,3 +8,4 @@ slack_sdk
 requests
 mysql-connector-python
 pykrx
+python-dateutil

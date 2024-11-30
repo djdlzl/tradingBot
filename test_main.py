@@ -16,6 +16,7 @@
 import threading
 import time
 import json
+import asyncio
 from datetime import datetime
 from trading.trading import TradingLogic
 from trading.trading_upper import TradingUpper
@@ -77,30 +78,31 @@ def test():
     krx_api = KRXApi()
     
     
+    trading_upper.select_stocks_to_buy()
+    # trading_upper.fetch_and_save_previous_upper_stocks()
+    # trading_upper.select_stocks_to_buy()
     
     # kis_api.get_upAndDown_rank()
-    # result = trading_upper.fetch_and_save_previous_upper_stocks()
-    
-    condition_1 = krx_api.get_OHLCV('017860', 15)
-    print(condition_1)
 
-    #####상한가 조회#############    
-    # print("시작")
+    
+
+    # #####상한가 조회#############    
+    # # print("시작")
     # trading.fetch_and_save_previous_upper_limit_stocks()
-    # print("상한가 저장")
+    # # print("상한가 저장")
 
-    # # ######매수가능 상한가 종목 조회###########
+    # # # ######매수가능 상한가 종목 조회###########
     # trading.select_stocks_to_buy() # 3일째 장 마감때 저장
-    # print("상한가 선별 및 저장 완료")
+    # # print("상한가 선별 및 저장 완료")
     
-    # # print("start_trading_session 실행 시작")
+    # print("start_trading_session 실행 시작")
     # order_list = trading.start_trading_session()
     
-    # time.sleep(20)
-    # print("load_and_update_trading_session 실행 시작")
+    # # time.sleep(20)
+    # # print("load_and_update_trading_session 실행 시작")
     # trading.load_and_update_trading_session(order_list)
 
-    ####### websocket 모니터링 실행
+    ###### websocket 모니터링 실행
     # sessions_info = trading.get_session_info()
     # asyncio.run(trading.monitor_for_selling(sessions_info))
 

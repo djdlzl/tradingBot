@@ -285,7 +285,7 @@ class KISApi:
         """
         stock_price_info = self.get_stock_price(ticker)
 
-        return stock_price_info['output']['stck_prpr'], stock_price_info['output']['temp_stop_yn']  # 현재가 반환, 기본값은 0
+        return stock_price_info.get('output').get('stck_prpr'), stock_price_info.get('output').get('temp_stop_yn') # 현재가 반환, 기본값은 0
 
     # def get_balance(self):
     #     """
@@ -512,6 +512,7 @@ class KISApi:
         json_response = response.json()
         
         return json_response
+    
 ######################################################################################
 ################################    잔고 메서드   ###################################
 ######################################################################################
@@ -605,19 +606,16 @@ class KISApi:
             "FID_INPUT_DATE_1": ""
         }
 
-        try:
-            response = requests.get(url=url, params=body, headers=self.headers, timeout=10)
-            response.raise_for_status()
-            response_json = response.json()
-            # print(json.dumps(response_json, indent=2, ensure_ascii=False))
-            
-            return response_json
-        except requests.RequestException as e:
-            logging.error("An error occurred while fetching volume rank: %s", e)
-            return None
+        response = requests.get(url=url, params=body, headers=self.headers, timeout=10)
+        response.raise_for_status()
+        response_json = response.json()
+        # print(json.dumps(response_json, indent=2, ensure_ascii=False))
+        
+        return response_json
+
     
     
-    def get_stock_volume(self, ticker, days=BUY_DAY_AGO):
+    def get_stock_volume(self, ticker, days=3):
         """
         지정된 종목의 최근 n일간의 거래량을 가져옵니다.
         
@@ -639,7 +637,7 @@ class KISApi:
             "FID_PERIOD_DIV_CODE": "D",
             "FID_ORG_ADJ_PRC": "0",
             # "ST_DATE": start_date,
-            # "END_DATE": end_date,
+            # "END_DATE": end_date
         }
         self._get_hashkey(body, is_mock=False)
         self._set_headers(is_mock=False, tr_id="FHKST01010400")
@@ -675,3 +673,21 @@ class KISApi:
         
         return round(diff_1_2, 2), round(diff_2_3, 2)
     
+    def get_basic_stock_info(self, ticker):
+        self._set_headers(tr_id="FHPST01710000")
+        url = "https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/search-stock-info"
+        body = {
+            "PRDT_TYPE_CD": "300",
+            "PDNO": ticker
+        }
+
+        self._get_hashkey(body, is_mock=False)
+        self._set_headers(is_mock=False, tr_id="CTPF1002R")
+        self.headers["hashkey"] = self.hashkey
+
+        response = requests.get(url=url, params=body, headers=self.headers, timeout=10)
+        response.raise_for_status()
+        response_json = response.json()
+        # print(json.dumps(response_json, indent=2, ensure_ascii=False))
+        
+        return response_json

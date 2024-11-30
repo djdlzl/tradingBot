@@ -36,7 +36,6 @@ class TradingLogic:
         주식 매수
         """
         try:
-            
             # 매수 주문 전 로그
             self.slack_logger.send_log(
                 level="INFO",
@@ -247,15 +246,11 @@ class TradingLogic:
         tickers_with_prices = db.get_upper_limit_stocks_days_ago()  # N일 전 상한가 종목 가져오기
         print('tickers_with_prices:  ',tickers_with_prices)
         for stock in tickers_with_prices:
-            # print('select_stocks_to_buy, get_volume: ', stock[0])
-            # self.get_volume(stock[0])
-            # 현재가 가져오기
-            current_price, temp_stop_yn = self.kis_api.get_current_price(stock[0])
+            current_price, temp_stop_yn = self.kis_api.get_current_price(stock.get('ticker'))
             # 매수 조건: 현재가가 상한가 당시 가격보다 -8% 이상 하락하지 않은 경우
-            if int(current_price) > (int(stock[2]) * BUY_PERCENT) and temp_stop_yn=='N':  # -8% 이상 하락, 거래정지 N
-                print(f"################ 매수 후보 종목: {stock[0]}, 종목명: {stock[1]} (현재가: {current_price}, 상한가 당시 가격: {stock[2]})")
+            if int(current_price) > (int(stock.get('closing_price')) * BUY_PERCENT) and temp_stop_yn=='N':  # -8% 이상 하락, 거래정지 N
+                print(f"################ 매수 후보 종목: {stock.get('ticker')}, 종목명: {stock.get('name')} (현재가: {current_price}, 상한가 당시 가격: {stock.get('closing_price')})")
                 selected_stocks.append(stock)
-      
         # 선택된 종목을 selected_stocks 테이블에 저장
         if selected_stocks:
             db.save_selected_stocks(selected_stocks)  # 선택된 종목 저장
@@ -307,13 +302,11 @@ class TradingLogic:
         """
         db = DatabaseManager()
         session_info = self.check_trading_session()
-        fund = self.calculate_funds(session_info['slot'])
         
         # 새로운 세션을 DB에 저장
         for _ in range(int(session_info['slot'])):
-            result = self.add_new_trading_session(fund)
-            if result is None:
-                break
+            self.add_new_trading_session(session_info['slot'])
+
         
         try:
             #SLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACK
@@ -327,7 +320,7 @@ class TradingLogic:
                 }
             )
             
-            # 거래 세션을 조회
+            # 거래 세션을 조회 및 검증
             sessions = db.load_trading_session()
             db.close()
             if not sessions:
@@ -338,17 +331,13 @@ class TradingLogic:
             order_list = []
 
             for session in sessions:
-                random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count = session
-                
                 # 9번 거래한 종목은 더이상 매수하지 않고 대기
-                if count == COUNT:
-                    print(name,"은 6번의 거래를 진행해 넘어갔습니다.")
+                if session.get("count") == COUNT:
+                    print(session.get('name'),"은 6번의 거래를 진행해 넘어갔습니다.")
                     continue
-
                 
                 # 세션 정보로 주식 주문
-                
-                order_result = self.place_order_session(random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count)
+                order_result = self.place_order_session(session)
                 order_list.append(order_result)
                 
             return order_list
@@ -366,21 +355,22 @@ class TradingLogic:
         
         # 현재 거래 세션의 수를 확인
         db.cursor.execute('SELECT COUNT(*) FROM trading_session')
-        session_count = db.cursor.fetchone()[0]
+        result = db.cursor.fetchone()
+        session_count = result.get('COUNT(*)')
         slot_count = 3 - session_count
-
         db.close()
         
         return {'session': session_count, 'slot': slot_count}
 
 
-    def add_new_trading_session(self, fund):
+    def add_new_trading_session(self, slot):
         """
         새로운 세션 생성
         """
         # id: 세션 받아오는 메서드, trading_session의 id값을 받아와서 exclude_set에 저장
         db = DatabaseManager()
-        
+        fund = self.calculate_funds(slot)
+
         exclude_num = []
         random_id = self.generate_random_id(exclude=exclude_num)
         
@@ -394,32 +384,20 @@ class TradingLogic:
         quantity = 0
         avr_price = 0
         
-        # 세션 추가 종목 선별을 위해 무한루프
-        while True:
-            # 종목 정보
-            stock = self.allocate_stock()
-            if stock is None:
-                return None
-            
-            # 주문 가능 종목 확인
-            result = self.kis_api.purchase_availability_inquiry(stock['ticker'])
-            time.sleep(1)
-            print(result)
-            print(result.get('output'))
-            if result.get('output').get('nrcvb_buy_qty') == '1':
-                print(f'{stock['name']} - 매수가 불가능하여 다시 받아옵니다.')
-                continue
-            break
+        # 종목 정보
+        stock = self.allocate_stock()
+        if stock is None:
+            return None
         
         # 거래 세션 생성
         db.save_trading_session(random_id, today, today, stock['ticker'], stock['name'], fund, spent_fund, quantity, avr_price, count)
         db.close()
         
 
-        return random_id
+        return
 
 
-    def place_order_session(self, random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count):
+    def place_order_session(self, session):
         """
         주식 매수 주문을 진행
 
@@ -436,35 +414,43 @@ class TradingLogic:
         
         db = DatabaseManager()
         
-        result = self.kis_api.get_current_price(ticker)
+        result = self.kis_api.get_current_price(session.get('ticker'))
+
         price = int(result[0])
 
         # 매수할 금액 계산
         ratio = round(100/COUNT) / 100 
-        fund_per_order = int(fund * ratio)  # 각 매수 시 사용할 금액
+        fund_per_order = int(float(session.get('fund')) * ratio)  # 각 매수 시 사용할 금액
 
-        if count < COUNT-1:  # 0부터 COUNT-1까지는 일반 매수
+        if session.get('count') < COUNT-1:  # 0부터 COUNT-1까지는 일반 매수
             quantity = fund_per_order / price  # 매수 수량 계산
         else:  # COUNT회차 (마지막) 매수
-            remaining_fund = fund - spent_fund  # 남은 자금 계산
+            remaining_fund = float(session.get('fund')) - session.get('spent_fund')  # 남은 자금 계산
             quantity = remaining_fund / price  # 남은 자금으로 매수 수량 계산
 
         # 매수 주문을 진행
         quantity = int(quantity)
         
-        if count < COUNT:
+        if session.get('count') < COUNT:
             while True:
-                order_result = self.buy_order(ticker, quantity)
+                order_result = self.buy_order(session.get('ticker'), quantity)
                 
                 if order_result['msg1'] == '초당 거래건수를 초과하였습니다.':
                     print("초당 거래건수 초과 시 재시도")
                     continue
+                
+                if order_result['msg1'] == '모의투자 주문처리가 안되었습니다(매매불가 종목)':
+                    self.add_new_trading_session(1) #슬롯 개수. 새 트레이딩 세션 생성
+                    sessions = db.load_trading_session()
+                    session = sessions[-1]
+                    order_result = self.place_order_session(session)
+                    
                 break
         
         # 'rt_cd': '1' 세션 취소
-        if order_result['rt_cd'] == '1' and count == 0:
-            print("첫 주문 실패 시 세션 삭제")
-            db.delete_session_one_row(random_id)
+        if order_result['rt_cd'] == '1' and session.get('count') == 0:
+            print("첫 주문 실패 시 세션 삭제", session)
+            # db.delete_session_one_row(session.get('id'))
 
         db.close()
         
@@ -476,7 +462,7 @@ class TradingLogic:
         트레이딩 세션을 불러옵니다.
         """
         db = DatabaseManager()
-        
+        print('load_and_update_trading_session',order_list)
         try:
             # 거래 세션을 조회
             sessions = db.load_trading_session()
@@ -487,14 +473,13 @@ class TradingLogic:
             # 주문 결과 리스트로 저장
             for index ,session in enumerate(sessions, start=0):
                 print("주문 결과 리스트로 저장", index ,session)
-                random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count = session
-                self.update_session(random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count, order_list[index])
+                self.update_session(session, order_list[index])
             db.close()
         except Exception as e:
             print("Error in update_trading_session: ", e)
             
 
-    def update_session(self, random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count, order_result):
+    def update_session(self, session, order_result):
         """
         세션을 업데이트합니다.
 
@@ -523,7 +508,7 @@ class TradingLogic:
                 
                 # 매입단가
                 result = self.kis_api.balance_inquiry()
-                index_of_odno = next((index for index, d in enumerate(result) if d.get('pdno') == ticker), -1)
+                index_of_odno = next((index for index, d in enumerate(result) if d.get('pdno') == session.get('ticker')), -1)
                 avr_price = result[index_of_odno].get("pchs_avg_pric")
                 avr_price = int(float(avr_price))
                 print("update_session - avr_price", avr_price)
@@ -536,14 +521,14 @@ class TradingLogic:
 
             # 주문 결과에 따라 세션 업데이트
             if order_result.get('rt_cd') == "0":  # 주문 성공 여부 확인
-                spent_fund += int(real_spent_fund)  # 총 사용 금액 업데이트
-                quantity += int(real_quantity)
+                spent_fund = int(session.get('spent_fund')) + int(real_spent_fund)  # 총 사용 금액 업데이트
+                quantity = int(session.get('quantity')) + int(real_quantity)
                 
                 #count 증가
                 count = count + 1
 
                 # 세션 업데이트
-                db.save_trading_session(random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count)
+                db.save_trading_session(session.get('id'), session.get('start_date'), current_date, session.get('ticker'), session.get('name'), session.get('fund'), spent_fund, quantity, avr_price, count)
                 db.close()
 
                 #SLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACK
@@ -593,15 +578,15 @@ class TradingLogic:
         data = self.kis_api.purchase_availability_inquiry()
         balance = float(data.get('output').get('nrcvb_buy_amt'))
         print('calculate_funds - 가용 가능 현금: ',balance)
-        # 세션에 할당된 자금 조회
-        db = DatabaseManager()
-        sessions = db.load_trading_session()
-        db.close()
-        session_fund = 0
-        for session in sessions:
-            fund = session[5]
-            session_fund += int(fund)
         
+        # 세션에 할당된 자금 조회
+        # 데이터베이스 연결 및 쿼리 실행을 with 문으로 관리
+        session_fund = 0
+        with DatabaseManager() as db:
+            sessions = db.load_trading_session()
+            for session in sessions:
+                fund = session.get('spent_fund')
+                session_fund += int(fund)
         try:
             if slot == 3:
                 allocated_funds = balance / 3  # 3개 슬롯에 33%씩 할당
@@ -615,8 +600,8 @@ class TradingLogic:
             print("calculate_funds - allocated_funds: ", allocated_funds)
             return int(allocated_funds)
         except Exception as e:
-            print(f"Error allocating funds: {e}")
-            return []
+            print(f"Error allocating 여기냐 funds: {e}")
+            return 0
 
      
     def allocate_stock(self):
@@ -628,8 +613,9 @@ class TradingLogic:
         try:
             # selected_stocks에서 첫 번째 종목 가져오기
             selected_stock = db.get_selected_stocks()  # selected_stocks 조회
+            
             if selected_stock is not None:
-                db.delete_selected_stock_by_no(selected_stock['no'])  # no로 삭제 
+                db.delete_selected_stock_by_no(selected_stock.get('no'))  # no로 삭제 
                 db.close()
                 return selected_stock
             else:
@@ -637,7 +623,7 @@ class TradingLogic:
                 return None
             
         except Exception as e:
-            print(f"Error allocating funds: {e}")
+            print(f"여기냐 Error allocating funds: {e}")
             return None
 
 
@@ -655,7 +641,7 @@ class TradingLogic:
         try:
             kis_websocket = KISWebSocket(self.sell_order)
             # 웹소켓 연결 및 모니터링 시작
-            complete = await kis_websocket.upper_limit_monitoring(sessions_info)
+            complete = await kis_websocket.real_time_monitoring(sessions_info)
             print("콜백함수 실행함.")
             
             # 모니터링 상태 확인
@@ -686,10 +672,9 @@ class TradingLogic:
         sessions_info = []
         
         for session in sessions:
-            session_id, start_date, ticker, name, quantity, avr_price = session[0], session[1], session[3], session[4], session[7], session[8]
             #강제 매도 일자
-            target_date = self.date_utils.get_target_date(date.fromisoformat(str(start_date).split()[0]), DAYS_LATER)
-            info_list = session_id, ticker, name, quantity, avr_price, start_date, target_date
+            target_date = self.date_utils.get_target_date(date.fromisoformat(str(session.get('start_date')).split()[0]), DAYS_LATER)
+            info_list = session.get('id'), session.get('ticker'), session.get('name'), session.get('quantity'), session.get('avr_price'), session.get('start_date'), target_date
             sessions_info.append(info_list)
             
         return sessions_info

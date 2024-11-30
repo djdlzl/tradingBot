@@ -11,12 +11,11 @@ BUY_PERCENT = 0.92
 # 매수 주문 후 대기 / 초
 BUY_WAIT = 20
 # N일 전 상한가 종목으로 매수
-BUY_DAY_AGO = 3
+BUY_DAY_AGO = 2
 # 매수 횟수(최초 9회였음)
 COUNT = 6
 
-# 상승 눌림목 매매
-SLOT_UPPER = 2
+
 
 ######################################################
 ####################    매도   ########################
@@ -24,17 +23,12 @@ SLOT_UPPER = 2
 
 #selling_point_1 이상일 때 1차 매도 - 일단 이것만 사용
 SELLING_POINT = 1.10
-#selling_point_2 이상일 때 2차 매도
-SELLING_POINT_2 = 1
 
 #selling_point_1 이상일 때 1차 매도 - 일단 이것만 사용
 RISK_MGMT = 0.93
 
 # 매도 주문 후 대기 / 초
 SELL_WAIT = 3
-
-# Trading parameters
-MAX_PRICE_DROP_PERCENT = -6
 
 # 매수 시작일로부터 days_later일 후 매도
 DAYS_LATER = 7 #마지막 매수로부터 4(7-3)일째 매도
@@ -48,8 +42,8 @@ DAYS_LATER = 7 #마지막 매수로부터 4(7-3)일째 매도
 GET_ULS_HOUR = 15
 GET_ULS_MINUTE = 30
 # 상한가 종목 중 선별하는 시간
-GET_SELECT_HOUR = 8
-GET_SELECT_MINUTE = 55
+GET_SELECT_HOUR = 15
+GET_SELECT_MINUTE = 31
 
 # 매수 시간 1
 ORDER_HOUR_1 = 12
@@ -63,7 +57,11 @@ ORDER_MINUTE_3 = 00
 
 
 
-#########
+###############################################################
+###############################################################
 
 
-BUY_DAY_AGO_UPPER = 2
+# 상승 눌림목 매매
+SLOT_UPPER = 2
+
+BUY_DAY_AGO_UPPER = 1

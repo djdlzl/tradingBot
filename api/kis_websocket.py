@@ -310,8 +310,8 @@ class KISWebSocket:
 ##############################    웹소켓 연결   #######################################
 ######################################################################################
 
-    async def upper_limit_monitoring(self, sessions_info):
-        """상한가 눌림목매매 모니터링 시작"""
+    async def real_time_monitoring(self, sessions_info):
+        """실시간 모니터링 시작"""
         try:
             # 실시간호가 모니터링 웹소켓 연결
             await self.connect_websocket()
@@ -332,7 +332,7 @@ class KISWebSocket:
                 task.add_done_callback(background_tasks.discard)
                 background_tasks.add(task)
                 self.active_tasks[ticker] = task
-                # print(f"{ticker} 모니터링 태스크 생성")
+                print(f"{ticker} 모니터링 태스크 생성")
                 
 
         except Exception as e:
@@ -551,7 +551,7 @@ class KISWebSocket:
             
             self.websocket = await websockets.connect(url, extra_headers=self.connect_headers)
             self.is_connected = True
-            # print("WebSocket 연결 성공")
+            print("WebSocket 연결 성공")
 
         except Exception as e:
             print(f"WebSocket 연결 실패: {e}")

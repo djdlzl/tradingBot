@@ -15,9 +15,44 @@ class DatabaseManager:
         - password: 비밀번호
         - database: 데이터베이스명
         """
-        self.conn = mysql.connector.connect(**DB_CONFIG)
-        self.cursor = self.conn.cursor(buffered=True)
-        self._create_tables()
+        try:
+            self.conn = mysql.connector.connect(**DB_CONFIG)
+            self.cursor = self.conn.cursor(buffered=True, dictionary=True)  # dictionary=True로 변경
+            self._create_tables()
+        except mysql.connector.Error as e:
+            logging.error(f"데이터베이스 연결 오류: {e}")
+            raise
+
+    def __enter__(self):
+        return self
+        
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        try:
+            if self.cursor:
+                self.cursor.close()
+            if self.conn:
+                # 연결 종료 전 커밋
+                if self.conn.is_connected():
+                    self.conn.commit()
+                    self.conn.close()
+        except mysql.connector.Error as e:
+            logging.error(f"데이터베이스 종료 중 오류: {e}")
+        finally:
+            # 명시적으로 None으로 설정하여 참조 제거
+            self.cursor = None
+            self.conn = None
+
+    def _reset_cursor(self):
+        """
+        커서를 안전하게 재설정하는 메서드
+        """
+        try:
+            if self.cursor:
+                self.cursor.close()
+            self.cursor = self.conn.cursor(buffered=True, dictionary=True)
+        except mysql.connector.Error as e:
+            logging.error(f"커서 재설정 오류: {e}")
+            raise
 
     def _create_tables(self):
         """필요한 데이터베이스 테이블을 생성합니다."""
@@ -42,7 +77,7 @@ class DatabaseManager:
                 `date` DATE,
                 ticker VARCHAR(20),
                 name VARCHAR(100),
-                price DECIMAL(10,2),
+                closing_price DECIMAL(10,2),
                 upper_rate DECIMAL(5,2),
                 PRIMARY KEY (`date`, ticker)
             ) ENGINE=InnoDB
@@ -54,7 +89,7 @@ class DatabaseManager:
                 `date` DATE,
                 ticker VARCHAR(20),
                 name VARCHAR(100),
-                price DECIMAL(10,2)
+                closing_price DECIMAL(10,2)
             ) ENGINE=InnoDB
         ''')
 
@@ -72,29 +107,13 @@ class DatabaseManager:
                 count INT
             ) ENGINE=InnoDB
         ''')
-        
-        self.cursor.execute('''
-            CREATE TABLE IF NOT EXISTS upper_stocks (
-                `date` DATE,
-                ticker VARCHAR(20),
-                name VARCHAR(100),
-                price DECIMAL(10,2),
-                upper_rate DECIMAL(5,2),
-                PRIMARY KEY (`date`, ticker)
-            ) ENGINE=InnoDB
-        ''')
 
-        self.cursor.execute('''
-            CREATE TABLE IF NOT EXISTS selected_upper_stocks (
-                no INT AUTO_INCREMENT PRIMARY KEY,
-                `date` DATE,
-                ticker VARCHAR(20),
-                name VARCHAR(100),
-                price DECIMAL(10,2)
-            ) ENGINE=InnoDB
-        ''')
 
         self.conn.commit()
+
+#####################################################################################
+#####################################################################################
+#####################################################################################
 
     def save_token(self, token_type, access_token, expires_at):
         try:
@@ -119,10 +138,8 @@ class DatabaseManager:
             )
             result = self.cursor.fetchone()
             if result:
-                access_token, expires_at_str = result
-                access_token = str(access_token)
-                expires_at_str = str(expires_at_str)
-                expires_at = datetime.fromisoformat(expires_at_str)
+                access_token = result.get('access_token')
+                expires_at = result.get('expires_at')
                 return access_token, expires_at
             return None, None
         except mysql.connector.Error as e:
@@ -152,20 +169,22 @@ class DatabaseManager:
             )
             result = self.cursor.fetchone()
             if result:
-                approval_key, expires_at_str = result
-                approval_key = str(approval_key)
-                expires_at_str = str(expires_at_str)
-                expires_at = datetime.fromisoformat(expires_at_str)
+                approval_key = result.get('access_token')
+                expires_at = result.get('expires_at')
                 return approval_key, expires_at
             return None, None
         except mysql.connector.Error as e:
             logging.error("Error retrieving approval: %s", e)
             raise
 
+#####################################################################################
+#####################################################################################
+#####################################################################################
+
     def get_upper_limit_stocks(self, start_date, end_date):
         try:
             self.cursor.execute('''
-                SELECT date, ticker, name, price 
+                SELECT date, ticker, name, closing_price 
                 FROM upper_limit_stocks 
                 WHERE date BETWEEN %s AND %s
                 ORDER BY date, name
@@ -177,16 +196,16 @@ class DatabaseManager:
 
     def save_upper_limit_stocks(self, date, stocks):
         try:
-            for ticker, name, price, upper_rate in stocks:
+            for ticker, name, closing_price, upper_rate in stocks:
                 self.cursor.execute('''
                     INSERT INTO upper_limit_stocks 
-                    (date, ticker, name, price, upper_rate)
+                    (date, ticker, name, closing_price, upper_rate)
                     VALUES (%s, %s, %s, %s, %s)
                     ON DUPLICATE KEY UPDATE
                         name = VALUES(name),
-                        price = VALUES(price),
+                        closing_price = VALUES(closing_price),
                         upper_rate = VALUES(upper_rate)
-                ''', (date, ticker, name, float(price), float(upper_rate)))
+                ''', (date, ticker, name, float(closing_price), float(upper_rate)))
             self.conn.commit()
             logging.info("Saved upper limit stocks for date: %s", date)
         except mysql.connector.Error as e:
@@ -195,16 +214,16 @@ class DatabaseManager:
 
     def save_upper_stocks(self, date, stocks):
         try:
-            for ticker, name, price, upper_rate in stocks:
+            for ticker, name, closing_price, upper_rate in stocks:
                 self.cursor.execute('''
                     INSERT INTO upper_stocks 
-                    (date, ticker, name, price, upper_rate)
+                    (date, ticker, name, closing_price, upper_rate)
                     VALUES (%s, %s, %s, %s, %s)
                     ON DUPLICATE KEY UPDATE
                         name = VALUES(name),
-                        price = VALUES(price),
+                        closing_price = VALUES(closing_price),
                         upper_rate = VALUES(upper_rate)
-                ''', (date, ticker, name, float(price), float(upper_rate)))
+                ''', (date, ticker, name, float(closing_price), float(upper_rate)))
             self.conn.commit()
             logging.info("Saved upper stocks for date: %s", date)
         except mysql.connector.Error as e:
@@ -242,19 +261,23 @@ class DatabaseManager:
 
     def get_selected_stocks(self):
         try:
+            # 커서 재설정
+            self._reset_cursor()
+            
             self.cursor.execute('''
                 SELECT * FROM selected_stocks 
                 ORDER BY no 
                 LIMIT 1
             ''')
             result = self.cursor.fetchone()
+            print(result)
             if result:
                 return {
-                    'no': int(result[0]),
-                    'date': result[1],
-                    'ticker': result[2],
-                    'name': result[3],
-                    'price': result[4]
+                    'no': int(result.get('no')),
+                    'date': result.get('date'),
+                    'ticker': result.get('ticker'),
+                    'name': result.get('name'),
+                    'closing_price': result.get('closing_price')
                 }
             return None
         except mysql.connector.Error as e:
@@ -269,14 +292,12 @@ class DatabaseManager:
             today = datetime.now()
             days_ago = DateUtils.get_previous_business_day(today, BUY_DAY_AGO)
             days_ago_str = days_ago.strftime('%Y-%m-%d')
-            print('days_ago_str: --',days_ago_str, type(days_ago_str))
             self.cursor.execute('''
-                SELECT ticker, name, price 
+                SELECT ticker, name, closing_price 
                 FROM upper_limit_stocks 
                 WHERE DATE(date) = %s
             ''', (days_ago_str,))
             stocks = self.cursor.fetchall()
-            print(stocks)
             return stocks
         except mysql.connector.Error as e:
             logging.error("Error retrieving stocks from days ago: %s", e)
@@ -286,7 +307,8 @@ class DatabaseManager:
         try:
             # no 갱신
             self.cursor.execute('SELECT MAX(no) FROM selected_stocks')
-            max_no = self.cursor.fetchone()[0]
+            result = self.cursor.fetchone()
+            max_no = result.get('MAX(no)') if result.get('MAX(no)') is not None else 0
             
             # no 값 결정
             if max_no is None or max_no < 100:
@@ -296,14 +318,14 @@ class DatabaseManager:
                 
             today = DateUtils.get_previous_business_day(datetime.now(), 2)
             
-            for ticker, name, price in selected_stocks:
+            for stock in selected_stocks:
                 self.cursor.execute('''
                     INSERT INTO selected_stocks 
-                    (no, date, ticker, name, price)
+                    (no, date, ticker, name, closing_price)
                     VALUES (%s, %s, %s, %s, %s)
-                ''', (no, today.strftime('%Y-%m-%d'), ticker, name, float(price)))
+                ''', (no, today.strftime('%Y-%m-%d'), stock.get('ticker'), stock.get('name'), float(stock.get('closing_price'))))
                 no += 1
-                
+            print("저장 완료")
             self.conn.commit()
             logging.info("Saved selected stocks successfully.")
         except mysql.connector.Error as e:
@@ -321,9 +343,13 @@ class DatabaseManager:
 
     def delete_selected_stock_by_no(self, no):
         try:
+            # 커서 재설정
+            self._reset_cursor()
+            
             self.cursor.execute('DELETE FROM selected_stocks WHERE no = %s', (no,))
             self.conn.commit()
             logging.info("Deleted stock with no: %d", no)
+            
             self.reorder_selected_stocks()
         except mysql.connector.Error as e:
             logging.error("Error deleting selected stock: %s", e)
@@ -331,14 +357,21 @@ class DatabaseManager:
 
     def reorder_selected_stocks(self):
         try:
+            # 커서 재설정
+            self._reset_cursor()
+            
+            # 쿼리를 개별적으로 실행
+            self.cursor.execute('SET @count = 0')
             self.cursor.execute('''
-                SET @count = 0;
                 UPDATE selected_stocks 
                 SET no = (@count:=@count+1) 
-                ORDER BY no;
+                ORDER BY no
             ''')
+            
             self.conn.commit()
+            print("이까지 실행됐냐")
             logging.info("Reordered selected stocks successfully.")
+            
         except mysql.connector.Error as e:
             self.conn.rollback()
             logging.error("Error reordering selected stocks: %s", e)
@@ -348,11 +381,11 @@ class DatabaseManager:
         try:
             self.cursor.execute('''
                 INSERT INTO trading_session 
-                (id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count)
+                (id, start_date, `current_date`, ticker, name, fund, spent_fund, quantity, avr_price, count)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                     start_date = VALUES(start_date),
-                    current_date = VALUES(current_date),
+                    `current_date` = VALUES(`current_date`),
                     ticker = VALUES(ticker),
                     name = VALUES(name),
                     fund = VALUES(fund),
@@ -369,6 +402,9 @@ class DatabaseManager:
 
     def load_trading_session(self, random_id=None):
         try:
+            # 커서 재설정
+            self._reset_cursor()
+            
             if random_id is not None:
                 self.cursor.execute('''
                     SELECT * FROM trading_session 
@@ -376,13 +412,19 @@ class DatabaseManager:
                 ''', (random_id,))
             else:
                 self.cursor.execute('SELECT * FROM trading_session')
+            
             return self.cursor.fetchall()
+        
         except mysql.connector.Error as e:
-            logging.error("Error loading trading session: %s", e)
+            logging.error(f"세션 로딩 중 오류: {e}")
             raise
 
     def delete_session_one_row(self, session_id):
         try:
+            # 커서 재설정
+            self._reset_cursor()
+
+            print('delete_session_one_row:--', session_id)
             self.cursor.execute('DELETE FROM trading_session WHERE id = %s', (session_id,))
             self.conn.commit()
             logging.info("Session row deleted successfully")

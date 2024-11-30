@@ -5,6 +5,7 @@ api와 db 모듈을 사용해서 상승 눌림목매매 로직 모듈을 개발
 import random
 import time
 import asyncio
+import pandas as pd
 from datetime import datetime, timedelta, date
 from database.db_manager_upper import DatabaseManager
 from utils.date_utils import DateUtils
@@ -12,7 +13,7 @@ from utils.slack_logger import SlackLogger
 from api.kis_api import KISApi
 from api.krx_api import KRXApi
 from api.kis_websocket import KISWebSocket
-from config.condition import DAYS_LATER, BUY_PERCENT, BUY_WAIT, SELL_WAIT, COUNT, SLOT_UPPER
+from config.condition import DAYS_LATER, BUY_PERCENT, BUY_WAIT, SELL_WAIT, COUNT, SLOT_UPPER, BUY_DAY_AGO_UPPER
 from .trading_session import TradingSession
 from concurrent.futures import ThreadPoolExecutor
 
@@ -48,7 +49,7 @@ class TradingUpper(TradingSession):
             
             # 데이터베이스에 저장
             db = DatabaseManager()
-            if stocks_info:  # 리스트가 비어있지 않은 경우
+            if stocks_info:  # 상승종목이 존재할 경우
                 db.save_upper_stocks(current_day.strftime('%Y-%m-%d'), stocks_info)  # 날짜를 문자열로 변환하여 저장
                 print(current_day.strftime('%Y-%m-%d'), stocks_info)
             else:
@@ -56,7 +57,7 @@ class TradingUpper(TradingSession):
             db.close()
 
 ######################################################################################
-#########################    상한가 셀렉 메서드   ###################################
+#########################    셀렉 메서드   ###################################
 ######################################################################################
 
     def select_stocks_to_buy(self):
@@ -69,25 +70,42 @@ class TradingUpper(TradingSession):
         # self.init_selected_stocks()
 
         selected_stocks = []
-        tickers_with_prices = db.get_upper_limit_stocks_days_ago()  # N일 전 상한가 종목 가져오기
+        tickers_with_prices = db.get_upper_stocks_days_ago()  # N일 전 상승 종목 가져오기
         print('tickers_with_prices:  ',tickers_with_prices)
         for stock in tickers_with_prices:
-            ticker, name, upper_price = stock[0],stock[1],stock[2]
-            # 조건1: 상승일 기준 15일 전까지 고가 20% 넘은 이력 여부 체크
-            condition_1 = self.krx_api.get_OHLCV()
             
-            # 조건2: 상승일 고가 - 매수일 현재가 -7.5% 체크
+            ### 조건1: 상승일 기준 15일 전까지 고가 20% 넘은 이력 여부 체크
+            df = self.krx_api.get_OHLCV(stock.get('ticker'), 16) # D+2일 8시55분에 실행이라 16일
+            print('df', df)
+            # 종가 대비 다음날 고가의 등락률 계산
+            percentage_diff = []
+            for i in range(len(df)-1):
+                close_price = df.iloc[i]['종가']
+                next_day_high = df.iloc[i+1]['고가']
+                percent_change = ((next_day_high - close_price) / close_price) * 100
+                percentage_diff.append(percent_change)
+            # 결과를 데이터프레임으로 만들고 포맷팅
+            result_df = pd.DataFrame(percentage_diff, index=df.index[:-1], columns=['등락률'])
+            # 등락률이 20% 이상인 값이 있으면 False, 없으면 True를 리턴
+            result_high_price = not (result_df['등락률'] >= 20).any()
+            print(stock.get('name'),result_high_price)
+            ### 조건2: 상승일 고가 - 매수일 현재가 -7.5% 체크 -> 매수하면서 체크
             
-            # 조건3: 상승일 거래량 대비 다음날 거래량 20% 이상인지 체크
             
-            # 조건4: 상장일 이후 1년 체크
+            ### 조건3: 상승일 거래량 대비 다음날 거래량 20% 이상인지 체크
+            result_volume = self.get_volume(stock.get('ticker'))
+            print(stock.get('name'),result_volume)
             
+            ### 조건4: 상장일 이후 1년 체크
+            result_lstg = self.check_listing_date(stock.get('ticker'))
+            print(stock.get('name'),result_lstg)
             
             # 현재가 가져오기
-            current_price, temp_stop_yn = self.kis_api.get_current_price(stock[0])
+            current_price, temp_stop_yn = self.kis_api.get_current_price(stock.get('ticker'))
             # 매수 조건: 현재가가 상한가 당시 가격보다 -8% 이상 하락하지 않은 경우
-            if int(current_price) > (int(stock[2]) * BUY_PERCENT) and temp_stop_yn=='N':  # -8% 이상 하락, 거래정지 N
-                print(f"################ 매수 후보 종목: {stock[0]}, 종목명: {stock[1]} (현재가: {current_price}, 상승일 종가 가격: {stock[2]})")
+            # if int(current_price) > (int(stock.get('closing_price')) * BUY_PERCENT) and temp_stop_yn=='N':  # -8% 이상 하락, 거래정지 N
+            if result_high_price and result_volume and result_lstg:
+                print(f"################ 매수 후보 종목: {stock.get('ticker')}, 종목명: {stock.get('name')} (현재가: {current_price}, 상한가 당시 가격: {stock.get('closing_price')})")
                 selected_stocks.append(stock)
       
         # 선택된 종목을 selected_stocks 테이블에 저장
@@ -317,7 +335,7 @@ class TradingUpper(TradingSession):
         
         try:
             # 거래 세션을 조회
-            sessions = db.load_trading_session()
+            sessions = db.load_trading_session_upper()
             if not sessions:
                 print("load_and_update_trading_session - 진행 중인 거래 세션이 없습니다.")
                 return
@@ -477,3 +495,35 @@ class TradingUpper(TradingSession):
         except Exception as e:
             print(f"Error allocating funds: {e}")
             return None
+
+######################################################################################
+################################    거래량   ##########################################
+######################################################################################
+
+    def get_volume(self, ticker):
+        volumes = self.kis_api.get_stock_volume(ticker)
+
+        # 거래량 비교
+        diff_1_2, diff_2_3 = self.kis_api.compare_volumes(volumes)
+        
+        if diff_1_2 > -80:
+            return True
+        else:
+            return False
+        
+        
+        
+    def check_listing_date(self, ticker):
+        result = self.kis_api.get_basic_stock_info(ticker)
+        
+        scts_date = result.get('output').get('scts_mket_lstg_dt')
+        kosdaq_date = result.get('output').get('kosdaq_mket_lstg_dt')
+        
+        # 유효한 날짜 선택 (빈 문자열이 아닌 것)
+        listing_date = scts_date if scts_date and scts_date.strip() else kosdaq_date
+        
+        if listing_date and listing_date.strip():  # 유효한 날짜 문자열인지 확인
+            listing_date_dt = datetime.strptime(listing_date, '%Y%m%d')
+            threshold_date = datetime.now() - timedelta(days=300)
+            return listing_date_dt < threshold_date
+        return False
