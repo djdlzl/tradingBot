@@ -78,11 +78,8 @@ def test():
     krx_api = KRXApi()
     
     
-    trading_upper.select_stocks_to_buy()
-    # trading_upper.fetch_and_save_previous_upper_stocks()
-    # trading_upper.select_stocks_to_buy()
-    
-    # kis_api.get_upAndDown_rank()
+    trading_upper.start_trading_session()
+    krx_api.get_OHLCV('239340', 16)
 
     
 

@@ -76,35 +76,38 @@ class TradingUpper(TradingSession):
             
             ### 조건1: 상승일 기준 15일 전까지 고가 20% 넘은 이력 여부 체크
             df = self.krx_api.get_OHLCV(stock.get('ticker'), 16) # D+2일 8시55분에 실행이라 16일
-            print('df', df)
-            # 종가 대비 다음날 고가의 등락률 계산
+              # 종가 대비 다음날 고가의 등락률 계산
             percentage_diff = []
             for i in range(len(df)-1):
                 close_price = df.iloc[i]['종가']
                 next_day_high = df.iloc[i+1]['고가']
                 percent_change = ((next_day_high - close_price) / close_price) * 100
                 percentage_diff.append(percent_change)
-            # 결과를 데이터프레임으로 만들고 포맷팅
+              # 결과를 데이터프레임으로 만들고 포맷팅
             result_df = pd.DataFrame(percentage_diff, index=df.index[:-1], columns=['등락률'])
-            # 등락률이 20% 이상인 값이 있으면 False, 없으면 True를 리턴
+              # 등락률이 20% 이상인 값이 있으면 False, 없으면 True를 리턴
             result_high_price = not (result_df['등락률'] >= 20).any()
-            print(stock.get('name'),result_high_price)
-            ### 조건2: 상승일 고가 - 매수일 현재가 -7.5% 체크 -> 매수하면서 체크
             
+            ### 조건2: 상승일 고가 - 매수일 현재가 -7.5% 체크 -> 매수하면서 체크
+            result_decline = False
+            current_price, trht_yn = self.kis_api.get_current_price(stock.get('ticker'))
+            if int(current_price) > (int(stock.get('closing_price')) * BUY_PERCENT):
+                result_decline = True
             
             ### 조건3: 상승일 거래량 대비 다음날 거래량 20% 이상인지 체크
             result_volume = self.get_volume(stock.get('ticker'))
-            print(stock.get('name'),result_volume)
             
             ### 조건4: 상장일 이후 1년 체크
             result_lstg = self.check_listing_date(stock.get('ticker'))
-            print(stock.get('name'),result_lstg)
             
-            # 현재가 가져오기
-            current_price, temp_stop_yn = self.kis_api.get_current_price(stock.get('ticker'))
-            # 매수 조건: 현재가가 상한가 당시 가격보다 -8% 이상 하락하지 않은 경우
-            # if int(current_price) > (int(stock.get('closing_price')) * BUY_PERCENT) and temp_stop_yn=='N':  # -8% 이상 하락, 거래정지 N
-            if result_high_price and result_volume and result_lstg:
+            print(stock.get('name'))
+            print('조건1: result_high_price:',result_high_price)
+            print('조건2: result_decline:',result_decline)
+            print('조건3: result_volume:',result_volume)
+            print('조건4: result_lstg:',result_lstg)
+
+
+            if result_high_price and result_decline and result_volume and result_lstg:
                 print(f"################ 매수 후보 종목: {stock.get('ticker')}, 종목명: {stock.get('name')} (현재가: {current_price}, 상한가 당시 가격: {stock.get('closing_price')})")
                 selected_stocks.append(stock)
       
@@ -154,7 +157,7 @@ class TradingUpper(TradingSession):
 
 
 ######################################################################################
-#########################    트레이딩 세션 관련 메서드   ###################################
+###############################    트레이딩 세션   ###################################
 ######################################################################################
 
     def start_trading_session(self):
@@ -163,13 +166,10 @@ class TradingUpper(TradingSession):
         """
         db = DatabaseManager()
         session_info = self.check_trading_session()
-        fund = self.calculate_funds(session_info['slot'])
         
         # 새로운 세션을 DB에 저장
         for _ in range(int(session_info['slot'])):
-            result = self.add_new_trading_session(fund)
-            if result is None:
-                break
+            self.add_new_trading_session(session_info['slot'])
         
         try:
             #SLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACK
@@ -183,7 +183,7 @@ class TradingUpper(TradingSession):
                 }
             )
             
-            # 거래 세션을 조회
+            # 거래 세션을 조회 및 검증
             sessions = db.load_trading_session_upper()
             db.close()
             if not sessions:
@@ -194,17 +194,13 @@ class TradingUpper(TradingSession):
             order_list = []
 
             for session in sessions:
-                random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count = session
-                
                 # 9번 거래한 종목은 더이상 매수하지 않고 대기
-                if count == COUNT:
-                    print(name,"은 6번의 거래를 진행해 넘어갔습니다.")
+                if session.get("count") == COUNT:
+                    print(session.get('name'),"은 6번의 거래를 진행해 넘어갔습니다.")
                     continue
-
                 
                 # 세션 정보로 주식 주문
-                
-                order_result = self.place_order_session(random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count)
+                order_result = self.place_order_session(session)
                 order_list.append(order_result)
                 
             return order_list
@@ -223,19 +219,20 @@ class TradingUpper(TradingSession):
         # 현재 거래 세션의 수를 확인
         sessions = db.load_trading_session_upper()
         slot_count = SLOT_UPPER - len(sessions)
-
+        print({'session': len(sessions), 'slot': slot_count})
         db.close()
         
         return {'session': len(sessions), 'slot': slot_count}
 
 
-    def add_new_trading_session(self, fund):
+    def add_new_trading_session(self, slot):
         """
         새로운 세션 생성
         """
         # id: 세션 받아오는 메서드, trading_session의 id값을 받아와서 exclude_set에 저장
         db = DatabaseManager()
-        
+        fund = self.calculate_funds(slot)
+
         exclude_num = []
         random_id = self.generate_random_id(exclude=exclude_num)
         
@@ -258,17 +255,17 @@ class TradingUpper(TradingSession):
                 return None
             
             # 주문 가능 종목 확인
-            result = self.kis_api.purchase_availability_inquiry(stock['ticker'])
+            result = self.kis_api.get_stock_price(stock['ticker'])
             time.sleep(1)
             print(result)
-            print(result.get('output'))
-            if result.get('output').get('nrcvb_buy_qty') == '1':
+            print(result.get('output').get('trht_yn'))
+            if result.get('output').get('trht_yn') != 'N':
                 print(f'{stock['name']} - 매수가 불가능하여 다시 받아옵니다.')
                 continue
             break
         
         # 거래 세션 생성
-        db.save_trading_session(random_id, today, today, stock['ticker'], stock['name'], fund, spent_fund, quantity, avr_price, count)
+        db.save_trading_session_upper(random_id, today, today, stock['ticker'], stock['name'], fund, spent_fund, quantity, avr_price, count)
         db.close()
         
 

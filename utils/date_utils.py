@@ -68,9 +68,8 @@ class DateUtils:
             if (current_date in all_holidays) and (current_date.weekday() < 5):
                 current_date -= timedelta(days=1)
 
-        
-
         return current_date
+
 
     @staticmethod
     def is_business_day(date):

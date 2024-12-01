@@ -176,17 +176,13 @@ class KISApi:
             dict: 주가 정보를 포함한 딕셔너리
         """
         self._set_headers(is_mock=False, tr_id="FHKST01010100")
-        url = "https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-price"
+        url = "https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-price-2"
         params = {
             "FID_COND_MRKT_DIV_CODE": "J",
             "FID_INPUT_ISCD": ticker
         }
         response = requests.get(url=url, params=params, headers=self.headers, timeout=10)
         json_response = response.json()
-        
-        for key, value in json_response.items():
-            if isinstance(value, str):
-                json_response[key] = unicode_to_korean(value)
         # print(json.dumps(json_response,indent=2))
 
         return json_response
@@ -285,7 +281,7 @@ class KISApi:
         """
         stock_price_info = self.get_stock_price(ticker)
 
-        return stock_price_info.get('output').get('stck_prpr'), stock_price_info.get('output').get('temp_stop_yn') # 현재가 반환, 기본값은 0
+        return stock_price_info.get('output').get('stck_prpr'), stock_price_info.get('output').get('trht_yn') # 현재가 반환, 기본값은 0
 
     # def get_balance(self):
     #     """
