@@ -13,7 +13,7 @@ from utils.slack_logger import SlackLogger
 from api.kis_api import KISApi
 from api.krx_api import KRXApi
 from api.kis_websocket import KISWebSocket
-from config.condition import DAYS_LATER_UPPER, BUY_PERCENT_UPPER, BUY_WAIT, SELL_WAIT, COUNT_UPPER, SLOT_UPPER, BUY_DAY_AGO_UPPER
+from config.condition import DAYS_LATER_UPPER, BUY_PERCENT_UPPER, BUY_WAIT, SELL_WAIT, COUNT_UPPER, SLOT_UPPER
 # from .trading_session import TradingSession
 from concurrent.futures import ThreadPoolExecutor
 
