@@ -313,7 +313,7 @@ class TradingLogic:
             # 세션 시작 로그
             self.slack_logger.send_log(
                 level="INFO",
-                message="트레이딩 세션 시작",
+                message="상한가 매매 트레이딩 세션 시작",
                 context={
                     "세션수": session_info['session'],
                     "가용슬롯": session_info['slot']
@@ -331,7 +331,7 @@ class TradingLogic:
             order_list = []
 
             for session in sessions:
-                # 9번 거래한 종목은 더이상 매수하지 않고 대기
+                # 6번 거래한 종목은 더이상 매수하지 않고 대기
                 if session.get("count") == COUNT:
                     print(session.get('name'),"은 6번의 거래를 진행해 넘어갔습니다.")
                     continue
@@ -450,7 +450,7 @@ class TradingLogic:
         # 'rt_cd': '1' 세션 취소
         if order_result['rt_cd'] == '1' and session.get('count') == 0:
             print("첫 주문 실패 시 세션 삭제", session)
-            # db.delete_session_one_row(session.get('id'))
+            db.delete_session_one_row(session.get('id'))
 
         db.close()
         
@@ -477,6 +477,7 @@ class TradingLogic:
             db.close()
         except Exception as e:
             print("Error in update_trading_session: ", e)
+            db.close()
             
 
     def update_session(self, session, order_result):
@@ -537,9 +538,9 @@ class TradingLogic:
                     level="INFO",
                     message="세션 업데이트",
                     context={
-                        "세션ID": random_id,
-                        "종목명": name,
-                        "투자금액": fund,
+                        "세션ID": session.get('id'),
+                        "종목명": session.get('name'),
+                        "투자금액": session.get('fund'),
                         "사용금액": spent_fund,
                         "평균단가": avr_price,
                         "보유수량": quantity,

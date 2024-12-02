@@ -387,7 +387,9 @@ class DatabaseManager:
                 ''', (random_id,))
             else:
                 self.cursor.execute('SELECT * FROM trading_session_upper')
+                
             return self.cursor.fetchall()
+        
         except mysql.connector.Error as e:
             logging.error("Error loading trading session: %s", e)
             raise
