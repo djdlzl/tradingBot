@@ -249,6 +249,7 @@ class MainProcess:
 
 if __name__ == "__main__":
     try:
+        
         main_process = MainProcess()
         main_process.start_all()
         
