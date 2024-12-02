@@ -262,7 +262,7 @@ class DatabaseManager:
         except mysql.connector.Error as e:
             logging.error("Error retrieving selected stocks: %s", e)
             return None
-        
+
     def get_upper_stocks_days_ago(self):
         try:
             # selected_upper_stocks 테이블 초기화
@@ -286,25 +286,20 @@ class DatabaseManager:
         try:
             # no 갱신
             self.cursor.execute('SELECT MAX(no) FROM selected_stocks')
-            result = self.cursor.fetchone()
-            max_no = result.get('MAX(no)') if result.get('MAX(no)') is not None else 0
             
-            # no 값 결정
-            if max_no is None or max_no < 100:
-                no = (max_no + 1) if max_no is not None else 1
-            else:
-                no = 1  # 100에 도달하면 1로 리셋
-                
+            # upper_rate를 기준으로 내림차순 정렬
+            sorted_stocks = sorted(selected_upper_stocks, key=lambda x: float(x.get('upper_rate', 0)), reverse=True)
+
             today = DateUtils.get_previous_business_day(datetime.now(), 2)
             
-            for stock in selected_upper_stocks:
+            for index, stock in enumerate(sorted_stocks, start=1):
                 self.cursor.execute('''
                     INSERT INTO selected_upper_stocks 
-                    (no, date, ticker, name, closing_price)
-                    VALUES (%s, %s, %s, %s, %s)
-                ''', (no, today.strftime('%Y-%m-%d'), stock.get('ticker'), stock.get('name'), float(stock.get('closing_price'))))
-                no += 1
-            print("저장 완료")
+                    (no, date, ticker, name, closing_price, upper_rate)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                ''', (index, today.strftime('%Y-%m-%d'), stock.get('ticker'), stock.get('name'), 
+                    float(stock.get('closing_price')), float(stock.get('upper_rate', 0))))
+            print("선별 종목 저장 완료")
             self.conn.commit()
             logging.info("Saved selected stocks successfully.")
         except mysql.connector.Error as e:
@@ -356,11 +351,11 @@ class DatabaseManager:
         try:
             self.cursor.execute('''
                 INSERT INTO trading_session_upper 
-                (id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count)
+                (id, start_date, `current_date`, ticker, name, fund, spent_fund, quantity, avr_price, count)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                     start_date = VALUES(start_date),
-                    current_date = VALUES(current_date),
+                    `current_date` = VALUES(`current_date`),
                     ticker = VALUES(ticker),
                     name = VALUES(name),
                     fund = VALUES(fund),

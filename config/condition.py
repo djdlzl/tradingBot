@@ -62,6 +62,13 @@ ORDER_MINUTE_3 = 00
 
 
 # 상승 눌림목 매매
+
+BUY_PERCENT_UPPER = 0.925
+
+COUNT_UPPER = 6
+
 SLOT_UPPER = 2
 
 BUY_DAY_AGO_UPPER = 1
+
+DAYS_LATER_UPPER = 1 #마지막 매수로부터 +1일

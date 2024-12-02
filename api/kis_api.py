@@ -175,7 +175,7 @@ class KISApi:
         Returns:
             dict: 주가 정보를 포함한 딕셔너리
         """
-        self._set_headers(is_mock=False, tr_id="FHKST01010100")
+        self._set_headers(is_mock=False, tr_id="FHPST01010000")
         url = "https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-price-2"
         params = {
             "FID_COND_MRKT_DIV_CODE": "J",
@@ -545,6 +545,8 @@ class KISApi:
         
         response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
         json_response = response.json()
+        print("daily_order_execution_inquiry 정상 실행")
+        
         
         return json_response
 

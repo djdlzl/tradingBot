@@ -22,6 +22,7 @@ from trading.trading import TradingLogic
 from trading.trading_upper import TradingUpper
 from config.condition import GET_ULS_HOUR, GET_ULS_MINUTE
 from database.db_manager import DatabaseManager
+from utils.date_utils import DateUtils
 from api.kis_api import KISApi
 from api.krx_api import KRXApi
 
@@ -76,16 +77,19 @@ def test():
     trading_upper = TradingUpper()
     kis_api = KISApi()
     krx_api = KRXApi()
+    date_utils = DateUtils()
     
-    
-    trading_upper.start_trading_session()
-    krx_api.get_OHLCV('239340', 16)
+
+    trading_upper.fetch_and_save_previous_upper_stocks()
+    trading_upper.select_stocks_to_buy()
+    # krx_api.get_OHLCV('239340', 16)
 
     
 
     # #####상한가 조회#############    
     # # print("시작")
     # trading.fetch_and_save_previous_upper_limit_stocks()
+    # trading_upper.fetch_and_save_previous_upper_stocks()
     # # print("상한가 저장")
 
     # # # ######매수가능 상한가 종목 조회###########
@@ -100,8 +104,8 @@ def test():
     # trading.load_and_update_trading_session(order_list)
 
     ###### websocket 모니터링 실행
-    # sessions_info = trading.get_session_info()
-    # asyncio.run(trading.monitor_for_selling(sessions_info))
+    # sessions_info = trading_upper.get_session_info_upper()
+    # asyncio.run(trading_upper.monitor_for_selling_upper(sessions_info))
 
 
         

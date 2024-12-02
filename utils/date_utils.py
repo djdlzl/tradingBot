@@ -154,7 +154,7 @@ class DateUtils:
             while (target_date in all_holidays) and (target_date.weekday() < 5):
                 target_date += timedelta(days=1)
     #############################################################################
-
+        
         return target_date
 
     @staticmethod

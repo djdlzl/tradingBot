@@ -13,7 +13,7 @@ from utils.slack_logger import SlackLogger
 from api.kis_api import KISApi
 from api.krx_api import KRXApi
 from api.kis_websocket import KISWebSocket
-from config.condition import DAYS_LATER, BUY_PERCENT, BUY_WAIT, SELL_WAIT, COUNT, SLOT_UPPER, BUY_DAY_AGO_UPPER
+from config.condition import DAYS_LATER_UPPER, BUY_PERCENT_UPPER, BUY_WAIT, SELL_WAIT, COUNT_UPPER, SLOT_UPPER, BUY_DAY_AGO_UPPER
 # from .trading_session import TradingSession
 from concurrent.futures import ThreadPoolExecutor
 
@@ -27,6 +27,7 @@ class TradingUpper():
         self.krx_api = KRXApi()
         self.date_utils = DateUtils()
         self.slack_logger = SlackLogger()
+        self.kis_websocket = None
 
 ######################################################################################
 #########################    상승 종목 받아오기 / 저장   ###################################
@@ -76,29 +77,36 @@ class TradingUpper():
             
             ### 조건1: 상승일 기준 15일 전까지 고가 20% 넘은 이력 여부 체크
             df = self.krx_api.get_OHLCV(stock.get('ticker'), 16) # D+2일 8시55분에 실행이라 16일
+            # 데이터프레임에서 최하단 2개 행을 제외
+            filtered_df = df.iloc[:-2]
               # 종가 대비 다음날 고가의 등락률 계산
             percentage_diff = []
-            for i in range(len(df)-1):
-                close_price = df.iloc[i]['종가']
-                next_day_high = df.iloc[i+1]['고가']
+            for i in range(len(filtered_df)-1):
+                close_price = filtered_df.iloc[i]['종가']
+                next_day_high = filtered_df.iloc[i+1]['고가']
                 percent_change = ((next_day_high - close_price) / close_price) * 100
                 percentage_diff.append(percent_change)
               # 결과를 데이터프레임으로 만들고 포맷팅
-            result_df = pd.DataFrame(percentage_diff, index=df.index[:-1], columns=['등락률'])
+            result_df = pd.DataFrame(percentage_diff, index=filtered_df.index[:-1], columns=['등락률'])
               # 등락률이 20% 이상인 값이 있으면 False, 없으면 True를 리턴
             result_high_price = not (result_df['등락률'] >= 20).any()
             
+            
             ### 조건2: 상승일 고가 - 매수일 현재가 -7.5% 체크 -> 매수하면서 체크
+            last_high_price = df['고가'].iloc[-2]
             result_decline = False
             current_price, trht_yn = self.kis_api.get_current_price(stock.get('ticker'))
-            if int(current_price) > (int(stock.get('closing_price')) * BUY_PERCENT):
+            if int(current_price) > (int(last_high_price) * BUY_PERCENT_UPPER):
                 result_decline = True
             
+            
             ### 조건3: 상승일 거래량 대비 다음날 거래량 20% 이상인지 체크
-            result_volume = self.get_volume(stock.get('ticker'))
+            result_volume = self.get_volume_check(stock.get('ticker'))
+            
             
             ### 조건4: 상장일 이후 1년 체크
             result_lstg = self.check_listing_date(stock.get('ticker'))
+            
             
             print(stock.get('name'))
             print('조건1: result_high_price:',result_high_price)
@@ -195,7 +203,7 @@ class TradingUpper():
 
             for session in sessions:
                 # 6번 거래한 종목은 더이상 매수하지 않고 대기
-                if session.get("count") == COUNT:
+                if session.get("count") == COUNT_UPPER:
                     print(session.get('name'),"은 6번의 거래를 진행해 넘어갔습니다.")
                     continue
                 
@@ -294,10 +302,10 @@ class TradingUpper():
         price = int(result[0]) # 현재가 받아오기
 
         # 매수할 금액 계산
-        ratio = round(100/COUNT) / 100 
+        ratio = round(100/COUNT_UPPER) / 100 
         fund_per_order = int(float(session.get('fund')) * ratio)  # 각 매수 시 사용할 금액
 
-        if session.get('count') < COUNT-1:  # 0부터 COUNT-1까지는 일반 매수
+        if session.get('count') < COUNT_UPPER-1:  # 0부터 COUNT-1까지는 일반 매수
             quantity = fund_per_order / price  # 매수 수량 계산
         else:  # COUNT회차 (마지막) 매수
             remaining_fund = float(session.get('fund')) - session.get('spent_fund')  # 남은 자금 계산
@@ -306,7 +314,7 @@ class TradingUpper():
         # 매수 주문을 진행
         quantity = int(quantity)
         
-        if session.get('count') < COUNT:
+        if session.get('count') < COUNT_UPPER:
             while True:
                 order_result = self.buy_order(session.get('ticker'), quantity)
                 
@@ -406,12 +414,15 @@ class TradingUpper():
                 # 세션 업데이트
                 db.save_trading_session_upper(session.get('id'), session.get('start_date'), current_date, session.get('ticker'), session.get('name'), session.get('fund'), spent_fund, quantity, avr_price, count)
                 db.close()
-
+                
+                # 모니터링 시작
+                asyncio.create_task(self.start_monitoring_for_session(session))
+                
                 #SLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACK
                 # 세션 업데이트 로그
                 self.slack_logger.send_log(
                     level="INFO",
-                    message="상승 추세매매 세션 업데이트",
+                    message="상승 추세매매 세션 업데이트 / 모니터링 시작",
                     context={
                         "세션ID": session.get('id'),
                         "종목명": session.get('name'),
@@ -455,19 +466,16 @@ class TradingUpper():
         balance = float(data.get('output').get('nrcvb_buy_amt'))
         print('calculate_funds - 가용 가능 현금: ',balance)
         # 세션에 할당된 자금 조회
-        db = DatabaseManager()
-        sessions = db.load_trading_session_upper()
-        db.close()
         session_fund = 0
-        for session in sessions:
-            fund = session[5]
-            session_fund += int(fund)
+        with DatabaseManager() as db:
+            sessions = db.load_trading_session_upper()
+            for session in sessions:
+                fund = session.get('spent_fund')
+                session_fund += int(fund)
         
         try:
-            if slot == 3:
-                allocated_funds = balance / 3  # 3개 슬롯에 33%씩 할당
-            elif slot == 2:
-                allocated_funds = (balance - session_fund) / 2  # 2개 슬롯에 50%씩 할당
+            if slot == 2:
+                allocated_funds = balance / 2  # 3개 슬롯에 50%씩 할당
             elif slot == 1:
                 allocated_funds = (balance - session_fund)  # 1개 슬롯에 전체 자금 할당
             else:
@@ -505,7 +513,7 @@ class TradingUpper():
 ################################    거래량   ##########################################
 ######################################################################################
 
-    def get_volume(self, ticker):
+    def get_volume_check(self, ticker):
         volumes = self.kis_api.get_stock_volume(ticker)
 
         # 거래량 비교
@@ -679,7 +687,8 @@ class TradingUpper():
         print("주문확인 order_complete_check: - ", unfilled_qty)
 
         return unfilled_qty 
-    
+
+
     def delete_finished_session(self, session_id):
         db = DatabaseManager()
         db.delete_session_one_row(session_id)
@@ -704,8 +713,6 @@ class TradingUpper():
             # 모니터링 상태 확인
             if complete:
                 print("모니터링이 정상적으로 종료되었습니다.")
-            else:
-                print("비정상 종료")
                 
         except Exception as e:
             print(f"모니터링 오류: {e}")
@@ -723,8 +730,23 @@ class TradingUpper():
         
         for session in sessions:
             #강제 매도 일자
-            target_date = self.date_utils.get_target_date(date.fromisoformat(str(session.get('start_date')).split()[0]), DAYS_LATER)
+            target_date = self.date_utils.get_target_date(date.fromisoformat(str(session.get('start_date')).split()[0]), DAYS_LATER_UPPER)
             info_list = session.get('id'), session.get('ticker'), session.get('name'), session.get('quantity'), session.get('avr_price'), session.get('start_date'), target_date
             sessions_info.append(info_list)
             
         return sessions_info
+    
+    
+    async def start_monitoring_for_session(self, session):
+        ticker = session.get('ticker')
+        name = session.get('name')
+        quantity = session.get('quantity')
+        avr_price = session.get('avr_price')
+        start_date = session.get('start_date')
+        target_date = self.date_utils.get_target_date(start_date, DAYS_LATER_UPPER)
+        
+        session_info = [(session.get('id'), ticker, name, quantity, avr_price, start_date, target_date)]
+        
+        if self.kis_websocket is None:
+            self.kis_websocket = KISWebSocket(self.sell_order)
+        await self.kis_websocket.real_time_monitoring(session_info)

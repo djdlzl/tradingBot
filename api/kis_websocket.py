@@ -9,7 +9,7 @@ from websockets.exceptions import ConnectionClosed
 from config.config import R_APP_KEY, R_APP_SECRET, M_APP_KEY, M_APP_SECRET
 from config.condition import SELLING_POINT, RISK_MGMT
 from utils.slack_logger import SlackLogger
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from database.db_manager import DatabaseManager
 
 
@@ -48,7 +48,7 @@ class KISWebSocket:
     async def sell_condition(self, recvvalue, session_id, ticker, name, quantity, avr_price, target_date):
         if len(recvvalue) == 1 and "SUBSCRIBE SUCCESS" in recvvalue[0]:
             return False
-        
+        print("sell_condition 이까지 실행됨")
         ### 매도 전 전처리 ###
         # 호가 저장
         try:
@@ -59,14 +59,20 @@ class KISWebSocket:
         # 종목 락 설정
         if ticker not in self.locks:
             self.locks[ticker] = asyncio.Lock()
-        # 오늘 날짜 저장
-        today = datetime.now().date()
+
+        # 현재 날짜와 시간 가져오기
+        now = datetime.now()
+        today = now.date()
+        current_time = now.time()
+        
+        # 매도 시간 설정 (15시 10분)
+        sell_time = time(15, 10)
         
         # 매도 사유와 조건을 먼저 확인
         sell_reason = None
         
         # 조건1: 보유기간 만료로 매도
-        if today > target_date:
+        if today > target_date and current_time >= sell_time:
             sell_reason = {
                 "매도사유": "기간만료",
                 "매도목표일": target_date
@@ -313,96 +319,41 @@ class KISWebSocket:
     async def real_time_monitoring(self, sessions_info):
         """실시간 모니터링 시작"""
         try:
-            # 실시간호가 모니터링 웹소켓 연결
-            await self.connect_websocket()
             
+            # 실시간호가 모니터링 웹소켓 연결
+            if not self.is_connected:
+                await self.connect_websocket()
+
+            # background_tasks를 클래스 속성으로 변경
+            self.background_tasks = set()
+
             # 종목 구독
             for session_id, ticker, name, qty, price, start_date, target_date in sessions_info:
-                await self.subscribe_ticker(ticker)        
-
+                await self.add_new_stock_to_monitoring(session_id, ticker, name, qty, price, start_date, target_date)
+            
             # 단일 웹소켓 수신 처리 시작
             asyncio.create_task(self._message_receiver())
             
-            # 각 종목별 모니터링 태스크 생성
-            background_tasks = set()
-            for session_id, ticker, name, qty, price, start_date, target_date in sessions_info:
-                task = asyncio.create_task(
-                    self._monitor_ticker(session_id, ticker, name, qty, price, target_date)
+            # 모든 태스크가 완료될 때까지 대기
+            while self.background_tasks:
+                done, _ = await asyncio.wait(
+                    self.background_tasks,
+                    return_when=asyncio.FIRST_COMPLETED
                 )
-                task.add_done_callback(background_tasks.discard)
-                background_tasks.add(task)
-                self.active_tasks[ticker] = task
-                print(f"{ticker} 모니터링 태스크 생성")
-                
+                for task in done:
+                    try:
+                        await task
+                    except Exception as e:
+                        print(f"태스크에러: {e}")
+
+            # 모든 모니터링 태스크 완료 대기
+            results = await asyncio.gather(*self.background_tasks, return_exceptions=True)
+            print('real_time_monitoring 반환값:',results)
+            return results                
 
         except Exception as e:
             print(f"모니터링 중 오류 발생: {e}")
-            
-        # 모든 태스크가 완료될 때까지 대기
-        while background_tasks:
-            done, _ = await asyncio.wait(
-                background_tasks,
-                return_when=asyncio.FIRST_COMPLETED
-            )
-            for task in done:
-                try:
-                    await task
-                except Exception as e:
-                    print(f"태스크에러: {e}")
-                    # 에러 발생한 태스크 제거하고 나머지 태스크 실행
-                    background_tasks.discard(task)
-        
-        # 모든 모니터링 태스크 완료 대기
-        results = await asyncio.gather(*background_tasks, return_exceptions=True)
-        return results
 
-
-    async def breakout_monitoring(self, stocks_info):
-        """호가 돌파매매 모니터링 시작"""
-        try:
-            # 실시간호가 모니터링 웹소켓 연결
-            await self.connect_websocket()
-            
-            
-            # 종목 구독
-            for session_id, ticker, name, qty, price, start_date, target_date in stocks_info:
-                await self.subscribe_ticker(ticker)        
-
-            # 단일 웹소켓 수신 처리 시작
-            asyncio.create_task(self._message_receiver())
-
-            # 각 종목별 모니터링 태스크 생성
-            background_tasks = set()
-            for session_id, ticker, name, qty, price, start_date, target_date in stocks_info:
-                task = asyncio.create_task(
-                    self._monitor_ticker(session_id, ticker, name, qty, price, target_date)
-                )
-                task.add_done_callback(background_tasks.discard)
-                background_tasks.add(task)
-                self.active_tasks[ticker] = task
-                # print(f"{ticker} 모니터링 태스크 생성")
-
-
-        except Exception as e:
-            print(f"모니터링 중 오류 발생: {e}")
-            
-        # 모든 태스크가 완료될 때까지 대기
-        while background_tasks:
-            done, _ = await asyncio.wait(
-                background_tasks,
-                return_when=asyncio.FIRST_COMPLETED
-            )
-            for task in done:
-                try:
-                    await task
-                except Exception as e:
-                    print(f"태스크에러: {e}")
-                    # 에러 발생한 태스크 제거하고 나머지 태스크 실행
-                    background_tasks.discard(task)
-
-        # 모든 모니터링 태스크 완료 대기
-        results = await asyncio.gather(*background_tasks, return_exceptions=True)
-        return results        
 
     async def stop_monitoring(self, ticker):
         """특정 종목의 모니터링만 중단"""
@@ -492,30 +443,28 @@ class KISWebSocket:
                     await self.websocket.pong(data)
                     continue
 
-
                 # 구독 성공 메시지 체크
                 if "SUBSCRIBE SUCCESS" in data:
                     # JSON 파싱 시도
                     data_dict = json.loads(data)
-                    # print("data_dict:",data_dict)
                     ticker = data_dict['header']['tr_key']
                     continue
                 
                 # 실시간 호가 데이터일 경우
                 recvvalue = data.split('^')
-                # print("가공데이터",recvvalue)
+                print("가공데이터",recvvalue)
                 if len(recvvalue) > 1:  # 실제 호가 데이터인 경우
                     ticker = recvvalue[0].split('|')[-1]
                     if ticker in self.subscribed_tickers:
                         await self.ticker_queues[ticker].put((recvvalue))
-                            
+
             except ConnectionClosed:
                 print("웹소켓 연결이 끊어졌습니다. 재연결을 시도합니다.")
                 self.is_connected = False
                 self.websocket = None
                 await asyncio.sleep(1)
                 continue
-                
+
             except Exception as e:
                 print(f"수신 에러: {e}")
                 print(f"에러 발생 데이터: {data if 'data' in locals() else 'No data'}")
@@ -538,7 +487,7 @@ class KISWebSocket:
                         print(f"웹소켓 상태 확인 중 에러: {e}")
             else:
                 print("websocket 속성이 아직 없습니다")
-                
+
             self.approval_key = await self._ensure_approval(is_mock=True)
             url = 'ws://ops.koreainvestment.com:31000/tryitout/H0STASP0'
             
@@ -617,6 +566,23 @@ class KISWebSocket:
             print(f"종목 구독 취소 실패: {ticker}, 에러: {e}")
 
 
+    async def add_new_stock_to_monitoring(self, session_id, ticker, name, qty, price, start_date, target_date):
+        # 새 종목 구독
+        await self.subscribe_ticker(ticker)
+        
+        # 새 종목에 대한 큐 생성
+        if ticker not in self.ticker_queues:
+            self.ticker_queues[ticker] = asyncio.Queue()
+            
+        # 새 종목에 대한 모니터링 태스크 생성
+        task = asyncio.create_task(
+            self._monitor_ticker(session_id, ticker, name, qty, price, target_date)
+        )
+        task.add_done_callback(self.background_tasks.discard)
+        self.background_tasks.add(task)
+        self.active_tasks[ticker] = task
+        
+        print(f"{ticker} 모니터링 태스크 추가됨")
 
 ######################################################################################
 ##############################    모니터링 메서드   #######################################
@@ -630,6 +596,8 @@ class KISWebSocket:
         
         #SLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACK
         # 모니터링 시작 로그
+        print("이까지 실행됨 _monitor_ticker")
+        print('모니터링 시작:', ticker, avr_price, target_date, quantity)
         self.slack_logger.send_log(
             level="INFO",
             message="모니터링 시작",
@@ -640,14 +608,15 @@ class KISWebSocket:
                 "보유수량": quantity
             }
         )
-
         # 모니터링 프로세스 시작
         while self.is_connected and ticker in self.subscribed_tickers:
             try:
                 try:
                 # 타임아웃을 설정하여 데이터 대기
                     recvvalue = await asyncio.wait_for(self.ticker_queues[ticker].get(), timeout=5.0)
+                    print("self.is_connected: ", self.is_connected, self.subscribed_tickers)
                     # 매도 조건 확인
+                    print("sell_condition 확인")
                     sell_completed = await self.sell_condition(
                         recvvalue, session_id, ticker, name, quantity, avr_price, target_date
                     )
@@ -685,63 +654,3 @@ class KISWebSocket:
         # 장 운영 시간 체크
         return market_start <= now <= market_end
     
-
-######################################################################################
-##############################    레거시 메서드   #######################################
-######################################################################################
-
-    # async def realtime_quote_subscribe(self, session_id, ticker, quantity, avr_price, target_date):
-    #     """실시간 호가 구독"""
-    #     try:
-    #         # WebSocket 연결
-    #         await self.connect_websocket()
-            
-    #         if not self.is_connected:
-    #             print("웹소켓 연결 실패")
-    #             return False
-
-    #         # 실시간 호가 요청 데이터 구성
-    #         request_data = {
-    #             "header": self.connect_headers,
-    #             "body": {
-    #                 "input":{
-    #                     "tr_id": "H0STASP0",  # 실시간 호가 TR ID
-    #                     "tr_key": ticker
-    #                 }
-    #             }
-    #         }
-
-    #         # 구독 요청
-    #         await self.websocket.send(json.dumps(request_data))
-            
-    #         print(f"Subscribed to real-time quotes for {ticker}, {quantity}, {avr_price}")
-    #         print("Subscribe request:", json.dumps(request_data))
-
-    #         while self.is_connected:
-    #             try:
-    #                 data = await self.websocket.recv()
-    #                 recvvalue = data.split('^')
-                    
-    #                 # PINGPONG 처리
-    #                 if '"tr_id":"PINGPONG"' in data:
-    #                     await self.websocket.pong(data) 
-    #                     continue
-                    
-    #                 # 실시간 데이터 처리
-    #                 sell_completed = await self.sell_condition(recvvalue, session_id, ticker, name, quantity, avr_price, target_date)
-    #                 if sell_completed is True:
-    #                     print("호가 감시를 종료합니다.")
-    #                     return True
-                        
-    #             except ConnectionClosed:
-    #                 print("WebSocket connection closed")
-    #                 self.is_connected = False
-    #                 return False
-                    
-    #             except Exception as e:
-    #                 print(f"데이터 처리 중 에러 발생: {e}")
-    #                 return False
-                    
-    #     except Exception as e:
-    #         print(f"실시간 호가 구독 중 에러 발생: {e}")
-    #         return False

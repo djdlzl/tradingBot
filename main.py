@@ -26,6 +26,7 @@ from apscheduler.executors.pool import ThreadPoolExecutor
 from config.condition import GET_ULS_HOUR, GET_ULS_MINUTE, GET_SELECT_HOUR, GET_SELECT_MINUTE, ORDER_HOUR_1, ORDER_HOUR_2, ORDER_HOUR_3, ORDER_MINUTE_1, ORDER_MINUTE_2, ORDER_MINUTE_3
 from database.db_manager import DatabaseManager
 from api.kis_api import KISApi
+from api.kis_websocket import KISWebSocket
 
 class MainProcess:
     def __init__(self):
@@ -71,7 +72,7 @@ class MainProcess:
 
             # 작업 추가
             self.scheduler.add_job(
-                trading_upper.fetch_and_save_previous_upper_stocks,
+                self.save_upper_stocks,
                 CronTrigger(hour=GET_ULS_HOUR, minute=GET_ULS_MINUTE),
                 id='fetch_stocks',
                 replace_existing=True
@@ -126,6 +127,16 @@ class MainProcess:
             if self.scheduler.running:
                 self.scheduler.shutdown(wait=False)
 
+    def save_upper_stocks(self):
+        try:
+            trading = TradingLogic()
+            trading_upper = TradingUpper()
+            
+            trading.fetch_and_save_previous_upper_limit_stocks()
+            trading_upper.fetch_and_save_previous_upper_stocks()
+        except Exception as e:
+            print('오류가 발생했습니다. error: ', e)
+
     def execute_buy_task(self):
         """매수 태스크 실행"""
         try:
@@ -154,6 +165,10 @@ class MainProcess:
         try:    
             # trading = TradingLogic()
             trading_upper = TradingUpper()
+            kis_websocket = KISWebSocket(trading_upper.sell_order)
+            trading_upper.kis_websocket = kis_websocket  # KISWebSocket 인스턴스 설정
+            
+            
             sessions_info = trading_upper.get_session_info_upper()
             
             # 이벤트 루프에서 코루틴 실행
