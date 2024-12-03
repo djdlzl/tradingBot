@@ -99,13 +99,6 @@ class MainProcess:
                 replace_existing=True
             )
 
-            self.scheduler.add_job(
-                self.execute_buy_task,
-                CronTrigger(hour=ORDER_HOUR_3, minute=ORDER_MINUTE_3),
-                id='buy_task_3',
-                replace_existing=True
-            )
-
             # 스케줄러 시작
             self.scheduler.start()
             

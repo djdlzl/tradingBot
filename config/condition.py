@@ -38,22 +38,22 @@ DAYS_LATER = 7 #마지막 매수로부터 4(7-3)일째 매도
 ##################    스케줄링   ######################
 ######################################################
 
-# 상한가 종목 받아오는 시간
+# 종목 받아오는 시간
 GET_ULS_HOUR = 15
 GET_ULS_MINUTE = 30
-# 상한가 종목 중 선별하는 시간
+# 종목 중 선별하는 시간
 GET_SELECT_HOUR = 15
 GET_SELECT_MINUTE = 31
 
 # 매수 시간 1
-ORDER_HOUR_1 = 12
-ORDER_MINUTE_1 = 30
+ORDER_HOUR_1 = 9
+ORDER_MINUTE_1 = 5
 # 매수 시간 2
-ORDER_HOUR_2 = 13
+ORDER_HOUR_2 = 10
 ORDER_MINUTE_2 = 30
-# 매수 시간 3
-ORDER_HOUR_3 = 15
-ORDER_MINUTE_3 = 00
+# # 매수 시간 3
+# ORDER_HOUR_3 = 15
+# ORDER_MINUTE_3 = 00
 
 
 
@@ -65,7 +65,7 @@ ORDER_MINUTE_3 = 00
 
 BUY_PERCENT_UPPER = 0.925 # -7.5% 이상
 
-COUNT_UPPER = 6 # 총 매수 회수 (현재 2일 3회 매수)
+COUNT_UPPER = 4 # 총 매수 회수 (현재 2일 3회 매수)
 
 SLOT_UPPER = 2 # 매수 종목 개수
 
