@@ -23,7 +23,7 @@ from trading.trading_upper import TradingUpper
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.executors.pool import ThreadPoolExecutor
-from config.condition import GET_ULS_HOUR, GET_ULS_MINUTE, GET_SELECT_HOUR, GET_SELECT_MINUTE, ORDER_HOUR_1, ORDER_HOUR_2, ORDER_HOUR_3, ORDER_MINUTE_1, ORDER_MINUTE_2, ORDER_MINUTE_3
+from config.condition import GET_ULS_HOUR, GET_ULS_MINUTE, GET_SELECT_HOUR, GET_SELECT_MINUTE, ORDER_HOUR_1, ORDER_HOUR_2, ORDER_MINUTE_1, ORDER_MINUTE_2
 from database.db_manager import DatabaseManager
 from api.kis_api import KISApi
 from api.kis_websocket import KISWebSocket
@@ -102,11 +102,10 @@ class MainProcess:
             # 스케줄러 시작
             self.scheduler.start()
             
-            print(f"등록된 작업: 상한가 조회({GET_ULS_HOUR}:{GET_ULS_MINUTE}), " 
+            print(f"등록된 작업: 상승 추세매매 조회({GET_ULS_HOUR}:{GET_ULS_MINUTE}), " 
                   f"종목 선정({GET_SELECT_HOUR}:{GET_SELECT_MINUTE}), "
                   f"매수 시간({ORDER_HOUR_1}:{ORDER_MINUTE_1}, "
-                  f"{ORDER_HOUR_2}:{ORDER_MINUTE_2}, "
-                  f"{ORDER_HOUR_3}:{ORDER_MINUTE_3})")
+                  f"{ORDER_HOUR_2}:{ORDER_MINUTE_2} ")
 
             # 명시적인 무한 루프로 스케줄러 유지
             while True:
