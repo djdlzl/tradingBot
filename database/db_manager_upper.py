@@ -273,7 +273,7 @@ class DatabaseManager:
             days_ago_str = days_ago.strftime('%Y-%m-%d')
             
             self.cursor.execute('''
-                SELECT ticker, name, closing_price 
+                SELECT ticker, name, upper_rate, closing_price 
                 FROM upper_stocks 
                 WHERE date = %s
             ''', (days_ago_str,))
@@ -286,19 +286,20 @@ class DatabaseManager:
         try:
             # no 갱신
             self.cursor.execute('SELECT MAX(no) FROM selected_stocks')
-            
+            print('selected_upper_stocks:--',selected_upper_stocks)
             # upper_rate를 기준으로 내림차순 정렬
             sorted_stocks = sorted(selected_upper_stocks, key=lambda x: float(x.get('upper_rate', 0)), reverse=True)
-
-            today = DateUtils.get_previous_business_day(datetime.now(), 2)
+            print('sorted_stocks:--',sorted_stocks)
+            
+            today = DateUtils.get_previous_business_day(datetime.now(), 1)
             
             for index, stock in enumerate(sorted_stocks, start=1):
                 self.cursor.execute('''
                     INSERT INTO selected_upper_stocks 
-                    (no, date, ticker, name, closing_price, upper_rate)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    (no, date, ticker, name, closing_price)
+                    VALUES (%s, %s, %s, %s, %s)
                 ''', (index, today.strftime('%Y-%m-%d'), stock.get('ticker'), stock.get('name'), 
-                    float(stock.get('closing_price')), float(stock.get('upper_rate', 0))))
+                    float(stock.get('closing_price')), ))
             print("선별 종목 저장 완료")
             self.conn.commit()
             logging.info("Saved selected stocks successfully.")

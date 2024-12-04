@@ -80,7 +80,7 @@ def test():
     date_utils = DateUtils()
     
 
-    trading_upper.fetch_and_save_previous_upper_stocks()
+    # trading_upper.fetch_and_save_previous_upper_stocks()
     trading_upper.select_stocks_to_buy()
     # krx_api.get_OHLCV('239340', 16)
 

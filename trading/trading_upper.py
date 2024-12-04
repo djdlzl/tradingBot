@@ -202,9 +202,9 @@ class TradingUpper():
             order_list = []
 
             for session in sessions:
-                # 6번 거래한 종목은 더이상 매수하지 않고 대기
+                # 2번 거래한 종목은 더이상 매수하지 않고 대기
                 if session.get("count") == COUNT_UPPER:
-                    print(session.get('name'),"은 6번의 거래를 진행해 넘어갔습니다.")
+                    print(session.get('name'),"은 2번의 거래를 진행해 넘어갔습니다.")
                     continue
                 
                 # 세션 정보로 주식 주문
@@ -302,8 +302,8 @@ class TradingUpper():
         price = int(result[0]) # 현재가 받아오기
 
         # 매수할 금액 계산
-        ratio = round(100/COUNT_UPPER) / 100 
-        fund_per_order = int(float(session.get('fund')) * ratio)  # 각 매수 시 사용할 금액
+        # ratio = round(100/COUNT_UPPER) / 100 
+        fund_per_order = int(float(session.get('fund')) * 0.7)  # 각 매수 시 사용할 금액
 
         if session.get('count') < COUNT_UPPER-1:  # 0부터 COUNT-1까지는 일반 매수
             quantity = fund_per_order / price  # 매수 수량 계산

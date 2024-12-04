@@ -65,7 +65,7 @@ ORDER_MINUTE_2 = 30
 
 BUY_PERCENT_UPPER = 0.925 # -7.5% 이상
 
-COUNT_UPPER = 4 # 총 매수 회수 (현재 2일 3회 매수)
+COUNT_UPPER = 2 # 총 매수 회수 (현재 1일 2회 매수)
 
 SLOT_UPPER = 2 # 매수 종목 개수
 
