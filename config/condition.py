@@ -72,3 +72,10 @@ SLOT_UPPER = 2 # 매수 종목 개수
 BUY_DAY_AGO_UPPER = 1 # DB 상승 종목에서 며칠 전 종목 받아올건지
 
 DAYS_LATER_UPPER = 1 #마지막 매수로부터 +1일
+
+
+#selling_point_1 이상일 때 매도
+SELLING_POINT_UPPER = 1.85
+
+#selling_point_1 이상일 때 매도
+RISK_MGMT_UPPER = 0.955

@@ -7,7 +7,7 @@ import websockets
 from requests.exceptions import RequestException
 from websockets.exceptions import ConnectionClosed
 from config.config import R_APP_KEY, R_APP_SECRET, M_APP_KEY, M_APP_SECRET
-from config.condition import SELLING_POINT, RISK_MGMT
+from config.condition import SELLING_POINT_UPPER, RISK_MGMT_UPPER
 from utils.slack_logger import SlackLogger
 from datetime import datetime, timedelta, time
 from database.db_manager import DatabaseManager
@@ -79,19 +79,19 @@ class KISWebSocket:
             }
         
         # 조건2: 주가 상승으로 익절
-        elif target_price > (avr_price * SELLING_POINT):
+        elif target_price > (avr_price * SELLING_POINT_UPPER):
             sell_reason = {
                 "매도사유": "주가 상승: 목표가 도달",
                 "매도가": target_price,
-                "매도조건가": avr_price * SELLING_POINT
+                "매도조건가": avr_price * SELLING_POINT_UPPER
             }
         
         # 조건3: 리스크 관리차 매도
-        elif target_price < (avr_price * RISK_MGMT):
+        elif target_price < (avr_price * RISK_MGMT_UPPER):
             sell_reason = {
                 "매도사유": "주가 하락: 리스크 관리차 매도",
                 "매도가": target_price,
-                "매도조건가": avr_price * RISK_MGMT
+                "매도조건가": avr_price * RISK_MGMT_UPPER
             }
         
         try:
@@ -196,7 +196,7 @@ class KISWebSocket:
     #         await self.stop_monitoring(ticker)  # 해당 종목만 모니터링 중단
             
     #     # 조건2: 주가 상승으로 익절
-    #     if target_price > (avr_price * SELLING_POINT):
+    #     if target_price > (avr_price * SELLING_POINT_UPPER):
     #         sell_completed = await self.callback(session_id, ticker, quantity, target_price)
 
     #         # 매도 실행 로그
@@ -206,7 +206,7 @@ class KISWebSocket:
     #             context={
     #                 "종목코드": ticker,
     #                 "매도가": target_price,
-    #                 "매도조건가": avr_price * SELLING_POINT,
+    #                 "매도조건가": avr_price * SELLING_POINT_UPPER,
     #                 "매도사유": "주가 상승: 목표가 도달"
     #             }
     #         )
@@ -215,7 +215,7 @@ class KISWebSocket:
     #         await self.stop_monitoring(ticker)  # 해당 종목만 모니터링 중단
             
     #     # 조건3: 리스크 관리차 매도
-    #     if target_price < (avr_price * RISK_MGMT):
+    #     if target_price < (avr_price * RISK_MGMT_UPPER):
     #         sell_completed = await self.callback(session_id, ticker, quantity, target_price)
 
     #         # 매도 실행 로그
@@ -225,7 +225,7 @@ class KISWebSocket:
     #             context={
     #                 "종목코드": ticker,
     #                 "매도가": target_price,
-    #                 "매도조건가": avr_price * RISK_MGMT,
+    #                 "매도조건가": avr_price * RISK_MGMT_UPPER,
     #                 "매도사유": "주가 하락: 리스크 관리차 매도"
     #             }
     #         )
