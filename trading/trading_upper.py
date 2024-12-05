@@ -16,6 +16,7 @@ from api.kis_websocket import KISWebSocket
 from config.condition import DAYS_LATER_UPPER, BUY_PERCENT_UPPER, BUY_WAIT, SELL_WAIT, COUNT_UPPER, SLOT_UPPER
 # from .trading_session import TradingSession
 from concurrent.futures import ThreadPoolExecutor
+import threading
 
 
 class TradingUpper():
@@ -415,8 +416,12 @@ class TradingUpper():
                 db.save_trading_session_upper(session.get('id'), session.get('start_date'), current_date, session.get('ticker'), session.get('name'), session.get('fund'), spent_fund, quantity, avr_price, count)
                 db.close()
                 
-                # 모니터링 시작
-                asyncio.create_task(self.start_monitoring_for_session(session))
+                # 새로운 모니터링 스레드 생성
+                monitoring_thread = threading.Thread(
+                    target=self._run_monitoring_for_session,
+                    args=(session,)
+                )
+                monitoring_thread.start()
                 
                 #SLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACK
                 # 세션 업데이트 로그
@@ -470,16 +475,20 @@ class TradingUpper():
         with DatabaseManager() as db:
             sessions = db.load_trading_session_upper()
             for session in sessions:
-                fund = session.get('spent_fund')
-                session_fund += int(fund)
+                spent_fund = session.get('spent_fund')
+                session_fund += int(spent_fund)
+                print("session_fund:--",session_fund)
         
         try:
             if slot == 2:
-                allocated_funds = balance / 2  # 3개 슬롯에 50%씩 할당
+                allocated_funds = balance / 2  # 2개 슬롯에 50%씩 할당
+                print("slot==2 실행")
             elif slot == 1:
                 allocated_funds = (balance - session_fund)  # 1개 슬롯에 전체 자금 할당
+                print("slot==1 실행")
             else:
                 allocated_funds = 0  # 슬롯이 없으면 빈 리스트 반환
+                print("slot==0 실행")
                 
             print("calculate_funds - allocated_funds: ", allocated_funds)
             return int(allocated_funds)
@@ -750,3 +759,14 @@ class TradingUpper():
         if self.kis_websocket is None:
             self.kis_websocket = KISWebSocket(self.sell_order)
         await self.kis_websocket.real_time_monitoring(session_info)
+        
+
+    def _run_monitoring_for_session(self, session):
+        # 새로운 이벤트 루프 생성
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            loop.run_until_complete(self.start_monitoring_for_session(session))
+        finally:
+            loop.close()

@@ -592,7 +592,7 @@ class KISWebSocket:
         # 해당 종목의 전용 큐 생성
         if ticker not in self.ticker_queues:
             self.ticker_queues[ticker] = asyncio.Queue()
-        
+
         #SLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACK
         # 모니터링 시작 로그
 
