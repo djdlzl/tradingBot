@@ -409,7 +409,7 @@ class TradingUpper():
                 quantity = int(session.get('quantity')) + int(real_quantity)
                 
                 #count 증가
-                count = count + 1
+                count = session.get('count') + 1
 
                 # 세션 업데이트
                 db.save_trading_session_upper(session.get('id'), session.get('start_date'), current_date, session.get('ticker'), session.get('name'), session.get('fund'), spent_fund, quantity, avr_price, count)

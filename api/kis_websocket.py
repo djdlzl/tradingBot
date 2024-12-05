@@ -48,7 +48,6 @@ class KISWebSocket:
     async def sell_condition(self, recvvalue, session_id, ticker, name, quantity, avr_price, target_date):
         if len(recvvalue) == 1 and "SUBSCRIBE SUCCESS" in recvvalue[0]:
             return False
-        print("sell_condition 이까지 실행됨")
         ### 매도 전 전처리 ###
         # 호가 저장
         try:
@@ -452,7 +451,7 @@ class KISWebSocket:
                 
                 # 실시간 호가 데이터일 경우
                 recvvalue = data.split('^')
-                print("가공데이터",recvvalue)
+
                 if len(recvvalue) > 1:  # 실제 호가 데이터인 경우
                     ticker = recvvalue[0].split('|')[-1]
                     if ticker in self.subscribed_tickers:
@@ -596,8 +595,7 @@ class KISWebSocket:
         
         #SLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACK
         # 모니터링 시작 로그
-        print("이까지 실행됨 _monitor_ticker")
-        print('모니터링 시작:', ticker, avr_price, target_date, quantity)
+
         self.slack_logger.send_log(
             level="INFO",
             message="모니터링 시작",
@@ -614,9 +612,7 @@ class KISWebSocket:
                 try:
                 # 타임아웃을 설정하여 데이터 대기
                     recvvalue = await asyncio.wait_for(self.ticker_queues[ticker].get(), timeout=5.0)
-                    print("self.is_connected: ", self.is_connected, self.subscribed_tickers)
                     # 매도 조건 확인
-                    print("sell_condition 확인")
                     sell_completed = await self.sell_condition(
                         recvvalue, session_id, ticker, name, quantity, avr_price, target_date
                     )
