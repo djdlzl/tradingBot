@@ -490,20 +490,21 @@ class TradingUpper():
         balance = float(data.get('output').get('nrcvb_buy_amt'))
         print('calculate_funds - 가용 가능 현금: ',balance)
         # 세션에 할당된 자금 조회
-        session_fund = 0
+        rest_fund = 0
         with DatabaseManager() as db:
             sessions = db.load_trading_session_upper()
             for session in sessions:
+                fund = session.get('fund')
                 spent_fund = session.get('spent_fund')
-                session_fund += int(spent_fund)
-                print("session_fund:--",session_fund)
+                rest_fund += int(fund) - int(spent_fund)
+                print("rest_fund:--",rest_fund)
         
         try:
             if slot == 2:
                 allocated_funds = balance / 2  # 2개 슬롯에 50%씩 할당
                 print("slot==2 실행")
             elif slot == 1:
-                allocated_funds = (balance - session_fund)  # 1개 슬롯에 전체 자금 할당
+                allocated_funds = (balance - rest_fund)  # 1개 슬롯에 전체 자금 할당: 남은 자금 - 종목에 아직 할당 안된 금액
                 print("slot==1 실행")
             else:
                 allocated_funds = 0  # 슬롯이 없으면 빈 리스트 반환
@@ -515,7 +516,7 @@ class TradingUpper():
             print(f"Error allocating funds: {e}")
             return []
 
-     
+
     def allocate_stock(self):
         """
         세션에 거래할 종목을 할당
