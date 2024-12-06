@@ -354,11 +354,30 @@ class TradingUpper():
                 print("load_and_update_trading_session - 진행 중인 거래 세션이 없습니다.")
                 return
             
-            # 주문 결과 리스트로 저장
-            for index ,session in enumerate(sessions, start=0):
-                print("주문 결과 리스트로 저장", index ,session)
-                self.update_session(session, order_list[index])
+            # 세션과 주문결과의 개수가 다를 경우
+            if len(sessions) != len(order_list):
+                print("sessions와 order_list의 길이가 다릅니다. 매칭을 시도합니다.")
+                
+                # order_list를 KRX_FWDG_ORD_ORGNO를 키로 하는 딕셔너리로 변환
+                order_dict = {order['KRX_FWDG_ORD_ORGNO']: order for order in order_list}
+                
+                for session in sessions:
+                    ticker = session['ticker']
+                    matching_order = order_dict.get(ticker)
+                    
+                    if matching_order:
+                        self.update_session(session, matching_order)
+                    else:
+                        print(f"ticker {ticker}에 대한 매칭되는 주문을 찾을 수 없습니다.")
+                        
+            else:
+                # 주문 결과 리스트로 저장
+                for index, session in enumerate(sessions):
+                    print("주문 결과 리스트로 저장", index, session)
+                    self.update_session(session, order_list[index])
+            
             db.close()
+            
         except Exception as e:
             print("Error in update_trading_session: ", e)
             db.close()
@@ -573,9 +592,14 @@ class TradingUpper():
             ##########################################################
             
             # 매수 주문
-            order_result = self.kis_api.place_order(ticker, quantity, order_type='buy')
-            print("place_order_session:  주문 실행", ticker, order_result)
-            
+            while True:
+                order_result = self.kis_api.place_order(ticker, quantity, order_type='buy')
+                print("place_order_session:  주문 실행", ticker, order_result)
+                if '1' in order_result.get('rt_cd'):
+                    time.sleep(1)
+                    continue
+                break
+                     
             if order_result['rt_cd'] == '1':
                 # 주문 실패 결과 로그
                 self.slack_logger.send_log(
@@ -611,8 +635,13 @@ class TradingUpper():
                 time.sleep(1)
 
                 # 재주문
-                new_order_result = self.kis_api.place_order(ticker, unfilled_qty, order_type='buy')
-                print("새로운 매수 결과 new_order_result",new_order_result)
+                while True:
+                    new_order_result = self.kis_api.place_order(ticker, unfilled_qty, order_type='buy')
+                    print("새로운 매수 결과 new_order_result",new_order_result)
+                    if '1' in new_order_result.get('rt_cd'):
+                        time.sleep(1)
+                        continue
+                    break
                 
                 # 매수 주문 후 대기
                 time.sleep(BUY_WAIT)
@@ -646,8 +675,13 @@ class TradingUpper():
         미체결 다시 주문하는 로직 업데이트
         """
         try:
-            order_result = self.kis_api.place_order(ticker, quantity, order_type='sell', price=price)
-            print("sell_order:- ",ticker, quantity, price, order_result)
+            while True:
+                order_result = self.kis_api.place_order(ticker, quantity, order_type='sell', price=price)
+                print("sell_order:- ",ticker, quantity, price, order_result)
+                if '1' in order_result.get('rt_cd'):
+                    time.sleep(1)
+                    continue
+                break
             
             #주문 체결까지 기다리기
             time.sleep(SELL_WAIT)
@@ -668,8 +702,13 @@ class TradingUpper():
                 time.sleep(1)
                 
                 # 재주문
-                new_order_result = self.kis_api.place_order(ticker, unfilled_qty, order_type='sell')
-                print("새로운 매도 결과 new_order_result",new_order_result)
+                while True:
+                    new_order_result = self.kis_api.place_order(ticker, unfilled_qty, order_type='sell')
+                    print("새로운 매도 결과 new_order_result",new_order_result)
+                    if '1' in new_order_result.get('rt_cd'):
+                        time.sleep(1)
+                        continue
+                    break
 
                 # 주문 체결까지 기다리기
                 time.sleep(SELL_WAIT)
