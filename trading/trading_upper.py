@@ -316,20 +316,9 @@ class TradingUpper():
         quantity = int(quantity)
         
         if session.get('count') < COUNT_UPPER:
-            while True:
-                order_result = self.buy_order(session.get('ticker'), quantity)
+            order_result = self.buy_order(session.get('ticker'), quantity)
                 
-                if order_result['msg1'] == '초당 거래건수를 초과하였습니다.':
-                    print("초당 거래건수 초과 시 재시도")
-                    continue
-                
-                if order_result['msg1'] == '모의투자 주문처리가 안되었습니다(매매불가 종목)':
-                    self.add_new_trading_session(1) #슬롯 개수. 새 트레이딩 세션 생성
-                    sessions = db.load_trading_session_upper()
-                    session = sessions[-1]
-                    order_result = self.place_order_session_upper(session)
-                    
-                break
+
         
         # 'rt_cd': '1' 세션 취소
         if order_result['rt_cd'] == '1' and session.get('count') == 0:
@@ -591,15 +580,25 @@ class TradingUpper():
             )
             
             ##########################################################
-            
+            db = DatabaseManager()
             # 매수 주문
             while True:
                 order_result = self.kis_api.place_order(ticker, quantity, order_type='buy')
                 print("place_order_session:  주문 실행", ticker, order_result)
-                if '1' in order_result.get('rt_cd'):
+                if order_result['msg1'] == '초당 거래건수를 초과하였습니다.':
+                    print("초당 거래건수 초과 시 재시도")
                     time.sleep(1)
                     continue
+                
+                if order_result['msg1'] == '모의투자 주문처리가 안되었습니다(매매불가 종목)':
+                    self.add_new_trading_session(1) #슬롯 개수. 새 트레이딩 세션 생성
+                    sessions = db.load_trading_session_upper()
+                    session = sessions[-1]
+                    order_result = self.place_order_session_upper(session)
+                
+                db.close()
                 break
+
                      
             if order_result['rt_cd'] == '1':
                 # 주문 실패 결과 로그
