@@ -678,7 +678,8 @@ class TradingUpper():
             while True:
                 order_result = self.kis_api.place_order(ticker, quantity, order_type='sell', price=price)
                 print("sell_order:- ",ticker, quantity, price, order_result)
-                if '1' in order_result.get('rt_cd'):
+                if order_result['msg1'] == '초당 거래건수를 초과하였습니다.':
+                    print("초당 거래건수 초과 시 재시도")
                     time.sleep(1)
                     continue
                 break
