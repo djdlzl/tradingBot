@@ -347,8 +347,8 @@ class TradingUpper():
             if len(sessions) != len(order_list):
                 print("sessions와 order_list의 길이가 다릅니다. 매칭을 시도합니다.")
                 
-                # order_list를 KRX_FWDG_ORD_ORGNO를 키로 하는 딕셔너리로 변환
-                order_dict = {order['KRX_FWDG_ORD_ORGNO']: order for order in order_list}
+                # order_list를 ODNO 키로 하는 딕셔너리로 변환
+                order_dict = {order.get('output').get('ODNO'): order for order in order_list}
                 
                 for session in sessions:
                     ticker = session['ticker']
