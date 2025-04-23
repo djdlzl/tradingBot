@@ -309,9 +309,9 @@ class DatabaseManager:
 
     def delete_selected_stocks(self):
         try:
-            self.cursor.execute('DELETE FROM selected_stocks')
+            self.cursor.execute('DELETE FROM selected_upper_stocks')
             self.conn.commit()
-            logging.info("Deleted all records from selected_stocks table.")
+            logging.info("Deleted all records from selected_upper_stocks table.")
         except mysql.connector.Error as e:
             logging.error("Error deleting selected stocks: %s", e)
             raise

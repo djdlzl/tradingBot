@@ -63,6 +63,8 @@ ORDER_MINUTE_3 = 00
 
 # 상승 눌림목 매매
 
+UPPER_DAY_AGO_CHECK = 10
+
 BUY_PERCENT_UPPER = 0.925 # -7.5% 이상
 
 COUNT_UPPER = 2 # 총 매수 회수 (현재 1일 2회 매수)
@@ -78,4 +80,4 @@ DAYS_LATER_UPPER = 1 #마지막 매수로부터 +1일
 SELLING_POINT_UPPER = 1.85
 
 #selling_point_1 이상일 때 매도
-RISK_MGMT_UPPER = 0.955
+RISK_MGMT_UPPER = 0.96

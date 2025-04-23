@@ -13,7 +13,7 @@ from utils.slack_logger import SlackLogger
 from api.kis_api import KISApi
 from api.krx_api import KRXApi
 from api.kis_websocket import KISWebSocket
-from config.condition import DAYS_LATER_UPPER, BUY_PERCENT_UPPER, BUY_WAIT, SELL_WAIT, COUNT_UPPER, SLOT_UPPER
+from config.condition import DAYS_LATER_UPPER, BUY_PERCENT_UPPER, BUY_WAIT, SELL_WAIT, COUNT_UPPER, SLOT_UPPER, UPPER_DAY_AGO_CHECK
 # from .trading_session import TradingSession
 from concurrent.futures import ThreadPoolExecutor
 import threading
@@ -70,14 +70,14 @@ class TradingUpper():
         
         # # 이전 selected_stocks 정보 삭제
         # self.init_selected_stocks()
-
+        
         selected_stocks = []
         tickers_with_prices = db.get_upper_stocks_days_ago()  # N일 전 상승 종목 가져오기
         print('tickers_with_prices:  ',tickers_with_prices)
         for stock in tickers_with_prices:
             
-            ### 조건1: 상승일 기준 15일 전까지 고가 20% 넘은 이력 여부 체크
-            df = self.krx_api.get_OHLCV(stock.get('ticker'), 16) # D+2일 8시55분에 실행이라 16일
+            ### 조건1: 상승일 기준 10일 전까지 고가 20% 넘은 이력 여부 체크
+            df = self.krx_api.get_OHLCV(stock.get('ticker'), UPPER_DAY_AGO_CHECK) # D+2일 8시55분에 실행이라 10일
             # 데이터프레임에서 최하단 2개 행을 제외
             filtered_df = df.iloc[:-2]
               # 종가 대비 다음날 고가의 등락률 계산
@@ -784,6 +784,7 @@ class TradingUpper():
             sessions_info.append(info_list)
             
         return sessions_info
+        
     
     
     async def start_monitoring_for_session(self, session):
