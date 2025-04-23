@@ -22,10 +22,10 @@ COUNT = 6
 ######################################################
 
 #selling_point_1 이상일 때 1차 매도 - 일단 이것만 사용
-SELLING_POINT = 1.10
+SELLING_POINT = 1.5
 
 #selling_point_1 이상일 때 1차 매도 - 일단 이것만 사용
-RISK_MGMT = 0.93
+RISK_MGMT = 0.97
 
 # 매도 주문 후 대기 / 초
 SELL_WAIT = 3
@@ -52,8 +52,8 @@ ORDER_MINUTE_1 = 5
 ORDER_HOUR_2 = 10
 ORDER_MINUTE_2 = 30
 # # 매수 시간 3
-# ORDER_HOUR_3 = 15
-# ORDER_MINUTE_3 = 00
+ORDER_HOUR_3 = 15
+ORDER_MINUTE_3 = 00
 
 
 
