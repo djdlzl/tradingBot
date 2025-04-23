@@ -532,6 +532,13 @@ class TradingLogic:
                 db.save_trading_session(session.get('id'), session.get('start_date'), current_date, session.get('ticker'), session.get('name'), session.get('fund'), spent_fund, quantity, avr_price, count)
                 db.close()
 
+                # 새로운 모니터링 스레드 생성
+                monitoring_thread = threading.Thread(
+                    target=self._run_monitoring_for_session,
+                    args=(session,)
+                )
+                monitoring_thread.start()
+
                 #SLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACK
                 # 세션 업데이트 로그
                 self.slack_logger.send_log(
@@ -679,7 +686,31 @@ class TradingLogic:
             sessions_info.append(info_list)
             
         return sessions_info
-    
+
+    async def start_monitoring_for_session(self, session):
+        ticker = session.get('ticker')
+        name = session.get('name')
+        quantity = session.get('quantity')
+        avr_price = session.get('avr_price')
+        start_date = session.get('start_date')
+        target_date = self.date_utils.get_target_date(start_date, DAYS_LATER_UPPER)
+        
+        session_info = [(session.get('id'), ticker, name, quantity, avr_price, start_date, target_date)]
+        
+        if self.kis_websocket is None:
+            self.kis_websocket = KISWebSocket(self.sell_order)
+        await self.kis_websocket.real_time_monitoring(session_info)
+        
+
+    def _run_monitoring_for_session(self, session):
+        # 새로운 이벤트 루프 생성
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            loop.run_until_complete(self.start_monitoring_for_session(session))
+        finally:
+            loop.close()
     
 ######################################################################################
 ###############################    리포트 메서드   ####################################

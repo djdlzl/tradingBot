@@ -12,7 +12,7 @@
 의존성:
 - api.kis_api 모듈의 KISApi 클래스
 """
-
+import traceback
 import threading
 import time
 import atexit
@@ -23,10 +23,9 @@ from trading.trading_upper import TradingUpper
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.executors.pool import ThreadPoolExecutor
-from config.condition import GET_ULS_HOUR, GET_ULS_MINUTE, GET_SELECT_HOUR, GET_SELECT_MINUTE, ORDER_HOUR_1, ORDER_HOUR_2, ORDER_MINUTE_1, ORDER_MINUTE_2
+from config.condition import GET_ULS_HOUR, GET_ULS_MINUTE, GET_SELECT_HOUR, GET_SELECT_MINUTE, ORDER_HOUR_1, ORDER_HOUR_2, ORDER_HOUR_3, ORDER_MINUTE_1, ORDER_MINUTE_2, ORDER_MINUTE_3
 from database.db_manager import DatabaseManager
 from api.kis_api import KISApi
-from api.kis_websocket import KISWebSocket
 
 class MainProcess:
     def __init__(self):
@@ -57,8 +56,7 @@ class MainProcess:
         """스케줄 작업을 관리하는 메서드"""
         
         try:
-            # trading = TradingLogic()
-            trading_upper = TradingUpper()
+            trading = TradingLogic()
 
             # 스케줄러 설정
             executors = {
@@ -72,14 +70,14 @@ class MainProcess:
 
             # 작업 추가
             self.scheduler.add_job(
-                self.save_upper_stocks,
+                trading.save_upper_stocks,
                 CronTrigger(hour=GET_ULS_HOUR, minute=GET_ULS_MINUTE),
                 id='fetch_stocks',
                 replace_existing=True
             )
 
             self.scheduler.add_job(
-                trading_upper.select_stocks_to_buy,
+                trading.select_stocks_to_buy,
                 CronTrigger(hour=GET_SELECT_HOUR, minute=GET_SELECT_MINUTE),
                 id='select_stocks',
                 replace_existing=True
@@ -99,13 +97,21 @@ class MainProcess:
                 replace_existing=True
             )
 
+            self.scheduler.add_job(
+                self.execute_buy_task,
+                CronTrigger(hour=ORDER_HOUR_3, minute=ORDER_MINUTE_3),
+                id='buy_task_3',
+                replace_existing=True
+            )
+
             # 스케줄러 시작
             self.scheduler.start()
             
-            print(f"등록된 작업: 상승 추세매매 조회({GET_ULS_HOUR}:{GET_ULS_MINUTE}), " 
+            print(f"등록된 작업: 상한가 조회({GET_ULS_HOUR}:{GET_ULS_MINUTE}), " 
                   f"종목 선정({GET_SELECT_HOUR}:{GET_SELECT_MINUTE}), "
                   f"매수 시간({ORDER_HOUR_1}:{ORDER_MINUTE_1}, "
-                  f"{ORDER_HOUR_2}:{ORDER_MINUTE_2} ")
+                  f"{ORDER_HOUR_2}:{ORDER_MINUTE_2}, "
+                  f"{ORDER_HOUR_3}:{ORDER_MINUTE_3})")
 
             # 명시적인 무한 루프로 스케줄러 유지
             while True:
@@ -132,15 +138,14 @@ class MainProcess:
     def execute_buy_task(self):
         """매수 태스크 실행"""
         try:
-            # trading = TradingLogic()
-            trading_upper = TradingUpper()
+            trading = TradingLogic()
             # 선별 종목 매수
             with self.db_lock:
-                order_list = trading_upper.start_trading_session()
+                order_list = trading.start_trading_session()
 
             # 매수 정보 세션에 저장
             with self.db_lock:
-                trading_upper.load_and_update_trading_session(order_list)
+                trading.load_and_update_trading_session(order_list)
         except Exception as e:
             print(f"매수 태스크 실행 에러: {str(e)}")
 
@@ -155,19 +160,15 @@ class MainProcess:
         asyncio.set_event_loop(loop)
         
         try:    
-            # trading = TradingLogic()
-            trading_upper = TradingUpper()
-            kis_websocket = KISWebSocket(trading_upper.sell_order)
-            trading_upper.kis_websocket = kis_websocket  # KISWebSocket 인스턴스 설정
-            
-            
-            sessions_info = trading_upper.get_session_info_upper()
+            trading = TradingLogic()
+            sessions_info = trading.get_session_info()
             
             # 이벤트 루프에서 코루틴 실행
-            loop.run_until_complete(trading_upper.monitor_for_selling_upper(sessions_info))
+            loop.run_until_complete(trading.monitor_for_selling(sessions_info))
             
         except Exception as e:
             print(f"모니터링 실행 오류: {e}")
+            traceback.print_exc()
         finally:
             try:
                 # 실행 중인 모든 태스크 가져오기
@@ -241,7 +242,6 @@ class MainProcess:
 
 if __name__ == "__main__":
     try:
-        
         main_process = MainProcess()
         main_process.start_all()
         
