@@ -348,7 +348,7 @@ class KISWebSocket:
             # 모든 모니터링 태스크 완료 대기
             results = await asyncio.gather(*self.background_tasks, return_exceptions=True)
             print('real_time_monitoring 반환값:',results)
-            return results                
+            return results
 
         except Exception as e:
             print(f"모니터링 중 오류 발생: {e}")
@@ -496,8 +496,9 @@ class KISWebSocket:
                 "tr_type": "1",
                 "content-type": "utf-8"
             }
-            
+            print('이까지 정상')
             self.websocket = await websockets.connect(url, extra_headers=self.connect_headers)
+            print('실행 됐네?')
             self.is_connected = True
             print("WebSocket 연결 성공")
 

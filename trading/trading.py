@@ -643,13 +643,13 @@ class TradingLogic:
             kis_websocket = KISWebSocket(self.sell_order)
             # 웹소켓 연결 및 모니터링 시작
             complete = await kis_websocket.real_time_monitoring(sessions_info)
-            print("콜백함수 실행함.")
+            print("콜백함수 정상 실행")
             
             # 모니터링 상태 확인
             if complete:
                 print("모니터링이 정상적으로 종료되었습니다.")
             else:
-                print("비정상 종료")
+                print("진행 중인 세션 없음")
                 
         except Exception as e:
             print(f"모니터링 오류: {e}")
