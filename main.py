@@ -52,7 +52,7 @@ class MainProcess:
                 self.scheduler.shutdown(wait=False)
         except:
             pass
-        
+
     def schedule_manager(self):
         """스케줄 작업을 관리하는 메서드"""
         
