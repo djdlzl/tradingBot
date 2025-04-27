@@ -351,9 +351,7 @@ class TradingUpper():
                 print("sessions와 order_list의 길이가 다릅니다. 매칭을 시도합니다.")
                 
                 # order_list를 PDNO 키로 하는 딕셔너리로 변환
-                order_dict = {
-                    order.get('output').get('PDNO'): order 
-                    for order in order_list if order}
+                order_dict = {order.get('output').get('PDNO'): order for order in order_list if order}
 
                 for session in sessions:
                     ticker = session['ticker']
