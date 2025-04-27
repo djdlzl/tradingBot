@@ -266,7 +266,7 @@ class DatabaseManager:
     def get_upper_stocks_days_ago(self):
         try:
             # selected_upper_stocks 테이블 초기화
-            self.delete_selected_stocks()
+            self.delete_selected_upper_stocks()
             
             today = datetime.now()
             days_ago = DateUtils.get_previous_business_day(today, BUY_DAY_AGO_UPPER)
@@ -285,7 +285,7 @@ class DatabaseManager:
     def save_selected_stocks(self, selected_upper_stocks):
         try:
             # no 갱신
-            self.cursor.execute('SELECT MAX(no) FROM selected_stocks')
+            self.cursor.execute('SELECT MAX(no) FROM selected_upper_stocks')
             print('selected_upper_stocks:--',selected_upper_stocks)
             # upper_rate를 기준으로 내림차순 정렬
             sorted_stocks = sorted(selected_upper_stocks, key=lambda x: float(x.get('upper_rate', 0)), reverse=True)
@@ -307,7 +307,7 @@ class DatabaseManager:
             logging.error("Error saving selected stocks: %s", e)
             raise
 
-    def delete_selected_stocks(self):
+    def delete_selected_upper_stocks(self):
         try:
             self.cursor.execute('DELETE FROM selected_upper_stocks')
             self.conn.commit()
@@ -324,19 +324,19 @@ class DatabaseManager:
             self.cursor.execute('DELETE FROM selected_upper_stocks WHERE no = %s', (no,))
             self.conn.commit()
             logging.info("Deleted stock with no: %d", no)
-            self.reorder_selected_stocks()
+            self.reorder_selected_upper_stocks()
         except mysql.connector.Error as e:
             logging.error("Error deleting selected stock: %s", e)
             raise
 
-    def reorder_selected_stocks(self):
+    def reorder_selected_upper_stocks(self):
         try:
             # 커서 재설정
             self._reset_cursor()
             
             self.cursor.execute('SET @count = 0')
             self.cursor.execute('''
-                UPDATE selected_stocks 
+                UPDATE selected_upper_stocks 
                 SET no = (@count:=@count+1) 
                 ORDER BY no
             ''')

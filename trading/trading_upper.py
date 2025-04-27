@@ -210,7 +210,8 @@ class TradingUpper():
                 
                 # 세션 정보로 주식 주문
                 order_result = self.place_order_session_upper(session)
-                order_list.append(order_result)
+                if order_result:
+                    order_list.append(order_result)
                 
             return order_list
         except Exception as e:
@@ -303,18 +304,20 @@ class TradingUpper():
         price = int(result[0]) # 현재가 받아오기
 
         # 매수할 금액 계산
-        # ratio = round(100/COUNT_UPPER) / 100 
-        fund_per_order = int(float(session.get('fund')) * 0.7)  # 각 매수 시 사용할 금액
+        ratio = 1 / COUNT_UPPER
+        fund_per_order = int(float(session.get('fund')) * ratio)  # 각 매수 시 사용할 금액
 
         if session.get('count') < COUNT_UPPER-1:  # 0부터 COUNT-1까지는 일반 매수
-            quantity = fund_per_order / price  # 매수 수량 계산
+            quantity = int(fund_per_order / price)  # 매수 수량 계산
         else:  # COUNT회차 (마지막) 매수
             remaining_fund = float(session.get('fund')) - session.get('spent_fund')  # 남은 자금 계산
-            quantity = remaining_fund / price  # 남은 자금으로 매수 수량 계산
+            quantity = int(remaining_fund / price)  # 남은 자금으로 매수 수량 계산
 
         # 매수 주문을 진행
         quantity = int(quantity)
-        
+        if quantity <= 0:          # 0·음수면 스킵
+            print("⚠ 주문수량 0, 세션 건너뜀")
+            return None            # order_list에 넣지 않기
         if session.get('count') < COUNT_UPPER:
             order_result = self.buy_order(session.get('ticker'), quantity)
                 
@@ -348,8 +351,10 @@ class TradingUpper():
                 print("sessions와 order_list의 길이가 다릅니다. 매칭을 시도합니다.")
                 
                 # order_list를 ODNO 키로 하는 딕셔너리로 변환
-                order_dict = {order.get('output').get('ODNO'): order for order in order_list}
-                
+                order_dict = {
+                    order.get('output').get('PDNO'): order 
+                    for order in order_list if order}
+
                 for session in sessions:
                     ticker = session['ticker']
                     matching_order = order_dict.get(ticker)
@@ -425,11 +430,12 @@ class TradingUpper():
                 db.close()
                 
                 # 새로운 모니터링 스레드 생성
-                monitoring_thread = threading.Thread(
-                    target=self._run_monitoring_for_session,
-                    args=(session,)
-                )
-                monitoring_thread.start()
+                if quantity > 0:
+                    monitoring_thread = threading.Thread(
+                        target=self._run_monitoring_for_session,
+                        args=(session,)
+                    )
+                    monitoring_thread.start()
                 
                 #SLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACK
                 # 세션 업데이트 로그
@@ -489,16 +495,19 @@ class TradingUpper():
                 print("rest_fund:--",rest_fund)
         
         try:
-            if slot == 2:
-                allocated_funds = balance / 2  # 2개 슬롯에 50%씩 할당
-                print("slot==2 실행")
-            elif slot == 1:
-                allocated_funds = (balance - rest_fund)  # 1개 슬롯에 전체 자금 할당: 남은 자금 - 종목에 아직 할당 안된 금액
+            available = max(balance - rest_fund, 0)          # 음수 방지
+
+            if slot == 1:
+                allocated_funds = available
                 print("slot==1 실행")
+            elif slot == 2:
+                allocated_funds = available / 2
+                print("slot==2 실행")
             else:
                 allocated_funds = 0  # 슬롯이 없으면 빈 리스트 반환
                 print("slot==0 실행")
-                
+            if allocated_funds <= 0:
+                return 0     # 0 이하이면 세션을 만들지 않음
             print("calculate_funds - allocated_funds: ", allocated_funds)
             return int(allocated_funds)
         except Exception as e:
