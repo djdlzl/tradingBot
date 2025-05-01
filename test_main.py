@@ -78,9 +78,13 @@ def test():
     kis_api = KISApi()
     krx_api = KRXApi()
     date_utils = DateUtils()
-    
-    updown = kis_api.get_upAndDown_rank()
-    print('상승 종목: ',json.dumps(updown, indent=2, ensure_ascii=False))
+
+    trading.fetch_and_save_previous_upper_limit_stocks()
+    trading_upper.fetch_and_save_previous_upper_stocks()
+
+    trading_upper.select_stocks_to_buy()
+
+
 
     # trading_upper.fetch_and_save_previous_upper_stocks()
     # trading_upper.select_stocks_to_buy()
