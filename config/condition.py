@@ -71,7 +71,7 @@ COUNT_UPPER = 2 # 총 매수 회수 (현재 1일 2회 매수)
 
 SLOT_UPPER = 2 # 매수 종목 개수
 
-BUY_DAY_AGO_UPPER = 1 # DB 상승 종목에서 며칠 전 종목 받아올건지
+BUY_DAY_AGO_UPPER = 2 # DB 상승 종목에서 며칠 전 종목 받아올건지
 
 DAYS_LATER_UPPER = 1 #마지막 매수로부터 +1일
 

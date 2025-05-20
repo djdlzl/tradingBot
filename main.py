@@ -24,8 +24,6 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.executors.pool import ThreadPoolExecutor
 from config.condition import GET_ULS_HOUR, GET_ULS_MINUTE, GET_SELECT_HOUR, GET_SELECT_MINUTE, ORDER_HOUR_1, ORDER_HOUR_2, ORDER_MINUTE_1, ORDER_MINUTE_2
-from database.db_manager import DatabaseManager
-from api.kis_api import KISApi
 from api.kis_websocket import KISWebSocket
 
 class MainProcess:
@@ -240,8 +238,8 @@ class MainProcess:
 ##################################  이까지 클래스  ####################################
 
 if __name__ == "__main__":
+    main_process = None
     try:
-        
         main_process = MainProcess()
         main_process.start_all()
         
@@ -254,6 +252,8 @@ if __name__ == "__main__":
 
     except (KeyboardInterrupt, SystemExit):
         print("\n프로그램 종료 요청됨")
-        main_process.stop_event.set()
+        if main_process:
+            main_process.stop_event.set()
     finally:
-        main_process.cleanup()
+        if main_process:
+            main_process.cleanup()

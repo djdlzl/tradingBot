@@ -79,12 +79,10 @@ def test():
     krx_api = KRXApi()
     date_utils = DateUtils()
 
-    trading.fetch_and_save_previous_upper_limit_stocks()
-    trading_upper.fetch_and_save_previous_upper_stocks()
-
-    trading_upper.select_stocks_to_buy()
-
-
+    current_price_result = kis_api.get_current_price("239340")
+    current_price = int(current_price_result[0])  # 문자열 또는 리스트 처리
+    print(current_price)
+    print(type(current_price))
 
     # trading_upper.fetch_and_save_previous_upper_stocks()
     # trading_upper.select_stocks_to_buy()

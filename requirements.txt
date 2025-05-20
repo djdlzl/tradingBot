@@ -6,6 +6,6 @@ websockets==13.1
 nest-asyncio==1.6.0
 slack_sdk
 requests
-mysql-connector-python
+mysql-connector-python==8.0.33
 pykrx
 python-dateutil

@@ -100,7 +100,11 @@ class KISWebSocket:
                     if sell_reason:  # 매도 조건 충족 시
                         try:
                             # 1. 매도 주문 실행
-                            sell_completed = self.callback(session_id, ticker, quantity, target_price)
+                            if self.callback is not None:
+                                sell_completed = self.callback(session_id, ticker, quantity, target_price)
+                            else:
+                                # 콜백이 없을 때 처리 (예: 로그 남기기, 기본값 할당 등)
+                                sell_completed = False
                             
                             # 2. 즉시 구독 해제
                             await self.unsubscribe_ticker(ticker)
