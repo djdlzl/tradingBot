@@ -79,7 +79,7 @@ class TradingUpper():
         db = DatabaseManager()
         
         # # 이전 selected_stocks 정보 삭제
-        # self.init_selected_stocks()
+        self.init_selected_stocks()
         
         selected_stocks = []
         tickers_with_prices = db.get_upper_stocks_days_ago()  # N일 전 상승 종목 가져오기
@@ -121,13 +121,14 @@ class TradingUpper():
             
             
             print(stock.get('name'))
-            print('조건1: result_high_price:',result_high_price)
-            print('조건2: result_decline:',result_decline)
-            print('조건3: result_volume:',result_volume)
-            print('조건4: result_lstg:',result_lstg)
+            # print('조건1: result_high_price:',result_high_price)
+            # print('조건2: result_decline:',result_decline)
+            # print('조건3: result_volume:',result_volume)
+            # print('조건4: result_lstg:',result_lstg)
+            print('매매 확인을 위해 임시로 모든 조건 통과')
 
-
-            if result_high_price and result_decline and result_volume and result_lstg:
+            # if result_high_price and result_decline and result_volume and result_lstg:
+            if True:
                 print(f"################ 매수 후보 종목: {stock.get('ticker')}, 종목명: {stock.get('name')} (현재가: {current_price}, 상한가 당시 가격: {stock.get('closing_price')})")
                 selected_stocks.append(stock)
       
@@ -913,6 +914,7 @@ class TradingUpper():
                         "메시지": order_result.get('msg1')
                     }
                 )
+                print("buy_order - ERROR order_results 값: ", order_results)
                 return order_results
 
             time.sleep(BUY_WAIT)
