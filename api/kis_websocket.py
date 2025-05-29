@@ -446,6 +446,22 @@ class KISWebSocket:
                     await self.websocket.pong(data)
                     continue
 
+                except asyncio.TimeoutError:
+                    print("웹소켓 수신 타임아웃, 연결 상태를 확인합니다.")
+                    self.is_connected = False
+                    await asyncio.sleep(5)
+                    continue
+                except websockets.exceptions.ConnectionClosed as e:
+                    print(f"웹소켓 연결이 닫혔습니다: {e}")
+                    self.is_connected = False
+                    await asyncio.sleep(5)
+                    continue
+                except Exception as e:
+                    print(f"웹소켓 수신 중 오류: {e}")
+                    self.is_connected = False
+                    await asyncio.sleep(5)
+                    continue
+                    
                 # 구독 성공 메시지 체크
                 if "SUBSCRIBE SUCCESS" in data:
                     # JSON 파싱 시도
@@ -512,11 +528,31 @@ class KISWebSocket:
 
     async def close(self):
         """웹소켓 연결 종료"""
-        if self.websocket:
-            await self.websocket.close()
-            self.is_connected = False
-            self.subscribed_tickers.clear()
-            print("WebSocket 연결이 종료되었습니다.")
+        self.is_connected = False
+        
+        # 모든 활성 태스크 취소
+        for ticker, task in list(self.active_tasks.items()):
+            if not task.done():
+                task.cancel()
+                try:
+                    await task
+                except (asyncio.CancelledError, Exception) as e:
+                    pass
+        self.active_tasks.clear()
+        
+        # 웹소켓 연결 종료
+        if self.websocket and not self.websocket.closed:
+            try:
+                await self.websocket.close()
+                await asyncio.sleep(0.1)  # 연결 종료 대기
+            except Exception as e:
+                print(f"웹소켓 종료 중 오류: {e}")
+        
+        # 리소스 정리
+        self.websocket = None
+        self.subscribed_tickers.clear()
+        self.ticker_queues.clear()
+        print("WebSocket 연결이 완전히 종료되었습니다.")
             
 ######################################################################################
 ##############################    구독 관리   #######################################

@@ -9,3 +9,4 @@ requests
 mysql-connector-python==8.0.33
 pykrx
 python-dateutil
+pandas

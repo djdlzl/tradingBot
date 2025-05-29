@@ -85,7 +85,6 @@ class TradingUpper():
         tickers_with_prices = db.get_upper_stocks_days_ago()  # N일 전 상승 종목 가져오기
         print('tickers_with_prices:  ',tickers_with_prices)
         for stock in tickers_with_prices:
-            
             ### 조건1: 상승일 기준 10일 전까지 고가 20% 넘은 이력 여부 체크
             df = self.krx_api.get_OHLCV(stock.get('ticker'), UPPER_DAY_AGO_CHECK) # D+2일 8시55분에 실행이라 10일
             # 데이터프레임에서 최하단 2개 행을 제외
@@ -261,6 +260,7 @@ class TradingUpper():
             spent_fund = 0
             quantity = 0
             avr_price = 0
+            high_price = 0
 
             max_attempts = 5  # 최대 시도 횟수
             for _ in range(max_attempts):
@@ -275,7 +275,7 @@ class TradingUpper():
                     print(f"{stock['name']} - 매수가 불가능하여 다시 받아옵니다.")
                     continue
 
-                db.save_trading_session_upper(random_id, today, today, stock['ticker'], stock['name'], fund, spent_fund, quantity, avr_price, count)
+                db.save_trading_session_upper(random_id, today, today, stock['ticker'], stock['name'], high_price, fund, spent_fund, quantity, avr_price, count)
                 return random_id
 
             print(f"최대 시도 횟수({max_attempts}) 초과: 매수가 가능한 종목을 찾지 못했습니다.")
@@ -348,24 +348,24 @@ class TradingUpper():
                 return None
 
 
-    # def load_and_update_trading_session(self, order_list):
-    #     db = DatabaseManager()
-    #     try:
-    #         sessions = db.load_trading_session_upper()
-    #         if not sessions:
-    #             print("load_and_update_trading_session - 진행 중인 거래 세션이 없습니다.")
-    #             return
+    def load_and_update_trading_session(self, order_list):
+        db = DatabaseManager()
+        try:
+            sessions = db.load_trading_session_upper()
+            if not sessions:
+                print("load_and_update_trading_session - 진행 중인 거래 세션이 없습니다.")
+                return
 
-    #         for session, order_results in zip(sessions, order_list):
-    #             if order_results:
-    #                 self.update_session(session, order_results)
-    #             else:
-    #                 print(f"ticker {session['ticker']}에 대한 주문 결과가 없습니다.")
+            for session, order_results in zip(sessions, order_list):
+                if order_results:
+                    self.update_session(session, order_results)
+                else:
+                    print(f"ticker {session['ticker']}에 대한 주문 결과가 없습니다.")
 
-    #         db.close()
-    #     except Exception as e:
-    #         print("Error in update_trading_session: ", e)
-    #         db.close()
+            db.close()
+        except Exception as e:
+            print("Error in update_trading_session: ", e)
+            db.close()
             
     def update_session(self, session, order_results):
         try:
@@ -402,7 +402,7 @@ class TradingUpper():
                         total_spent_fund += real_spent_fund
                         total_quantity += real_quantity
                         updated = True
-                    
+                    print('update_session 1')
                     if not updated:
                         print("주문 체결 정보 없음")
                         return
@@ -412,18 +412,18 @@ class TradingUpper():
                     if not balance_data:
                         print(f"잔고 조회 실패: {session.get('ticker')}")
                         return
-
+                    print('update_session 2')
                     avr_price = int(float(balance_data.get('pchs_avg_pric', 0)))
                     count = session.get('count', 0) + 1
 
                     db.save_trading_session_upper(
                         session.get('id'), session.get('start_date'), current_date,
-                        session.get('ticker'), session.get('name'), session.get('fund'),
+                        session.get('ticker'), session.get('name'), session.get('high_price'), session.get('fund'),
                         total_spent_fund, total_quantity, avr_price, count
                     )
-
+                    print('update_session 3')
                     self.validate_db_data(session, balance_data)
-
+                    print('validate_db_data - 데이터 정합성 맞추기 완료')
                     self.slack_logger.send_log(
                     level="INFO",
                     message="상승 추세매매 세션 업데이트 / 모니터링 시작",
@@ -515,7 +515,7 @@ class TradingUpper():
         #         count = session.get('count') + 1
         #         db.save_trading_session_upper(
         #             session.get('id'), session.get('start_date'), current_date,
-        #             session.get('ticker'), session.get('name'), session.get('fund'),
+        #             session.get('ticker'), session.get('name'), session.get('high_price'), session.get('fund'),
         #             total_spent_fund, total_quantity, avr_price, count
         #         )
 
@@ -587,7 +587,7 @@ class TradingUpper():
 
                     db.save_trading_session_upper(
                         session.get('id'), session.get('start_date'), datetime.now(),
-                        session.get('ticker'), session.get('name'), session.get('fund'),
+                        session.get('ticker'), session.get('name'), session.get('high_price'), session.get('fund'),
                         actual_spent_fund, actual_quantity, actual_avg_price, session.get('count')
                     )
 
@@ -667,7 +667,7 @@ class TradingUpper():
 
     #             db.save_trading_session_upper(
     #                 session.get('id'), session.get('start_date'), datetime.now(),
-    #                 session.get('ticker'), session.get('name'), session.get('fund'),
+    #                 session.get('ticker'), session.get('name'), session.get('high_price'), session.get('fund'),
     #                 actual_spent_fund, actual_quantity, actual_avg_price, session.get('count')
     #             )
 
@@ -1145,3 +1145,22 @@ class TradingUpper():
             loop.run_until_complete(self.start_monitoring_for_session(session))
         finally:
             loop.close()
+
+
+######################################################################################
+###############################    유틸리티티   ####################################
+######################################################################################
+
+    def add_upper_stocks(self, add_date, stocks):
+        """
+        상한가 종목 추가
+        fetch_and_save_previous_upper_stocks 메서드 못돌렸을 때 사용
+        """
+        db = DatabaseManager()
+        try:
+            db.save_upper_stocks(add_date, stocks)
+            print(f"Successfully added stocks for date: {add_date}")
+        except Exception as e:
+            print(f"Error adding stocks: {e}")
+        finally:
+            db.close()

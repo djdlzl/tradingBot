@@ -1,11 +1,15 @@
+import ssl
+import os
 from slack_sdk import WebClient
 from datetime import datetime
 from config.config import SLACK_TOKEN
-import os
+# from slack_sdk.http import urllib3
 
 class SlackLogger:
     def __init__(self, default_channel="trading-log"):
-        self.client = WebClient(token=SLACK_TOKEN)
+        # SSL 검증 비활성화
+        context = ssl._create_unverified_context()
+        self.client = WebClient(token=SLACK_TOKEN, ssl=context)
         self.default_channel = default_channel
         
     def send_log(self, level, message, error=None, context=None, channel=None):

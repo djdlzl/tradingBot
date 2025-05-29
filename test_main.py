@@ -13,15 +13,17 @@
 - api.kis_api 모듈의 KISApi 클래스
 """
 
+from codecs import ascii_encode
 import threading
 import time
 import json
 import asyncio
 from datetime import datetime
-from trading.trading import TradingLogic
+from requests import session
 from trading.trading_upper import TradingUpper
+from trading.trading import TradingLogic
 from config.condition import GET_ULS_HOUR, GET_ULS_MINUTE
-from database.db_manager import DatabaseManager
+from database.db_manager_upper import DatabaseManager
 from utils.date_utils import DateUtils
 from api.kis_api import KISApi
 from api.krx_api import KRXApi
@@ -31,23 +33,23 @@ def fetch_and_save_upper_limit_stocks():
     """
     주기적으로 상한가 종목을 DB에 저장
     """
-    trading = TradingLogic()
+    trading = TradingUpper()
     # trading_instacne.set_headers(is_mock=False, tr_id="FHKST130000C0")
     while True:
         now = datetime.now()
         if now.hour == GET_ULS_HOUR and now.minute == GET_ULS_MINUTE:  # 매일 15시 30분에 실행
-            trading.fetch_and_save_previous_upper_limit_stocks()
+            trading.fetch_and_save_previous_upper_stocks()
         time.sleep(1)  # 1분 대기
 
 def add_stocks():
-    trading = TradingLogic()
+    trading = TradingUpper()
     stocks = [
         ("211270", "AP위성", 14950.0, 29.99),
         ("361390", "제노코", 22100.0, 29.97),
         ("460930", "현대힘스", 13390.0, 29.97)
     ]
 
-    trading.add_upper_limit_stocks("2024-11-07", stocks)
+    trading.add_upper_stocks("2024-11-07", stocks)
 
 def delete_stocks():
     """
@@ -78,17 +80,43 @@ def test():
     kis_api = KISApi()
     krx_api = KRXApi()
     date_utils = DateUtils()
+    db = DatabaseManager()
 
-    current_price_result = kis_api.get_current_price("239340")
-    current_price = int(current_price_result[0])  # 문자열 또는 리스트 처리
-    print(current_price)
-    print(type(current_price))
 
-    # trading_upper.fetch_and_save_previous_upper_stocks()
-    # trading_upper.select_stocks_to_buy()
-    # krx_api.get_OHLCV('239340', 16)
+    # ######### 매수 로직 ###########
+    # # 선별 종목 매수
+    # order_list = trading_upper.start_trading_session()
 
+    # # 매수 정보 세션에 저장
+    # trading_upper.load_and_update_trading_session(order_list)
+
+    ############ 세션 데이터 타입 확인 #############
+    sessions = db.load_trading_session_upper()
+    print(sessions)
+    print("=== 세션 데이터 ===")
+    for idx, session in enumerate(sessions, 1):
+        print(f"\n[세션 {idx}]")
+        for key, value in session.items():
+            print(f"  {key}: {value} (타입: {type(value).__name__})")
     
+    ################### 매도 로직 수리 중 #######################
+    # price = 300
+    # price = int(price)
+    # current_price_result = kis_api.get_current_price('021880')
+    # current_price = int(current_price_result[0])  # 문자열 또는 리스트 처리
+    # print(current_price)
+    # if price < current_price * 0.95 or price > current_price * 1.05:
+    #     print('비교 완료')
+
+    # ################### 자금 할당 문제 수리 중 ####################
+    # data = kis_api.purchase_availability_inquiry()
+    # print(data)
+
+
+    # ###### 선별 종목 저장 ######
+    # stocks = trading_upper.select_stocks_to_buy()
+    # print(stocks)
+
 
     # #####상한가 조회#############    
     # # print("시작")

@@ -1,4 +1,5 @@
 # 환경
+venv/
 .venv/
 *.pyc
 __pycache__/

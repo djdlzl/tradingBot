@@ -348,27 +348,28 @@ class DatabaseManager:
             logging.error("Error reordering selected stocks: %s", e)
             raise
 
-    def save_trading_session_upper(self, random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count):
+    def save_trading_session_upper(self, random_id, start_date, current_date, ticker, name, high_price, fund, spent_fund, quantity, avr_price, count):
         try:
             self.cursor.execute('''
                 INSERT INTO trading_session_upper 
-                (id, start_date, `current_date`, ticker, name, fund, spent_fund, quantity, avr_price, count)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                (id, start_date, `current_date`, ticker, name, high_price, fund, spent_fund, quantity, avr_price, count)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                     start_date = VALUES(start_date),
                     `current_date` = VALUES(`current_date`),
                     ticker = VALUES(ticker),
                     name = VALUES(name),
+                    high_price = VALUES(high_price),
                     fund = VALUES(fund),
                     spent_fund = VALUES(spent_fund),
                     quantity = VALUES(quantity),
                     avr_price = VALUES(avr_price),
                     count = VALUES(count)
-            ''', (random_id, start_date, current_date, ticker, name, fund, spent_fund, quantity, avr_price, count))
+            ''', (random_id, start_date, current_date, ticker, name, high_price, fund, spent_fund, quantity, avr_price, count))
             self.conn.commit()
             logging.info("Trading session saved/updated successfully for ticker: %s", ticker)
         except mysql.connector.Error as e:
-            logging.error("Error saving trading session: %s", e)
+            logging.error()
             raise
 
     def load_trading_session_upper(self, random_id=None):
@@ -402,4 +403,27 @@ class DatabaseManager:
             logging.error("Error deleting session row: %s", e)
             self.conn.rollback()
             raise
-        
+
+
+
+################## Utility ###################################
+    def delete_upper_limit_stocks(self, date):
+        try:
+            self.cursor.execute(
+                'DELETE FROM upper_limit_stocks WHERE date = %s',
+                (date,)
+            )
+            self.conn.commit()
+            logging.info("Deleted upper limit stocks for date: %s", date)
+        except mysql.connector.Error as e:
+            logging.error("Error deleting upper limit stocks: %s", e)
+            raise
+
+    def delete_selected_stocks(self):
+        try:
+            self.cursor.execute('DELETE FROM selected_stocks')
+            self.conn.commit()
+            logging.info("Deleted all records from selected_stocks table.")
+        except mysql.connector.Error as e:
+            logging.error("Error deleting selected stocks: %s", e)
+            raise
