@@ -350,26 +350,59 @@ class DatabaseManager:
 
     def save_trading_session_upper(self, random_id, start_date, current_date, ticker, name, high_price, fund, spent_fund, quantity, avr_price, count):
         try:
+            # 파라미터 유효성 검사
+            if not all([random_id, ticker, name]):
+                raise ValueError("필수 파라미터가 누락되었습니다.")
+                
+            if not isinstance(quantity, int) or quantity < 0:
+                raise ValueError(f"유효하지 않은 수량: {quantity}")
+                
+            if not isinstance(avr_price, (int, float)) or avr_price < 0:
+                raise ValueError(f"유효하지 않은 평균가: {avr_price}")
+    
+            # SQL 쿼리 실행
             self.cursor.execute('''
                 INSERT INTO trading_session_upper 
                 (id, start_date, `current_date`, ticker, name, high_price, fund, spent_fund, quantity, avr_price, count)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
-                    start_date = VALUES(start_date),
                     `current_date` = VALUES(`current_date`),
-                    ticker = VALUES(ticker),
-                    name = VALUES(name),
-                    high_price = VALUES(high_price),
-                    fund = VALUES(fund),
                     spent_fund = VALUES(spent_fund),
                     quantity = VALUES(quantity),
-                    avr_price = VALUES(avr_price),
+                    avr_price = CASE 
+                        WHEN VALUES(quantity) > 0 THEN VALUES(avr_price)
+                        ELSE avr_price
+                    END,
                     count = VALUES(count)
-            ''', (random_id, start_date, current_date, ticker, name, high_price, fund, spent_fund, quantity, avr_price, count))
+            ''', (
+                random_id, 
+                start_date, 
+                current_date, 
+                ticker, 
+                name, 
+                high_price, 
+                fund, 
+                spent_fund, 
+                quantity, 
+                avr_price, 
+                count
+            ))
+            
             self.conn.commit()
-            logging.info("Trading session saved/updated successfully for ticker: %s", ticker)
+            logging.info(
+                "Trading session saved/updated - ID: %s, Ticker: %s, Quantity: %s, AvgPrice: %s",
+                random_id, ticker, quantity, avr_price
+            )
+            
         except mysql.connector.Error as e:
-            logging.error()
+            self.conn.rollback()
+            error_msg = f"DB 오류: {str(e)}"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg) from e
+        except Exception as e:
+            self.conn.rollback()
+            error_msg = f"세션 저장 중 오류 발생: {str(e)}"
+            logging.error(error_msg)
             raise
 
     def load_trading_session_upper(self, random_id=None):

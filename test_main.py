@@ -91,13 +91,13 @@ def test():
     # trading_upper.load_and_update_trading_session(order_list)
 
     ############ 세션 데이터 타입 확인 #############
-    sessions = db.load_trading_session_upper()
-    print(sessions)
-    print("=== 세션 데이터 ===")
-    for idx, session in enumerate(sessions, 1):
-        print(f"\n[세션 {idx}]")
-        for key, value in session.items():
-            print(f"  {key}: {value} (타입: {type(value).__name__})")
+    # sessions = db.load_trading_session_upper()
+    # print(sessions)
+    # print("=== 세션 데이터 ===")
+    # for idx, session in enumerate(sessions, 1):
+    #     print(f"\n[세션 {idx}]")
+    #     for key, value in session.items():
+    #         print(f"  {key}: {value} (타입: {type(value).__name__})")
     
     ################### 매도 로직 수리 중 #######################
     # price = 300
@@ -108,9 +108,9 @@ def test():
     # if price < current_price * 0.95 or price > current_price * 1.05:
     #     print('비교 완료')
 
-    # ################### 자금 할당 문제 수리 중 ####################
-    # data = kis_api.purchase_availability_inquiry()
-    # print(data)
+    ################### 자금 할당 문제 수리 중 ####################
+    data = kis_api.purchase_availability_inquiry()
+    print(data)
 
 
     # ###### 선별 종목 저장 ######

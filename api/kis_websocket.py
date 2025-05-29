@@ -39,7 +39,7 @@ class KISWebSocket:
         self.slack_logger = SlackLogger()
         self.locks = {}  # 종목별 락 관리
         self.LOCK_TIMEOUT = 10
-        
+        self._loop = None  # 이벤트 루프 저장용
 
 ######################################################################################
 ##################################    매도 로직   #####################################
@@ -446,22 +446,6 @@ class KISWebSocket:
                     await self.websocket.pong(data)
                     continue
 
-                except asyncio.TimeoutError:
-                    print("웹소켓 수신 타임아웃, 연결 상태를 확인합니다.")
-                    self.is_connected = False
-                    await asyncio.sleep(5)
-                    continue
-                except websockets.exceptions.ConnectionClosed as e:
-                    print(f"웹소켓 연결이 닫혔습니다: {e}")
-                    self.is_connected = False
-                    await asyncio.sleep(5)
-                    continue
-                except Exception as e:
-                    print(f"웹소켓 수신 중 오류: {e}")
-                    self.is_connected = False
-                    await asyncio.sleep(5)
-                    continue
-                    
                 # 구독 성공 메시지 체크
                 if "SUBSCRIBE SUCCESS" in data:
                     # JSON 파싱 시도
@@ -494,37 +478,27 @@ class KISWebSocket:
 
     async def connect_websocket(self):
         """웹소켓 연결 설정"""
-        try:
-            # websocket 속성 존재 여부 먼저 확인
-            if hasattr(self, 'websocket'):
-                if self.websocket is not None:
-                    try:
-                        if not self.websocket.closed:
-                            print("이미 웹소켓이 연결되어 있습니다")
-                            return
-                    except Exception as e:
-                        print(f"웹소켓 상태 확인 중 에러: {e}")
-            else:
-                print("websocket 속성이 아직 없습니다")
+        if self.websocket and not self.websocket.closed:
+            print("웹소켓이 이미 연결되어 있어 connect_websocket 메서드 종료")
+            return
 
-            self.approval_key = await self._ensure_approval(is_mock=True)
-            url = 'ws://ops.koreainvestment.com:31000/tryitout/H0STASP0'
-            
+        try:
+            url = 'ws://ops.koreainvestment.com:31000/tryitout/H0STASP0'           
             self.connect_headers = {
-                "approval_key": self.approval_key,
+                "approval_key": await self._ensure_approval(is_mock=True),
                 "custtype": "P",
                 "tr_type": "1",
                 "content-type": "utf-8"
             }
-            print('이까지 정상')
+            self._loop = asyncio.get_running_loop()  # 현재 이벤트 루프 저장
             self.websocket = await websockets.connect(url, extra_headers=self.connect_headers)
-            print('실행 됐네?')
             self.is_connected = True
-            print("WebSocket 연결 성공")
+            print('이벤트 루프 저장 및 웹소켓 연결 성공')
 
         except Exception as e:
             print(f"WebSocket 연결 실패: {e}")
             self.is_connected = False
+            self.websocket = None
 
     async def close(self):
         """웹소켓 연결 종료"""
@@ -587,6 +561,13 @@ class KISWebSocket:
         if ticker not in self.subscribed_tickers:
             print(f"구독하지 않은 종목입니다: {ticker}")
             return
+        
+        # 웹소켓 연결 상태 확인
+        if self.websocket is None or not self.is_connected or self.websocket.closed:
+            print(f"웹소켓이 연결되어 있지 않아 구독을 취소할 수 없습니다: {ticker}")
+            self.subscribed_tickers.discard(ticker)  # 구독 목록에서 제거
+            return
+        
         self.connect_headers['tr_type'] = "2"
         request_data = {
             "header": self.connect_headers,
@@ -600,10 +581,16 @@ class KISWebSocket:
         
         try:
             await self.websocket.send(json.dumps(request_data))
-            self.subscribed_tickers.remove(ticker)
+            self.subscribed_tickers.discard(ticker)  # remove 대신 discard 사용
             print(f"종목 구독 취소 성공: {ticker}")
+        except websockets.exceptions.ConnectionClosed:
+            print(f"웹소켓 연결이 닫혀 있어 구독 취소에 실패했습니다: {ticker}")
+            self.is_connected = False
+            self.websocket = None
         except Exception as e:
-            print(f"종목 구독 취소 실패: {ticker}, 에러: {e}")
+            print(f"종목 구독 취소 중 오류 발생 ({ticker}): {e}")
+            # 오류 발생 시에도 구독 목록에서 제거
+            self.subscribed_tickers.discard(ticker)
 
 
     async def add_new_stock_to_monitoring(self, session_id, ticker, name, qty, price, start_date, target_date):

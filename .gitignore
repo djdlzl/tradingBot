@@ -1,8 +1,9 @@
 # 환경
-venv/
+*venv*
 .venv/
 *.pyc
 __pycache__/
+.windsurf*
 
 # 기타 제외할 파일/디렉토리
 .DS_Store

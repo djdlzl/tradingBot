@@ -277,11 +277,34 @@ class KISApi:
             ticker (str): 종목 코드
 
         Returns:
-            float: 현재 주가
+            tuple: (현재가(int), 거래정지여부(str)) 또는 (None, None) if error
         """
-        stock_price_info = self.get_stock_price(ticker)
-
-        return stock_price_info.get('output').get('stck_prpr'), stock_price_info.get('output').get('trht_yn') # 현재가 반환, 기본값은 0
+        try:
+            stock_price_info = self.get_stock_price(ticker)
+            
+            if not stock_price_info or 'output' not in stock_price_info:
+                print(f"주가 정보 조회 실패: {ticker}")
+                return None, None
+            
+            output = stock_price_info.get('output', {})
+            price_str = output.get('stck_prpr')
+            trht_yn = output.get('trht_yn')
+            
+            # 가격을 정수로 변환
+            if price_str is not None:
+                try:
+                    price = int(price_str)
+                    return price, trht_yn
+                except (ValueError, TypeError) as e:
+                    print(f"가격 변환 실패: {price_str}, 에러: {e}")
+                    return None, None
+            else:
+                print(f"가격 정보 없음: {ticker}")
+                return None, None
+                
+        except Exception as e:
+            print(f"get_current_price 에러: {ticker}, {e}")
+            return None, None
 
     # def get_balance(self):
     #     """
