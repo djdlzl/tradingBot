@@ -111,8 +111,7 @@ class TradingUpper():
             
                 
             ### 조건3: 상승일 거래량 대비 다음날 거래량 20% 이상인지 체크
-            result_volume = self.get_volume_check(stock.get('ticker'
-            ))
+            result_volume = self.get_volume_check(stock.get('ticker'))
             
             
             ### 조건4: 상장일 이후 1년 체크
@@ -300,7 +299,7 @@ class TradingUpper():
                 # 현재가 조회 실패 시 건너뛰기
                 if result[0] is None:
                     print(f"현재가 조회 실패로 건너뛰기: {session.get('ticker')}")
-                    continue
+
                     
                 price = result[0]  # 이미 int로 변환됨
                 
@@ -1015,6 +1014,7 @@ class TradingUpper():
                 # 잔고 확인으로 세션 삭제 여부 판단
                 balance_result = self.kis_api.balance_inquiry()
                 balance_data = next((item for item in balance_result if item.get('pdno') == ticker), None)
+                
                 if balance_data and int(balance_data.get('hldg_qty', 0)) == 0:
                     self.delete_finished_session(session_id)
                     self.slack_logger.send_log(
@@ -1028,16 +1028,72 @@ class TradingUpper():
                         }
                     )
                 else:
+                    # 매도 후 잔고가 남아있는 경우 세션 수량 업데이트
+                    remaining_qty = int(balance_data.get('hldg_qty', 0)) if balance_data else 0
+                    if remaining_qty > 0:
+                        try:
+                            # 현재 세션 정보 조회
+                            with DatabaseManager() as db:
+                                session_info = db.get_session_by_id(session_id)
+                                if session_info:
+                                    # 매도된 수량 계산
+                                    original_qty = int(session_info.get('quantity', 0))
+                                    sold_qty = original_qty - remaining_qty
+                                    
+                                    # 평균단가와 투자금액 재계산
+                                    avr_price = int(float(balance_data.get('pchs_avg_pric', 0)))
+                                    new_spent_fund = remaining_qty * avr_price
+                                    
+                                    # 세션 업데이트
+                                    db.save_trading_session_upper(
+                                        session_id,
+                                        session_info.get('start_date'),
+                                        datetime.now(),
+                                        ticker,
+                                        session_info.get('name'),
+                                        session_info.get('high_price'),
+                                        session_info.get('fund'),
+                                        new_spent_fund,
+                                        remaining_qty,
+                                        avr_price,
+                                        session_info.get('count', 0)
+                                    )
+                                    
+                                    self.slack_logger.send_log(
+                                        level="INFO",
+                                        message="매도 후 세션 수량 업데이트",
+                                        context={
+                                            "세션ID": session_id,
+                                            "종목코드": ticker,
+                                            "원래수량": original_qty,
+                                            "매도수량": sold_qty,
+                                            "남은수량": remaining_qty,
+                                            "업데이트된평균단가": avr_price
+                                        }
+                                    )
+                                    
+                        except Exception as e:
+                            print(f"매도 후 세션 업데이트 실패: {e}")
+                            self.slack_logger.send_log(
+                                level="ERROR",
+                                message="매도 후 세션 업데이트 실패",
+                                context={
+                                    "세션ID": session_id,
+                                    "종목코드": ticker,
+                                    "에러": str(e)
+                                }
+                            )
+                    
                     self.slack_logger.send_log(
                         level="WARNING",
                         message="매도 후 잔고가 남아 세션 유지",
                         context={
                             "세션ID": session_id,
                             "종목코드": ticker,
-                            "잔고수량": balance_data.get('hldg_qty', 0) if balance_data else 0
+                            "잔고수량": remaining_qty
                         }
                     )
-
+                
                 return order_results
 
             except Exception as e:
