@@ -425,17 +425,35 @@ class KISWebSocket:
         """웹소켓 메시지 수신 전담 코루틴"""
         while True:
             try:
-                # 혹시나 웹소켓 연결이 끊어진다면
-                if not self. is_connected:
+                # 웹소켓 연결 상태 확인
+                if not self.is_connected or self.websocket is None:
                     try:
+                        print("웹소켓 재연결 시도...")
                         await self.connect_websocket()
+                        if not self.is_connected or self.websocket is None:
+                            print("웹소켓 재연결 실패, 5초 후 재시도")
+                            await asyncio.sleep(5)
+                            continue
+                        
                         # 재연결 후 종목 재구독
-                        for ticker in self.subscribed_tickers:
-                            await self.subscribe_ticker(ticker)
+                        if self.subscribed_tickers:
+                            print(f"재구독 시도: {list(self.subscribed_tickers)}")
+                            for ticker in list(self.subscribed_tickers):
+                                try:
+                                    await self.subscribe_ticker(ticker)
+                                except Exception as sub_e:
+                                    print(f"재구독 실패 {ticker}: {sub_e}")
                     except Exception as e:
                         print(f"재연결 실패: {e}")
                         await asyncio.sleep(5)
                         continue
+                
+                # 웹소켓이 닫혔는지 추가 확인
+                if self.websocket.closed:
+                    print("웹소켓이 닫혀있음, 재연결 필요")
+                    self.is_connected = False
+                    self.websocket = None
+                    continue
                 
                 # 웹소켓 응답 수신
                 data = await self.websocket.recv()
@@ -468,6 +486,16 @@ class KISWebSocket:
                 await asyncio.sleep(1)
                 continue
 
+            except AttributeError as e:
+                if "'NoneType' object has no attribute 'recv'" in str(e):
+                    print("웹소켓이 None 상태입니다. 재연결이 필요합니다.")
+                else:
+                    print(f"속성 에러: {e}")
+                self.is_connected = False
+                self.websocket = None
+                await asyncio.sleep(2)
+                continue
+
             except Exception as e:
                 print(f"수신 에러: {e}")
                 print(f"에러 발생 데이터: {data if 'data' in locals() else 'No data'}")
@@ -483,6 +511,14 @@ class KISWebSocket:
             return
 
         try:
+            # 기존 웹소켓 정리
+            if self.websocket:
+                try:
+                    await self.websocket.close()
+                except:
+                    pass
+                self.websocket = None
+            
             url = 'ws://ops.koreainvestment.com:31000/tryitout/H0STASP0'           
             self.connect_headers = {
                 "approval_key": await self._ensure_approval(is_mock=True),
@@ -491,10 +527,26 @@ class KISWebSocket:
                 "content-type": "utf-8"
             }
             self._loop = asyncio.get_running_loop()  # 현재 이벤트 루프 저장
-            self.websocket = await websockets.connect(url, extra_headers=self.connect_headers)
+            
+            # 타임아웃 설정하여 연결 시도
+            self.websocket = await asyncio.wait_for(
+                websockets.connect(url, extra_headers=self.connect_headers),
+                timeout=10.0
+            )
             self.is_connected = True
             print('이벤트 루프 저장 및 웹소켓 연결 성공')
 
+        except asyncio.TimeoutError:
+            print("WebSocket 연결 타임아웃")
+            self.is_connected = False
+            self.websocket = None
+        except OSError as e:
+            if e.errno == 11001:  # getaddrinfo failed
+                print(f"DNS 해석 실패 - 네트워크 연결을 확인하세요: {e}")
+            else:
+                print(f"네트워크 연결 실패: {e}")
+            self.is_connected = False
+            self.websocket = None
         except Exception as e:
             print(f"WebSocket 연결 실패: {e}")
             self.is_connected = False
@@ -677,4 +729,3 @@ class KISWebSocket:
             
         # 장 운영 시간 체크
         return market_start <= now <= market_end
-    

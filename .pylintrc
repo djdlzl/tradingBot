@@ -2,5 +2,56 @@
 init-hook='import sys; sys.path.append(".")'
 ignored-modules=schedule
 
+# 분석할 파일 타입 지정
+ignore=venv,.venv,env
+ignore-patterns=test_.*\.py
+extension-pkg-whitelist=
+load-plugins=pylint.extensions.mccabe
+
 [MESSAGES CONTROL]
 disable=E1101
+
+# 경고 끄기 (필요에 따라 해제 가능)
+disable=
+    C0114,  # missing-module-docstring
+    C0115,  # missing-class-docstring
+    C0116,  # missing-function-docstring
+    R0903,  # too-few-public-methods
+    R0913,  # too-many-arguments
+    R0914,  # too-many-locals
+    R0915,  # too-many-statements
+    W0511,  # fixme
+    W1203,  # use of f-string instead of .format
+
+[REPORTS]
+# 점수 계산 비활성화
+score=no
+
+[BASIC]
+# 허용할 변수 이름들
+good-names=i,j,k,ex,Run,_,df,pk,id,e,x,y
+# 클래스 명명 규칙 완화
+class-rgx=[A-Z_][a-zA-Z0-9]+$
+
+[FORMAT]
+# 최대 줄 길이
+max-line-length=120
+# 들여쓰기 단위
+indent-string='    '
+
+[TYPECHECK]
+# 특정 모듈 import 오류 무시
+ignored-modules=numpy,pandas,flask
+ignored-classes=SQLObject
+
+[DESIGN]
+# 허용할 최대 인자 수 (기본 5 → 6)
+max-args=6
+# 허용할 최대 로컬 변수 수
+max-locals=15
+# 함수 내 최대 줄 수
+max-function-length=80
+
+[LOGGING]
+# f-string 사용 허용
+logging-format-style=new

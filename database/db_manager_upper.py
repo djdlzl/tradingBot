@@ -437,6 +437,24 @@ class DatabaseManager:
             self.conn.rollback()
             raise
 
+    def get_session_by_id(self, session_id):
+        """특정 세션 ID로 세션 정보 조회"""
+        try:
+            # 커서 재설정
+            self._reset_cursor()
+            
+            self.cursor.execute('''
+                SELECT * FROM trading_session_upper 
+                WHERE id = %s
+            ''', (session_id,))
+            
+            result = self.cursor.fetchone()
+            return result
+            
+        except mysql.connector.Error as e:
+            logging.error("Error getting session by ID: %s", e)
+            raise
+
 
 
 ################## Utility ###################################
