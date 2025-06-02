@@ -821,17 +821,51 @@ class TradingUpper():
 
                     order_results.append(new_order_result)
 
-                    conclusion_result = self.kis_api.daily_order_execution_inquiry(new_order_result.get('output', {}).get('ODNO'))
-                    real_quantity = int(conclusion_result.get('output1', [{}])[0].get('tot_ccld_qty', 0))
-                    real_spent_fund = int(conclusion_result.get('output1', [{}])[0].get('tot_ccld_amt', 0))
+                    order_num = new_order_result.get('output', {}).get('ODNO')
+                    max_retries = 3
+                    retry_count = 0
+                    real_quantity = 0
+                    real_spent_fund = 0
+                    
+                    while retry_count < max_retries:
+                        conclusion_result = self.kis_api.daily_order_execution_inquiry(order_num)
+                        
+                        # 응답 로깅
+                        self.slack_logger.send_log(
+                            level="DEBUG",
+                            message=f"daily_order_execution_inquiry 응답",
+                            context={
+                                "order_num": order_num,
+                                "response": conclusion_result,
+                                "재시도 횟수": f"{retry_count + 1}/{max_retries}"
+                            }
+                        )
+                        
+                        # 응답이 유효하고 체결 정보가 있는지 확인
+                        if conclusion_result and 'output1' in conclusion_result and conclusion_result['output1']:
+                            real_quantity = int(conclusion_result['output1'][0].get('tot_ccld_qty', 0))
+                            real_spent_fund = int(conclusion_result['output1'][0].get('tot_ccld_amt', 0))
+                            
+                            if real_quantity > 0 and real_spent_fund > 0:
+                                # 유효한 체결 정보가 있으면 루프 종료
+                                break
+                        
+                        # 체결 정보가 없으면 잠시 대기 후 재시도
+                        retry_count += 1
+                        if retry_count < max_retries:
+                            time.sleep(2)  # 2초 대기
+                    
+                    # 최종 결과 로깅
                     self.slack_logger.send_log(
                         level="INFO",
                         message=f"{order_type.capitalize()} 재주문 체결",
                         context={
                             "종목코드": ticker,
-                            "주문번호": new_order_result.get('output', {}).get('ODNO'),
+                            "주문번호": order_num,
                             "체결수량": real_quantity,
-                            "체결금액": real_spent_fund
+                            "체결금액": real_spent_fund,
+                            "재시도 횟수": f"{retry_count}/{max_retries}",
+                            "체결여부": "성공" if real_quantity > 0 and real_spent_fund > 0 else "실패"
                         }
                     )
 
@@ -893,8 +927,9 @@ class TradingUpper():
             time.sleep(BUY_WAIT)
             if self.order_complete_check(order_result) == 0:
                 return order_results
-
+            print("buy_order - order_results 형식 확인", order_results)
             order_results.extend(self.handle_unfilled_order(order_result, ticker, quantity, 'buy', BUY_WAIT))
+            print("buy_order - extend 후 order_results 형식 확인", order_results)
 
             self.slack_logger.send_log(
                 level="INFO",

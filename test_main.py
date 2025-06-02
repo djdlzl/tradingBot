@@ -82,14 +82,26 @@ def test():
     date_utils = DateUtils()
     db = DatabaseManager()
 
+    # ########### 매수 재시도 로직 수리 #################
+    # conclusion_result = kis_api.daily_order_execution_inquiry('0000008707')
+    # print(conclusion_result)
+    # real_quantity = int(conclusion_result.get('output1', [{}])[0].get('tot_ccld_qty', 0))
+    # real_spent_fund = int(conclusion_result.get('output1', [{}])[0].get('tot_ccld_amt', 0))
 
-    # ######### 매수 로직 ###########
+    # print("결과:",real_quantity, real_spent_fund)
+    ######### 매수 로직 ###########
+    
+
+    sessions = db.load_trading_session_upper()
+    for session in sessions:
+        trading_upper.validate_db_data(session)
+
     # # 선별 종목 매수
     # order_list = trading_upper.start_trading_session()
 
     # # 매수 정보 세션에 저장
     # trading_upper.load_and_update_trading_session(order_list)
-
+    
     ############ 세션 데이터 타입 확인 #############
     # sessions = db.load_trading_session_upper()
     # print(sessions)
@@ -109,8 +121,8 @@ def test():
     #     print('비교 완료')
 
     ################### 자금 할당 문제 수리 중 ####################
-    data = kis_api.purchase_availability_inquiry()
-    print(data)
+    # data = kis_api.purchase_availability_inquiry()
+    # print(data)
 
 
     # ###### 선별 종목 저장 ######
