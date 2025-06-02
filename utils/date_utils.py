@@ -38,12 +38,12 @@ class DateUtils:
         Returns:
             datetime: 계산된 이전 영업일
         """
-        # 한국의 2024년 공휴일 가져오기
-        kr_holidays = holidays.CountryHoliday('KR', years=2024)  
+        # 한국의 2025년 공휴일 가져오기
+        kr_holidays = holidays.CountryHoliday('KR', years=2025)  
         
         # 추가 공휴일 수동으로 추가 (datetime.date 객체로 추가)
         additional_holidays = [
-            dt(2024, 10, 1)
+            dt(2025, 6, 3)
         ]
 
         # 기존 공휴일에 추가 공휴일 합치기
