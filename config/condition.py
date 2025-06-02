@@ -21,11 +21,12 @@ COUNT = 6
 ####################    매도   ########################
 ######################################################
 
-#selling_point_1 이상일 때 1차 매도 - 일단 이것만 사용
-# SELLING_POINT = 1.0
 
-#selling_point_1 이상일 때 1차 매도 - 일단 이것만 사용
-# RISK_MGMT = 0.99
+#selling_point_1 이상일 때 매도
+SELLING_POINT_UPPER = 1.0
+
+#selling_point_1 이상일 때 매도
+RISK_MGMT_UPPER = 0.99
 
 # 매도 주문 후 대기 / 초
 SELL_WAIT = 3
@@ -76,8 +77,11 @@ BUY_DAY_AGO_UPPER = 2 # DB 상승 종목에서 며칠 전 종목 받아올건지
 DAYS_LATER_UPPER = 1 #마지막 매수로부터 +1일
 
 
-#selling_point_1 이상일 때 매도
-SELLING_POINT_UPPER = 1.0
 
-#selling_point_1 이상일 때 매도
-RISK_MGMT_UPPER = 0.99
+#### 상한가 눌림목 매매 때 사용 #### 
+
+#selling_point_1 이상일 때 1차 매도 - 일단 이것만 사용
+# SELLING_POINT = 1.0
+
+#selling_point_1 이상일 때 1차 매도 - 일단 이것만 사용
+# RISK_MGMT = 0.99

@@ -969,6 +969,54 @@ class TradingUpper():
             """
             try:
                 order_results = []
+                
+                # 매도 주문 전 잔고 확인
+                balance_result = self.kis_api.balance_inquiry()
+                if not balance_result:
+                    print(f"잔고 조회 실패: {ticker}")
+                    self.slack_logger.send_log(
+                        level="ERROR",
+                        message="매도 전 잔고 조회 실패",
+                        context={
+                            "세션ID": session_id,
+                            "종목코드": ticker
+                        }
+                    )
+                    return []
+                
+                balance_data = next((item for item in balance_result if item.get('pdno') == ticker), None)
+                
+                # 잔고가 없으면 세션 삭제하고 종료
+                if not balance_data or int(balance_data.get('hldg_qty', 0)) == 0:
+                    print(f"잔고 없음 - 세션 삭제: {ticker}")
+                    self.delete_finished_session(session_id)
+                    self.slack_logger.send_log(
+                        level="INFO",
+                        message="잔고 없음으로 세션 삭제",
+                        context={
+                            "세션ID": session_id,
+                            "종목코드": ticker,
+                            "요청수량": quantity
+                        }
+                    )
+                    return []
+                
+                # 실제 보유 수량 확인
+                actual_quantity = int(balance_data.get('hldg_qty', 0))
+                if actual_quantity < quantity:
+                    print(f"보유수량 부족 - 요청: {quantity}, 보유: {actual_quantity}")
+                    quantity = actual_quantity  # 실제 보유 수량으로 조정
+                    self.slack_logger.send_log(
+                        level="WARNING",
+                        message="매도 수량 조정",
+                        context={
+                            "세션ID": session_id,
+                            "종목코드": ticker,
+                            "요청수량": quantity,
+                            "실제보유": actual_quantity,
+                            "조정수량": quantity
+                        }
+                    )
 
                 # 지정가 주문의 체결 가능성 검증
                 if price is not None:
@@ -1046,7 +1094,7 @@ class TradingUpper():
                 if unfilled_qty > 0:
                     order_results.extend(self.handle_unfilled_order(order_result, ticker, quantity, 'sell', SELL_WAIT))
 
-                # 잔고 확인으로 세션 삭제 여부 판단
+                # 매도 후 잔고 재확인
                 balance_result = self.kis_api.balance_inquiry()
                 balance_data = next((item for item in balance_result if item.get('pdno') == ticker), None)
                 
