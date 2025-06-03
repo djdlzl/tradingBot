@@ -103,7 +103,7 @@ class MainProcess:
             print(f"등록된 작업: 상승 추세매매 조회({GET_ULS_HOUR}:{GET_ULS_MINUTE}), " 
                   f"종목 선정({GET_SELECT_HOUR}:{GET_SELECT_MINUTE}), "
                   f"매수 시간({ORDER_HOUR_1}:{ORDER_MINUTE_1}, "
-                  f"{ORDER_HOUR_2}:{ORDER_MINUTE_2} ")
+                  f"{ORDER_HOUR_2}:{ORDER_MINUTE_2}) ")
 
             # 명시적인 무한 루프로 스케줄러 유지
             while True:

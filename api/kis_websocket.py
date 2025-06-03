@@ -48,6 +48,7 @@ class KISWebSocket:
     async def sell_condition(self, recvvalue, session_id, ticker, name, quantity, avr_price, target_date):
         if len(recvvalue) == 1 and "SUBSCRIBE SUCCESS" in recvvalue[0]:
             return False
+            
         ### 매도 전 전처리 ###
         # 호가 저장
         try:
@@ -55,6 +56,7 @@ class KISWebSocket:
         except Exception as e:
             print("sell_condition - recvvalue[15]: ",e )
             return False
+            
         # 종목 락 설정
         if ticker not in self.locks:
             self.locks[ticker] = asyncio.Lock()
@@ -97,8 +99,64 @@ class KISWebSocket:
             # 타임아웃과 함께 락 획득 시도
             async with asyncio.timeout(self.LOCK_TIMEOUT):
                 async with self.locks[ticker]:
-                    if sell_reason:  # 매도 조건 충족 시
+                    # 매도 조건 충족 시에만 잔고 확인 및 매도 실행
+                    if sell_reason:
                         try:
+                            # 매도 실행 전 잔고 확인
+                            from api.kis_api import KISApi
+                            kis_api = KISApi()
+                            balance_result = kis_api.balance_inquiry()
+                            
+                            if not balance_result:
+                                print(f"잔고 조회 실패: {ticker}")
+                                self.slack_logger.send_log(
+                                    level="ERROR",
+                                    message="매도 전 잔고 조회 실패",
+                                    context={
+                                        "세션ID": session_id,
+                                        "종목코드": ticker
+                                    }
+                                )
+                                # 잔고 조회 실패 시 모니터링 중단
+                                await self.stop_monitoring(ticker)
+                                return True
+                            
+                            balance_data = next((item for item in balance_result if item.get('pdno') == ticker), None)
+                            
+                            # 잔고가 없으면 모니터링 중단
+                            if not balance_data or int(balance_data.get('hldg_qty', 0)) == 0:
+                                print(f"잔고 없음 - 모니터링 중단: {ticker}")
+                                self.slack_logger.send_log(
+                                    level="INFO",
+                                    message="잔고 없음으로 모니터링 중단",
+                                    context={
+                                        "세션ID": session_id,
+                                        "종목코드": ticker,
+                                        "종목명": name
+                                    }
+                                )
+                                # 구독 해제 및 모니터링 중단
+                                await self.unsubscribe_ticker(ticker)
+                                await self.stop_monitoring(ticker)
+                                return True
+                            
+                            # 실제 보유 수량 확인
+                            actual_quantity = int(balance_data.get('hldg_qty', 0))
+                            if actual_quantity < quantity:
+                                print(f"보유수량 조정 - 요청: {quantity}, 보유: {actual_quantity}")
+                                quantity = actual_quantity  # 실제 보유 수량으로 조정
+                                self.slack_logger.send_log(
+                                    level="WARNING",
+                                    message="매도 수량 조정",
+                                    context={
+                                        "세션ID": session_id,
+                                        "종목코드": ticker,
+                                        "원래수량": quantity,
+                                        "실제보유": actual_quantity,
+                                        "조정수량": quantity
+                                    }
+                                )
+                            
                             # 1. 매도 주문 실행
                             if self.callback is not None:
                                 sell_completed = self.callback(session_id, ticker, quantity, target_price)
