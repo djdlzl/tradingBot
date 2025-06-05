@@ -43,8 +43,8 @@ DAYS_LATER = 7 #마지막 매수로부터 4(7-3)일째 매도
 GET_ULS_HOUR = 20
 GET_ULS_MINUTE = 00
 # 종목 중 선별하는 시간
-GET_SELECT_HOUR = 20
-GET_SELECT_MINUTE = 3
+GET_SELECT_HOUR = 8
+GET_SELECT_MINUTE = 50
 
 # 매수 시간 1
 ORDER_HOUR_1 = 9
@@ -72,7 +72,7 @@ COUNT_UPPER = 2 # 총 매수 회수 (현재 1일 2회 매수)
 
 SLOT_UPPER = 2 # 매수 종목 개수
 
-BUY_DAY_AGO_UPPER = 2 # DB 상승 종목에서 며칠 전 종목 받아올건지
+BUY_DAY_AGO_UPPER = 3 # DB 상승 종목에서 며칠 전 종목 받아올건지
 
 DAYS_LATER_UPPER = 1 #마지막 매수로부터 +1일
 

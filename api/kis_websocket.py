@@ -66,6 +66,18 @@ class KISWebSocket:
         today = now.date()
         current_time = now.time()
         
+        # 매도 시간 범위 설정 (9시-20시)
+        trading_start_time = time(9, 0)  # 오전 9시
+        trading_end_time = time(20, 0)   # 오후 8시
+        
+        # 매도 가능 시간(9시-20시)이 아니면 바로 종료
+        # 불필요한 매도 시도 반복을 방지하기 위해 15분 간격으로만 로깅
+        if current_time < trading_start_time or current_time > trading_end_time:
+            # 10분 단위일 때만 로그 기록 (예: 8:00, 8:10, 8:20...)
+            if current_time.minute % 10 == 0 and current_time.second < 10:
+                print(f"[{now.strftime('%H:%M:%S')}] 거래 시간 외 ({trading_start_time}-{trading_end_time}) - 매도 모니터링만 진행")
+            return False
+            
         # 매도 시간 설정 (15시 10분)
         sell_time = time(15, 10)
         

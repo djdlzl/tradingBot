@@ -263,13 +263,13 @@ class DatabaseManager:
             logging.error("Error retrieving selected stocks: %s", e)
             return None
 
-    def get_upper_stocks_days_ago(self):
+    def get_upper_stocks_days_ago(self, day_ago):
         try:
             # selected_upper_stocks 테이블 초기화
             self.delete_selected_upper_stocks()
             
             today = datetime.now()
-            days_ago = DateUtils.get_previous_business_day(today, BUY_DAY_AGO_UPPER)
+            days_ago = DateUtils.get_previous_business_day(today, day_ago)
             days_ago_str = days_ago.strftime('%Y-%m-%d')
             
             self.cursor.execute('''
