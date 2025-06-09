@@ -539,6 +539,15 @@ class TradingUpper():
                         )
                         
                         print(f"[DEBUG] 세션 업데이트 완료: 세션ID={session.get('id')}, 보유수량={actual_quantity}, 사용금액={actual_spent_fund}, 평균가={actual_avg_price}, 거래횟수={count}")
+                        
+                        # 모니터링 시작
+                        if actual_quantity > 0:
+                            monitoring_thread = threading.Thread(
+                                target=self._run_monitoring_for_session,
+                                args=(session,)
+                            )
+                            monitoring_thread.start()
+                            print(f"[DEBUG] 모니터링 시작: 세션ID={session.get('id')}, 종목코드={session.get('ticker')}")
                     
                     elif not balance_data:
                         print("잔고 정보 조회 실패 (최대 재시도 후에도 실패), 세션 미업데이트")
@@ -1432,14 +1441,59 @@ class TradingUpper():
         
 
     def _run_monitoring_for_session(self, session):
+        # 이미 모니터링 중인 세션인지 확인
+        ticker = session.get('ticker')
+        if ticker in getattr(self, '_monitoring_tickers', set()):
+            print(f"[경고] {ticker} 이미 모니터링 중임")
+            return
+        
+        # 모니터링 중인 종목 추적
+        if not hasattr(self, '_monitoring_tickers'):
+            self._monitoring_tickers = set()
+        self._monitoring_tickers.add(ticker)
+        
         # 새로운 이벤트 루프 생성
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
         try:
+            print(f"[디버그] {ticker} 모니터링 시작")
             loop.run_until_complete(self.start_monitoring_for_session(session))
+        except Exception as e:
+            print(f"[오류] {ticker} 모니터링 중 오류 발생: {e}")
         finally:
-            loop.close()
+            try:
+                # 실행 중인 태스크를 정리
+                pending = asyncio.all_tasks(loop)
+                if pending:
+                    print(f"[디버그] {ticker} 모니터링 태스크 정리 중: {len(pending)} 태스크")
+                    for task in pending:
+                        task.cancel()
+                    
+                    # 취소된 태스크 정리 대기
+                    loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+                
+                # 웹소켓 연결 정리 시도
+                if self.kis_websocket:
+                    try:
+                        loop.run_until_complete(self.kis_websocket.close())
+                        print(f"[디버그] {ticker} 웹소켓 안전 종료 완료")
+                    except Exception as e:
+                        print(f"[오류] 웹소켓 종료 중 오류: {e}")
+            except Exception as e:
+                print(f"[오류] 이벤트 루프 정리 중 오류: {e}")
+            finally:
+                # 루프 종료
+                try:
+                    loop.close()
+                except Exception as e:
+                    print(f"[오류] 이벤트 루프 닫기 실패: {e}")
+                
+                # 모니터링 종목 정보에서 제거
+                if ticker in self._monitoring_tickers:
+                    self._monitoring_tickers.remove(ticker)
+                print(f"[디버그] {ticker} 모니터링 종료")
+
 
 
 ######################################################################################
