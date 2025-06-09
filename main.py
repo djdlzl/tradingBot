@@ -25,6 +25,7 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.executors.pool import ThreadPoolExecutor
 from config.condition import GET_ULS_HOUR, GET_ULS_MINUTE, GET_SELECT_HOUR, GET_SELECT_MINUTE, ORDER_HOUR_1, ORDER_HOUR_2, ORDER_MINUTE_1, ORDER_MINUTE_2
 from api.kis_websocket import KISWebSocket
+from utils.date_utils import DateUtils
 
 class MainProcess:
     def __init__(self):
@@ -147,7 +148,16 @@ class MainProcess:
 ######################################################################################
 
     def run_monitoring(self):
-        """새로운 이벤트 루프를 생성하여 모니터링 실행"""
+        """새로운 이벤트 루프를 생성하여 모니터링 실행 (영업일에만 실행)"""
+        # 현재 날짜가 영업일인지 확인
+        current_date = datetime.now()
+        if not DateUtils.is_business_day(current_date):
+            print(f"{current_date.strftime('%Y-%m-%d')}은(는) 영업일이 아니므로 모니터링을 실행하지 않습니다.")
+            return
+            
+        # 영업일인 경우 모니터링 실행
+        print(f"{current_date.strftime('%Y-%m-%d')}은(는) 영업일이므로 모니터링을 실행합니다.")
+        
         # 새로운 이벤트 루프 생성
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
