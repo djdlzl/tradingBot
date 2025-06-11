@@ -352,8 +352,6 @@ class TradingUpper():
                         db.close()
                         return order_results
 
-                    self.update_session(session, order_results)
-
                 db.close()
                 return order_results
 
@@ -1188,14 +1186,13 @@ class TradingUpper():
             Returns:
                 List[Dict]: 모든 주문 결과 리스트
             """
+            order_results: List[Dict] = []  # 예외 발생 시에도 참조 가능하도록 사전 초기화
             try:
                 # 로그 기록: 매도 주문 시작
                 self.logger.log_order("매도", ticker, quantity, price, context={
                     "세션ID": session_id,
                     "주문타입": "지정가" if price is not None else "시장가"
                 })
-                
-                order_results = []
                 
                 # 매도 주문 전 잔고 확인
                 self.logger.debug("매도 전 잔고 확인 시작", {"종목코드": ticker, "세션ID": session_id})
@@ -1216,7 +1213,7 @@ class TradingUpper():
                         }
                     )
                     return []
-                
+
                 balance_data = next((item for item in balance_result if item.get('pdno') == ticker), None)
                 self.logger.debug("매도 전 잔고 최종 확인", {
                     "종목코드": ticker, 
@@ -1411,40 +1408,46 @@ class TradingUpper():
                 if unfilled_qty > 0:
                     order_results.extend(self.handle_unfilled_order(order_result, ticker, quantity, 'sell', SELL_WAIT))
 
-                # 매도 후 잔고 재확인
-                balance_result = self.kis_api.balance_inquiry()
-                balance_data = next((item for item in balance_result if item.get('pdno') == ticker), None)
-                
-                if balance_data and int(balance_data.get('hldg_qty', 0)) == 0:
-                    self.delete_finished_session(session_id)
-                    self.slack_logger.send_log(
-                        level="INFO",
-                        message="매도 주문 완료 및 세션 삭제",
-                        context={
-                            "세션ID": session_id,
-                            "종목코드": ticker,
-                            "주문수량": quantity,
-                            "상태": "성공"
-                        }
-                    )
-                else:
-                    # 매도 후 잔고가 남아있는 경우 세션 수량 업데이트
+                # 매도 후 잔고 재확인 (잔고 반영 지연 대비)
+                MAX_RETRY = 5
+                RETRY_DELAY = 2  # 초
+                remaining_qty = None
+                for retry in range(1, MAX_RETRY + 1):
+                    balance_result = self.kis_api.balance_inquiry()
+                    balance_data = next((item for item in balance_result if item.get('pdno') == ticker), None)
                     remaining_qty = int(balance_data.get('hldg_qty', 0)) if balance_data else 0
-                    if remaining_qty > 0:
+
+                    if remaining_qty == 0:
+                        # 전체 매도 완료 → 세션 삭제
+                        self.delete_finished_session(session_id)
+                        self.slack_logger.send_log(
+                            level="INFO",
+                            message="매도 주문 완료 및 세션 삭제",
+                            context={
+                                "세션ID": session_id,
+                                "종목코드": ticker,
+                                "주문수량": quantity,
+                                "재시도": retry,
+                                "상태": "성공"
+                            }
+                        )
+                        break
+                    else:
+                        # 잔고가 남아있음 – 잔고 반영 지연 가능성 고려
+                        if retry < MAX_RETRY:
+                            time.sleep(RETRY_DELAY)
+                            continue
+
+                        # 최대 재시도 후에도 잔고가 남아있으면 부분 매도로 간주하고 세션 업데이트
                         try:
-                            # 현재 세션 정보 조회
                             with DatabaseManager() as db:
                                 session_info = db.get_session_by_id(session_id)
                                 if session_info:
-                                    # 매도된 수량 계산
                                     original_qty = int(session_info.get('quantity', 0))
                                     sold_qty = original_qty - remaining_qty
-                                    
-                                    # 평균단가와 투자금액 재계산
                                     avr_price = int(float(balance_data.get('pchs_avg_pric', 0)))
                                     new_spent_fund = remaining_qty * avr_price
-                                    
-                                    # 세션 업데이트
+
                                     db.save_trading_session_upper(
                                         session_id,
                                         session_info.get('start_date'),
@@ -1458,8 +1461,7 @@ class TradingUpper():
                                         avr_price,
                                         session_info.get('count', 0)
                                     )
-                                    print(f"[DEBUG] DB 업데이트 값 - 세션ID: {session_id}, 누적금액: {new_spent_fund}, 누적수량: {remaining_qty}, 평균단가: {avr_price}, 카운트: {session_info.get('count', 0)}")
-                                    
+
                                     self.slack_logger.send_log(
                                         level="INFO",
                                         message="매도 후 세션 수량 업데이트",
@@ -1474,7 +1476,7 @@ class TradingUpper():
                                     )
                                     
                         except Exception as e:
-                            print(f"[ERROR] update_session 예외: {e}, context: 세션ID={session_id}, order_results={order_results}")
+                            print(f"[ERROR] update_session 예외: {e}")
                             self.slack_logger.send_log(
                                 level="ERROR",
                                 message="매도 후 세션 업데이트 실패",
@@ -1485,16 +1487,8 @@ class TradingUpper():
                                 }
                             )
                     
-                    self.slack_logger.send_log(
-                        level="WARNING",
-                        message="매도 후 잔고가 남아 세션 유지",
-                        context={
-                            "세션ID": session_id,
-                            "종목코드": ticker,
-                            "잔고수량": remaining_qty
-                        }
-                    )
-                
+                    break
+
                 return order_results
 
             except Exception as e:
