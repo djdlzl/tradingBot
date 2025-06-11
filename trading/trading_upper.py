@@ -11,6 +11,7 @@ from api import kis_api
 from database.db_manager_upper import DatabaseManager
 from utils.date_utils import DateUtils
 from utils.slack_logger import SlackLogger
+from utils.trading_logger import TradingLogger
 from api.kis_api import KISApi
 from api.krx_api import KRXApi
 from api.kis_websocket import KISWebSocket
@@ -31,6 +32,7 @@ class TradingUpper():
         self.krx_api = KRXApi()
         self.date_utils = DateUtils()
         self.slack_logger = SlackLogger()
+        self.logger = TradingLogger()  # 파일 로깅을 위한 TradingLogger 추가
         self.kis_websocket = None
         self.session_lock = Lock()  # 세션 업데이트용 락
         self.api_lock = Lock()  # API 호출용 락
@@ -40,9 +42,12 @@ class TradingUpper():
 ######################################################################################
 
     def fetch_and_save_previous_upper_stocks(self):
+        self.logger.info("상승 종목 데이터 조회 시작")
         upper_stocks = self.kis_api.get_upAndDown_rank()
         if not upper_stocks or not isinstance(upper_stocks.get('output'), list):
-            print("상승 종목 데이터가 유효하지 않습니다.")
+            error_msg = "상승 종목 데이터가 유효하지 않습니다."
+            print(error_msg)
+            self.logger.error(error_msg)
             return
 
         stocks_info = []
@@ -55,18 +60,24 @@ class TradingUpper():
                     stock['prdy_ctrt']
                 ))
             except KeyError as e:
-                print(f"상승 종목 데이터 누락: {e}")
+                error_msg = f"상승 종목 데이터 누락: {e}"
+                print(error_msg)
+                self.logger.error(error_msg, {"stock_data": str(stock)})
                 continue
 
         today = datetime.now().date()
         current_day = self.date_utils.is_business_day(today)
+        date_str = current_day.strftime('%Y-%m-%d')
         
         db = DatabaseManager()
         if stocks_info:
-            db.save_upper_stocks(current_day.strftime('%Y-%m-%d'), stocks_info)
-            print(current_day.strftime('%Y-%m-%d'), stocks_info)
+            self.logger.info(f"상승 종목 데이터 저장", {"date": date_str, "count": len(stocks_info)})
+            db.save_upper_stocks(date_str, stocks_info)
+            print(date_str, stocks_info)
         else:
-            print("상승 종목이 없습니다.")
+            no_data_msg = "상승 종목이 없습니다."
+            print(no_data_msg)
+            self.logger.warning(no_data_msg, {"date": date_str})
         db.close()
 
 ######################################################################################
@@ -751,7 +762,16 @@ class TradingUpper():
                     return True
 
         except Exception as e:
-            print(f"[심각한 오류] validate_db_data 실행 중 예외 발생: {e}")
+            error_msg = f"[심각한 오류] validate_db_data 실행 중 예외 발생: {e}"
+            print(error_msg)
+            
+            # 로그 기록: 데이터 검증 오류
+            self.logger.log_error("데이터 검증", e, {
+                "세션ID": session.get('id'), 
+                "종목코드": session.get('ticker'),
+                "함수": "validate_db_data"
+            })
+            
             self.slack_logger.send_log(
                 level="ERROR",
                 message="데이터 검증/업데이트 실패",
@@ -1046,6 +1066,8 @@ class TradingUpper():
         """
         order_results = []
         try:
+            # 로그 기록: 매수 주문 시작
+            self.logger.log_order("매수", ticker, quantity, context={"주문시작": "true"})
             self.slack_logger.send_log(
                 level="INFO",
                 message="매수 주문 시작",
@@ -1054,12 +1076,24 @@ class TradingUpper():
 
             with self.api_lock:
                 while True:
+                    # 로그 기록: API 호출
+                    self.logger.debug(f"KIS API 매수 주문 호출", {"ticker": ticker, "quantity": quantity})
                     order_result = self.kis_api.place_order(ticker, quantity, order_type='buy')
                     print("place_order_session: 주문 실행", ticker, order_result)
+                    
+                    # 로그 기록: API 응답 결과
+                    self.logger.debug(f"KIS API 매수 주문 응답", {
+                        "ticker": ticker,
+                        "rt_cd": order_result.get('rt_cd'),
+                        "msg": order_result.get('msg1')
+                    })
+                    
                     if order_result['msg1'] == '초당 거래건수를 초과하였습니다.':
+                        self.logger.warning("초당 거래건수 초과로 재시도", {"ticker": ticker})
                         time.sleep(1)
                         continue
                     if order_result['msg1'] == '모의투자 주문처리가 안되었습니다(매매불가 종목)':
+                        self.logger.warning("매매불가 종목으로 세션 생성 후 재시도", {"ticker": ticker})
                         db = DatabaseManager()
                         self.add_new_trading_session(1)
                         sessions = db.load_trading_session_upper()
@@ -1070,6 +1104,13 @@ class TradingUpper():
                     break
 
             if order_result.get('rt_cd') == '1':
+                error_context = {
+                    "종목코드": ticker,
+                    "주문번호": order_result.get('output', {}).get('ODNO'),
+                    "상태코드": order_result.get('rt_cd'),
+                    "메시지": order_result.get('msg1')
+                }
+                self.logger.error(f"매수 주문 실패", error_context)
                 self.slack_logger.send_log(
                     level="ERROR",
                     message="매수 주문 결과",
@@ -1083,13 +1124,31 @@ class TradingUpper():
                 print("buy_order - ERROR order_results 값: ", order_results)
                 return order_results
 
+            self.logger.info(f"매수 주문 대기 시작", {"ticker": ticker, "wait_time": BUY_WAIT})
             time.sleep(BUY_WAIT)
-            if self.order_complete_check(order_result) == 0:
+            
+            # 주문 완료 체크
+            unfilled_qty = self.order_complete_check(order_result)
+            self.logger.info(f"매수 주문 미체결 수량 확인", {"ticker": ticker, "unfilled": unfilled_qty})
+            
+            if unfilled_qty == 0:
+                self.logger.info(f"매수 주문 전체 체결 완료", {"ticker": ticker})
                 return order_results
+            
             print("buy_order - order_results 형식 확인", order_results)
+            
+            # 미체결 주문 처리
+            self.logger.info(f"매수 미체결 주문 처리 시작", {"ticker": ticker, "unfilled": unfilled_qty})
             order_results.extend(self.handle_unfilled_order(order_result, ticker, quantity, 'buy', BUY_WAIT))
             print("buy_order - extend 후 order_results 형식 확인", order_results)
 
+            # 최종 주문 결과
+            success_context = {
+                "종목코드": ticker, 
+                "주문번호": order_results[-1].get('output', {}).get('ODNO'),
+                "메시지": order_results[-1].get('msg1')
+            }
+            self.logger.info(f"매수 주문 최종 결과: 성공", success_context)
             self.slack_logger.send_log(
                 level="INFO",
                 message="매수 주문 결과",
@@ -1104,7 +1163,10 @@ class TradingUpper():
             return order_results
 
         except Exception as e:
-            print("buy_order 중 에러 발생 : ", e)
+            # 예외 발생 로깅
+            error_msg = f"buy_order 중 에러 발생 : {e}"
+            print(error_msg)
+            self.logger.log_error("매수 주문", e, {"ticker": ticker, "quantity": quantity})
             self.slack_logger.send_log(
                 level="ERROR",
                 message="매수 주문 실패",
@@ -1127,12 +1189,24 @@ class TradingUpper():
                 List[Dict]: 모든 주문 결과 리스트
             """
             try:
+                # 로그 기록: 매도 주문 시작
+                self.logger.log_order("매도", ticker, quantity, price, context={
+                    "세션ID": session_id,
+                    "주문타입": "지정가" if price is not None else "시장가"
+                })
+                
                 order_results = []
                 
                 # 매도 주문 전 잔고 확인
+                self.logger.debug("매도 전 잔고 확인 시작", {"종목코드": ticker, "세션ID": session_id})
                 balance_result = self.kis_api.balance_inquiry()
                 if not balance_result:
-                    print(f"잔고 조회 실패: {ticker}")
+                    error_msg = f"잔고 조회 실패: {ticker}"
+                    print(error_msg)
+                    self.logger.error("매도 전 잔고 조회 실패", {
+                        "세션ID": session_id,
+                        "종목코드": ticker
+                    })
                     self.slack_logger.send_log(
                         level="ERROR",
                         message="매도 전 잔고 조회 실패",
@@ -1144,11 +1218,30 @@ class TradingUpper():
                     return []
                 
                 balance_data = next((item for item in balance_result if item.get('pdno') == ticker), None)
+                self.logger.debug("매도 전 잔고 최종 확인", {
+                    "종목코드": ticker, 
+                    "세션ID": session_id,
+                    "잔고정보": balance_data is not None
+                })
                 
                 # 잔고가 없으면 세션 삭제하고 종료
                 if not balance_data or int(balance_data.get('hldg_qty', 0)) == 0:
-                    print(f"잔고 없음 - 세션 삭제: {ticker}")
+                    info_msg = f"잔고 없음 - 세션 삭제: {ticker}"
+                    print(info_msg)
+                    
+                    # 로그 기록: 잔고 없음으로 세션 삭제
+                    self.logger.info("잔고 없음 - 세션 삭제 시작", {
+                        "세션ID": session_id,
+                        "종목코드": ticker
+                    })
+                    
                     self.delete_finished_session(session_id)
+                    
+                    self.logger.info("잔고 없음 - 세션 삭제 완료", {
+                        "세션ID": session_id,
+                        "종목코드": ticker
+                    })
+                    
                     self.slack_logger.send_log(
                         level="INFO",
                         message="잔고 없음으로 세션 삭제",
@@ -1162,8 +1255,26 @@ class TradingUpper():
                 
                 # 실제 보유 수량 확인
                 actual_quantity = int(balance_data.get('hldg_qty', 0))
+                self.logger.info("매도 수량 확인", {
+                    "세션ID": session_id,
+                    "종목코드": ticker,
+                    "요청수량": quantity,
+                    "실제보유": actual_quantity
+                })
+                
                 if actual_quantity < quantity:
-                    print(f"보유수량 부족 - 요청: {quantity}, 보유: {actual_quantity}")
+                    warning_msg = f"보유수량 부족 - 요청: {quantity}, 보유: {actual_quantity}"
+                    print(warning_msg)
+                    
+                    # 수량 조정 로깅
+                    self.logger.warning("매도 수량 자동 조정", {
+                        "세션ID": session_id,
+                        "종목코드": ticker,
+                        "원래수량": quantity,
+                        "실제보유": actual_quantity, 
+                        "조정후": actual_quantity
+                    })
+                    
                     quantity = actual_quantity  # 실제 보유 수량으로 조정
                     self.slack_logger.send_log(
                         level="WARNING",
@@ -1179,11 +1290,29 @@ class TradingUpper():
 
                 # 지정가 주문의 체결 가능성 검증
                 if price is not None:
+                    self.logger.debug("지정가 주문 가격 검증 시작", {
+                        "세션ID": session_id,
+                        "종목코드": ticker,
+                        "원본가격": price,
+                        "타입": type(price).__name__
+                    })
+                    
                     # price를 정수로 변환 (문자열일 수 있음)
                     try:
                         price = int(price)
+                        self.logger.debug("가격 변환 성공", {"가격": price, "종목코드": ticker})
                     except (ValueError, TypeError) as e:
-                        print(f"매도 가격 변환 실패: {price}, 에러: {e}")
+                        error_msg = f"매도 가격 변환 실패: {price}, 에러: {e}"
+                        print(error_msg)
+                        
+                        # 로그 기록: 가격 변환 실패
+                        self.logger.log_error("매도 가격 변환", e, {
+                            "세션ID": session_id,
+                            "종목코드": ticker,
+                            "원본가격": str(price),
+                            "타입": type(price).__name__
+                        })
+                        
                         self.slack_logger.send_log(
                             level="ERROR",
                             message="매도 가격 변환 실패",
@@ -1196,9 +1325,21 @@ class TradingUpper():
                         )
                         return []
                     
+                    # 현재가 조회
+                    self.logger.debug("매도를 위한 현재가 조회 시도", {"종목코드": ticker})
                     current_price_result = self.kis_api.get_current_price(ticker)
+                    
                     if current_price_result[0] is None:
-                        print(f"현재가 조회 실패: {ticker}")
+                        error_msg = f"현재가 조회 실패: {ticker}"
+                        print(error_msg)
+                        
+                        # 로그 기록: 현재가 조회 실패
+                        self.logger.error("매도 현재가 조회 실패", {
+                            "세션ID": session_id,
+                            "종목코드": ticker,
+                            "API응답": str(current_price_result)
+                        })
+                        
                         self.slack_logger.send_log(
                             level="ERROR",
                             message="현재가 조회 실패",
@@ -1211,8 +1352,25 @@ class TradingUpper():
                         return []
                     
                     current_price = current_price_result[0]  # 이미 int로 변환됨
+                    self.logger.info("매도 지정가 체결 가능성 검증", {
+                        "세션ID": session_id,
+                        "종목코드": ticker,
+                        "지정가": price,
+                        "현재가": current_price,
+                        "하한": int(current_price * 0.95),
+                        "상한": int(current_price * 1.05)
+                    })
                     
                     if price < current_price * 0.95 or price > current_price * 1.05:  # 5% 이내 가격 확인
+                        # 로그 기록: 지정가 비현실적
+                        self.logger.warning("매도 지정가 비현실적 - 매도 취소", {
+                            "세션ID": session_id,
+                            "종목코드": ticker,
+                            "지정가": price,
+                            "현재가": current_price,
+                            "차이률": round((price / current_price - 1) * 100, 2)
+                        })
+                        
                         self.slack_logger.send_log(
                             level="WARNING",
                             message="매도 지정가 비현실적",
