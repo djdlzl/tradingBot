@@ -105,11 +105,11 @@ def test():
     #     trading_upper.validate_db_data(session)
 
     ######### 매수 로직 ###########
-    # 선별 종목 매수
-    order_list = trading_upper.start_trading_session()
+    # # 선별 종목 매수
+    # order_list = trading_upper.start_trading_session()
 
-    # 매수 정보 세션에 저장
-    trading_upper.load_and_update_trading_session(order_list)
+    # # 매수 정보 세션에 저장
+    # trading_upper.load_and_update_trading_session(order_list)
     
     ############ 세션 데이터 타입 확인 #############
     # sessions = db.load_trading_session_upper()
@@ -135,8 +135,8 @@ def test():
 
 
     # ###### 선별 종목 저장 ######
-    # stocks = trading_upper.select_stocks_to_buy()
-    # print(stocks)
+    stocks = trading_upper.select_stocks_to_buy()
+    print(stocks)
 
 
     # #####상한가 조회#############    
