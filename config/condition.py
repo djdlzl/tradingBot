@@ -23,10 +23,10 @@ COUNT = 6
 
 
 #selling_point_1 이상일 때 매도
-SELLING_POINT_UPPER = 1.0
+SELLING_POINT_UPPER = 2.0
 
 #selling_point_1 이상일 때 매도
-RISK_MGMT_UPPER = 0.99
+RISK_MGMT_UPPER = 0.98
 
 # 매도 주문 후 대기 / 초
 SELL_WAIT = 3

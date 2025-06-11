@@ -757,7 +757,10 @@ class KISWebSocket:
             }
         )
         # 모니터링 프로세스 시작
-        while self.is_connected and ticker in self.subscribed_tickers:
+        while True:
+            # 구독이 해제되면 모니터링 종료
+            if ticker not in self.subscribed_tickers:
+                break
             try:
                 try:
                 # 타임아웃을 설정하여 데이터 대기
@@ -776,6 +779,8 @@ class KISWebSocket:
                     self.ticker_queues[ticker].task_done()
 
                 except asyncio.TimeoutError:
+                    # 타임아웃은 데이터 미수신 상태를 나타내며, 네트워크 재연결 대기 동안 자주 발생할 수 있다.
+                    # 웹소켓 연결 여부와 관계없이 계속 루프를 유지하여 재연결을 기다린다.
                     continue
             except asyncio.CancelledError:
                 print(f"{ticker} 모니터링 취소됨")
