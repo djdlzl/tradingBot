@@ -1187,6 +1187,7 @@ class TradingUpper():
                 List[Dict]: 모든 주문 결과 리스트
             """
             order_results: List[Dict] = []  # 예외 발생 시에도 참조 가능하도록 사전 초기화
+            current_price: Optional[int] = None  # 현재가 기본값 설정
             try:
                 # 로그 기록: 매도 주문 시작
                 self.logger.log_order("매도", ticker, quantity, price, context={
@@ -1380,6 +1381,32 @@ class TradingUpper():
                         )
                         return []
                     
+                with DatabaseManager() as db:
+                    # 세션 정보 조회
+                    session_info = db.get_session_by_id(session_id)
+                    # 잔고·평균단가 재조회(매도 직후 시점)
+                    balance_result = self.kis_api.balance_inquiry()
+                    balance_data = next((item for item in balance_result if item.get('pdno') == ticker), None)
+                    remaining_assets = 0
+                    if balance_result:
+                        # 현금+주식 평가금 합계
+                        remaining_assets = int(float(balance_result[-1].get('prsm_tlex_smtl', 0))) if isinstance(balance_result, list) else 0
+                    buy_avg_price = session_info.get('avr_price', 0) if session_info else 0
+                    sell_price_final = price if price else current_price if 'current_price' in locals() else 0
+                    profit_amount = (sell_price_final - buy_avg_price) * quantity
+                    profit_rate = round((sell_price_final / buy_avg_price - 1) * 100, 2) if buy_avg_price else 0
+                    db.save_trade_history(
+                        trade_date=datetime.now().date(),
+                        trade_time=datetime.now().time(),
+                        ticker=ticker,
+                        name=session_info.get('name') if session_info else '',
+                        buy_avg_price=buy_avg_price,
+                        sell_price=sell_price_final,
+                        quantity=quantity,
+                        profit_amount=profit_amount,
+                        profit_rate=profit_rate,
+                        remaining_assets=remaining_assets
+                    )
                 with self.api_lock:
                     while True:
                         order_result = self.kis_api.place_order(ticker, quantity, order_type='sell', price=price)
@@ -1408,7 +1435,7 @@ class TradingUpper():
                 if unfilled_qty > 0:
                     order_results.extend(self.handle_unfilled_order(order_result, ticker, quantity, 'sell', SELL_WAIT))
 
-                # 매도 후 잔고 재확인 (잔고 반영 지연 대비)
+                # === 매도 완료 후 trade_history 저장 ===
                 MAX_RETRY = 5
                 RETRY_DELAY = 2  # 초
                 remaining_qty = None

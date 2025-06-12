@@ -106,6 +106,23 @@ class DatabaseManager:
             ) ENGINE=InnoDB
         ''')
 
+        # 거래 내역 저장용 테이블
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS trade_history (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                trade_date DATE,
+                trade_time TIME,
+                ticker VARCHAR(20),
+                name VARCHAR(100),
+                buy_avg_price INT,
+                sell_price INT,
+                quantity INT,
+                profit_amount INT,
+                profit_rate DECIMAL(7,2),
+                remaining_assets INT
+            ) ENGINE=InnoDB
+        ''')
+
         self.conn.commit()
 
     def save_token(self, token_type, access_token, expires_at):
@@ -455,9 +472,30 @@ class DatabaseManager:
             logging.error("Error getting session by ID: %s", e)
             raise
 
+    #####################################################################################
+    #                                  Trade History                                   #
+    #####################################################################################
 
+    def save_trade_history(self, trade_date, trade_time, ticker, name, buy_avg_price,
+                            sell_price, quantity, profit_amount, profit_rate, remaining_assets):
+        """거래 내역을 trade_history 테이블에 저장"""
+        try:
+            self.cursor.execute('''
+                INSERT INTO trade_history (
+                    trade_date, trade_time, ticker, name, buy_avg_price, sell_price,
+                    quantity, profit_amount, profit_rate, remaining_assets)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ''', (
+                trade_date, trade_time, ticker, name, buy_avg_price, sell_price,
+                quantity, profit_amount, profit_rate, remaining_assets
+            ))
+            self.conn.commit()
+        except mysql.connector.Error as e:
+            logging.error("Error saving trade history: %s", e)
+            self.conn.rollback()
+            raise
 
-################## Utility ###################################
+    ################## Utility ###################################
     def delete_upper_limit_stocks(self, date):
         try:
             self.cursor.execute(

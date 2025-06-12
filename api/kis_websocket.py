@@ -138,6 +138,22 @@ class KISWebSocket:
                             # 잔고가 없으면 모니터링 중단
                             if not balance_data or int(balance_data.get('hldg_qty', 0)) == 0:
                                 print(f"잔고 없음 - 모니터링 중단: {ticker}")
+                                # 세션 DB에서도 삭제하여 데이터 정합성 유지
+                                try:
+                                    from database.db_manager_upper import DatabaseManager
+                                    with DatabaseManager() as db:
+                                        db.delete_session_one_row(session_id)
+                                except Exception as db_err:
+                                    print(f"[ERROR] 세션 삭제 실패: {db_err}")
+                                    self.slack_logger.send_log(
+                                        level="ERROR",
+                                        message="잔고 없음 세션 삭제 실패",
+                                        context={
+                                            "세션ID": session_id,
+                                            "종목코드": ticker,
+                                            "에러": str(db_err)
+                                        }
+                                    )
                                 self.slack_logger.send_log(
                                     level="INFO",
                                     message="잔고 없음으로 모니터링 중단",
