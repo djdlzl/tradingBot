@@ -15,6 +15,9 @@ BUY_DAY_AGO = 2
 # 매수 횟수(최초 9회였음)
 COUNT = 6
 
+# Slippage buffer to account for possible price increase between quote and execution
+PRICE_BUFFER = 0.01  # 1% buffer added on top of quoted price when calculating buy quantity
+
 
 
 ######################################################

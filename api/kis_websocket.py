@@ -735,9 +735,9 @@ class KISWebSocket:
         # 새 종목 구독
         await self.subscribe_ticker(ticker)
         
-        # 새 종목에 대한 큐 생성
-        if ticker not in self.ticker_queues:
-            self.ticker_queues[ticker] = asyncio.Queue()
+        # 이벤트 루프별 큐 정합성 보장: 항상 현재 루프에 바인딩된 새 큐 생성
+        # 기존 큐가 다른 루프에 바인딩되어 있을 경우 "다른 event loop" 오류가 발생하므로 새로 생성한다.
+        self.ticker_queues[ticker] = asyncio.Queue()
             
         # 새 종목에 대한 모니터링 태스크 생성
         task = asyncio.create_task(
@@ -755,8 +755,11 @@ class KISWebSocket:
 
     async def _monitor_ticker(self, session_id, ticker, name, quantity, avr_price, target_date):
         """개별 종목 모니터링 및 매도 처리"""
-        # 해당 종목의 전용 큐 생성
-        if ticker not in self.ticker_queues:
+        # 큐가 없거나 다른 루프에 바인딩되어 있으면 새로 생성
+        if (
+            ticker not in self.ticker_queues or
+            getattr(self.ticker_queues[ticker], "_loop", None) is not asyncio.get_running_loop()
+        ):
             self.ticker_queues[ticker] = asyncio.Queue()
 
         #SLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACK

@@ -15,7 +15,7 @@ from utils.trading_logger import TradingLogger
 from api.kis_api import KISApi
 from api.krx_api import KRXApi
 from api.kis_websocket import KISWebSocket
-from config.condition import DAYS_LATER_UPPER, BUY_PERCENT_UPPER, BUY_WAIT, SELL_WAIT, COUNT_UPPER, SLOT_UPPER, UPPER_DAY_AGO_CHECK, BUY_DAY_AGO_UPPER
+from config.condition import DAYS_LATER_UPPER, BUY_PERCENT_UPPER, BUY_WAIT, SELL_WAIT, COUNT_UPPER, SLOT_UPPER, UPPER_DAY_AGO_CHECK, BUY_DAY_AGO_UPPER, PRICE_BUFFER
 # from .trading_session import TradingSession
 from concurrent.futures import ThreadPoolExecutor
 import threading
@@ -321,12 +321,20 @@ class TradingUpper():
                 
                 ratio = 1 / COUNT_UPPER
                 fund_per_order = int(float(session.get('fund')) * ratio)
+                
+                # 슬리피지 대비 버퍼 적용
+                effective_price = price * (1 + PRICE_BUFFER)
+                
                 if session.get('count') < COUNT_UPPER - 1:
-                    quantity = int(fund_per_order / price)
+                    quantity = int(fund_per_order / effective_price)
                 else:
                     remaining_fund = float(session.get('fund')) - session.get('spent_fund')
-                    quantity = int(remaining_fund / price)
+                    quantity = int(remaining_fund / effective_price)
 
+                # 혹시 모를 오버바잉 방지를 위해 잔여 자금 재확인
+                if quantity * price > (float(session.get('fund')) - session.get('spent_fund')):
+                    quantity = max(int((float(session.get('fund')) - session.get('spent_fund')) / effective_price), 0)
+                
                 quantity = int(quantity)
                 if quantity <= 0:
                     print("⚠ 주문수량 0, 세션 건너뜀")
