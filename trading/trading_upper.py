@@ -1223,6 +1223,14 @@ class TradingUpper():
                     )
                     return []
 
+                # 잔고 조회 결과가 None일 경우 대비
+                if not balance_result:
+                    self.logger.warning("잔고 조회 결과 없음(매도 중간 단계)", {
+                        "세션ID": session_id,
+                        "종목코드": ticker
+                    })
+                    balance_result = []  # 이후 로직에서 iterable 보장
+
                 balance_data = next((item for item in balance_result if item.get('pdno') == ticker), None)
                 self.logger.debug("매도 전 잔고 최종 확인", {
                     "종목코드": ticker, 
@@ -1394,6 +1402,14 @@ class TradingUpper():
                     session_info = db.get_session_by_id(session_id)
                     # 잔고·평균단가 재조회(매도 직후 시점)
                     balance_result = self.kis_api.balance_inquiry()
+                    if not balance_result:
+                        self.logger.warning("잔고 조회 결과 없음(재시도 단계)", {
+                            "세션ID": session_id,
+                            "종목코드": ticker,
+                            "retry": 1
+                        })
+                        balance_result = []
+                    
                     balance_data = next((item for item in balance_result if item.get('pdno') == ticker), None)
                     remaining_assets = 0
                     if balance_result:
@@ -1449,6 +1465,14 @@ class TradingUpper():
                 remaining_qty = None
                 for retry in range(1, MAX_RETRY + 1):
                     balance_result = self.kis_api.balance_inquiry()
+                    if not balance_result:
+                        self.logger.warning("잔고 조회 결과 없음(재시도 단계)", {
+                            "세션ID": session_id,
+                            "종목코드": ticker,
+                            "retry": retry
+                        })
+                        balance_result = []
+                    
                     balance_data = next((item for item in balance_result if item.get('pdno') == ticker), None)
                     remaining_qty = int(balance_data.get('hldg_qty', 0)) if balance_data else 0
 
