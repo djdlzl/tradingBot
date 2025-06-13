@@ -567,9 +567,7 @@ class KISApi:
         self.headers["hashkey"] = self.hashkey
         
         response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
-        json_response = response.json()
-        print("daily_order_execution_inquiry 정상 실행")
-        
+        json_response = response.json()        
         
         return json_response
 

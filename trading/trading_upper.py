@@ -824,9 +824,17 @@ class TradingUpper():
     #             print(f"Actual - quantity: {actual_quantity}, spent_fund: {actual_spent_fund}, avr_price: {actual_avg_price}")
 
     #             db.save_trading_session_upper(
-    #                 session.get('id'), session.get('start_date'), datetime.now(),
-    #                 session.get('ticker'), session.get('name'), session.get('high_price'), session.get('fund'),
-    #                 actual_spent_fund, actual_quantity, actual_avg_price, session.get('count')
+    #                 session.get('id'),
+    #                 session.get('start_date'),
+    #                 datetime.now(),
+    #                 session.get('ticker'),
+    #                 session.get('name'),
+    #                 session.get('high_price', 0),
+    #                 session.get('fund'),
+    #                 actual_spent_fund,
+    #                 actual_quantity,
+    #                 actual_avg_price,
+    #                 session.get('count')
     #             )
 
     #             self.slack_logger.send_log(
@@ -974,90 +982,163 @@ class TradingUpper():
     
     def handle_unfilled_order(self, order_result: Dict, ticker: str, quantity: int, order_type: str, wait_time: float) -> List[Dict]:
             """
-            미체결 주문을 처리하여 모든 주문 결과를 반환.
+            미체결 주문을 반복적으로 처리합니다. 재주문 과정에서 동일한 오류로 인해
+            무한 루프가 발생하지 않도록 최대 재시도 횟수를 두어 제어합니다.
 
             Args:
-                order_result: 초기 주문 결과
+                order_result: 최초 주문 결과
                 ticker: 종목 코드
-                quantity: 초기 주문 수량
-                order_type: 주문 타입 ('buy' 또는 'sell')
-                wait_time: 주문 후 대기 시간
+                quantity: 최초 주문 수량(로깅용)
+                order_type: 'buy' 또는 'sell'
+                wait_time: 주문 후 대기 시간(sec)
 
             Returns:
-                List[Dict]: 모든 주문 결과 리스트
+                List[Dict]: (재)주문 결과 목록
             """
-            order_results = [order_result]
-            unfilled_qty = self.order_complete_check(order_result)
+            order_results: List[Dict] = [order_result]
 
-            new_order_result = order_result
-            while unfilled_qty > 0:
-                with self.api_lock:
-                    cancel_result = self.kis_api.cancel_order(new_order_result.get('output', {}).get('ODNO'))
-                    print(f"cancel_result ({order_type}): - ", cancel_result)
+            # 최초 미체결 수량 확인
+            unfilled_qty: int = self.order_complete_check(order_result)
+            if unfilled_qty <= 0:
+                return order_results
+
+            MAX_TOTAL_ATTEMPT = 5      # 전체 재주문 시도 횟수 제한
+            MAX_API_RETRY = 3          # cancel / place API 호출 재시도 횟수
+            attempt = 0
+
+            # ----- 헬퍼: 호가 단위 계산 -----
+            def _get_tick_size(price: int) -> int:
+                """한국거래소 호가단위 규칙에 따라 1틱 크기를 반환"""
+                if price < 1000:
+                    return 1
+                elif price < 5000:
+                    return 5
+                elif price < 10000:
+                    return 10
+                elif price < 50000:
+                    return 50
+                elif price < 100000:
+                    return 100
+                elif price < 500000:
+                    return 500
+                else:
+                    return 1000
+
+            while unfilled_qty > 0 and attempt < MAX_TOTAL_ATTEMPT:
+                attempt += 1
+                
+                ###############################
+                # 1) 기존 주문 취소
+                ###############################
+                cancel_success = False
+                for _ in range(MAX_API_RETRY):
+                    cancel_result = self.kis_api.cancel_order(order_result.get('output', {}).get('ODNO'))
+                    self.logger.debug("주문 취소 시도", {"ticker": ticker, "result": cancel_result})
+                    if cancel_result.get('rt_cd') == '0':
+                        cancel_success = True
+                        break
+                    # 초당 거래건수 초과 등 속도 제한 처리
                     time.sleep(1)
 
-                    while True:
-                        new_order_result = self.kis_api.place_order(ticker, unfilled_qty, order_type=order_type)
-                        print(f"새로운 {order_type} 결과 new_order_result", new_order_result)
-                        if new_order_result.get('rt_cd') == '1':
-                            time.sleep(1)
-                            continue
-                        break
-
-                    order_results.append(new_order_result)
-
-                    order_num = new_order_result.get('output', {}).get('ODNO')
-                    max_retries = 3
-                    retry_count = 0
-                    real_quantity = 0
-                    real_spent_fund = 0
-                    
-                    while retry_count < max_retries:
-                        conclusion_result = self.kis_api.daily_order_execution_inquiry(order_num)
-                        
-                        # 응답 로깅
-                        self.slack_logger.send_log(
-                            level="DEBUG",
-                            message=f"daily_order_execution_inquiry 응답",
-                            context={
-                                "order_num": order_num,
-                                "response": conclusion_result,
-                                "재시도 횟수": f"{retry_count + 1}/{max_retries}"
-                            }
-                        )
-                        
-                        # 응답이 유효하고 체결 정보가 있는지 확인
-                        if conclusion_result and 'output1' in conclusion_result and conclusion_result['output1']:
-                            real_quantity = int(conclusion_result['output1'][0].get('tot_ccld_qty', 0))
-                            real_spent_fund = int(conclusion_result['output1'][0].get('tot_ccld_amt', 0))
-                            
-                            if real_quantity > 0 and real_spent_fund > 0:
-                                # 유효한 체결 정보가 있으면 루프 종료
-                                break
-                        
-                        # 체결 정보가 없으면 잠시 대기 후 재시도
-                        retry_count += 1
-                        if retry_count < max_retries:
-                            time.sleep(2)  # 2초 대기
-                    
-                    # 최종 결과 로깅
+                if not cancel_success:
+                    # 취소 실패가 지속되면 재주문 로직을 중단하고 종료 (무한 루프 방지)
                     self.slack_logger.send_log(
-                        level="INFO",
-                        message=f"{order_type.capitalize()} 재주문 체결",
-                        context={
-                            "종목코드": ticker,
-                            "주문번호": order_num,
-                            "체결수량": real_quantity,
-                            "체결금액": real_spent_fund,
-                            "재시도 횟수": f"{retry_count}/{max_retries}",
-                            "체결여부": "성공" if real_quantity > 0 and real_spent_fund > 0 else "실패"
-                        }
+                        level="ERROR",
+                        message="주문 취소 반복 실패 – 미체결 주문 처리 중단",
+                        context={"종목코드": ticker, "미체결": unfilled_qty, "order_type": order_type}
                     )
+                    break
 
+                ###############################
+                # 2) 미체결 수량 재주문 (시장가 → 현재가 + 1틱 지정가)
+                ###############################
+                re_order_success = False
+                new_order_result: Dict = {}
+                for _ in range(MAX_API_RETRY):
+                    if order_type == 'buy':
+                        # 현재가 조회 및 유동성 / 거래정지 체크
+                        cur_price, trade_halt = self.kis_api.get_current_price(ticker)
+                        if cur_price is None or trade_halt:
+                            self.slack_logger.send_log(
+                                level="WARNING",
+                                message="현재가 조회 실패 또는 거래정지 – 재주문 중단",
+                                context={"종목코드": ticker}
+                            )
+                            return order_results
+                        safe_price = cur_price + _get_tick_size(cur_price)
+                        new_order_result = self.kis_api.place_order(
+                            ticker,
+                            unfilled_qty,
+                            order_type=order_type,
+                            price=safe_price
+                        )
+                    else:
+                        # 매도의 경우 기존 로직 유지 (시장가/지정가 호출 시 price None 처리)
+                        new_order_result = self.kis_api.place_order(ticker, unfilled_qty, order_type=order_type)
+
+                    # 오류 코드 처리
+                    if new_order_result.get('rt_cd') == '1':
+                        msg_cd = new_order_result.get('msg_cd')
+                        msg1 = new_order_result.get('msg1')
+                        # 잔고 부족/없음, 속도 제한 등
+                        if msg_cd in {'40240000', '40310000'}:
+                            self.slack_logger.send_log(
+                                level="WARNING",
+                                message="재주문 불가 오류 – 처리 중단",
+                                context={"종목코드": ticker, "msg_cd": msg_cd, "msg": msg1}
+                            )
+                            return order_results
+                        time.sleep(1)
+                        continue
+
+                    # 정상 접수(rt_cd == '0')
+                    re_order_success = True
+                    break
+
+                order_results.append(new_order_result)
+
+                # 재주문 성공 여부 확인 후 처리
+                if not re_order_success:
+                    self.slack_logger.send_log(
+                        level="ERROR",
+                        message="재주문 반복 실패 – 미체결 주문 처리 중단",
+                        context={"종목코드": ticker, "미체결": unfilled_qty, "order_type": order_type}
+                    )
+                    break
+
+                # 다음 루프를 위한 준비
+                order_result = new_order_result
                 time.sleep(wait_time)
-                unfilled_qty = self.order_complete_check(new_order_result)
+                unfilled_qty = self.order_complete_check(order_result)
+
+            if unfilled_qty > 0:
+                # 최대 시도 후에도 미체결 수량이 남아 있으면 경고
+                self.slack_logger.send_log(
+                    level="WARNING",
+                    message="재주문 시도 종료 – 미체결 수량 잔존",
+                    context={"종목코드": ticker, "남은수량": unfilled_qty, "order_type": order_type, "시도횟수": attempt}
+                )
 
             return order_results
+
+    def order_complete_check(self, order_result: Dict) -> int:
+        """주문 체결 여부를 확인하고 미체결 수량을 반환합니다."""
+        try:
+            order_num = order_result.get('output', {}).get('ODNO')
+            if not order_num:
+                return 0
+
+            conclusion_result = self.kis_api.daily_order_execution_inquiry(order_num)
+            unfilled_qty = int(conclusion_result.get('output1', [{}])[0].get('rmn_qty', 0))
+            return unfilled_qty
+        except Exception as e:
+            # 실패 시 0으로 간주하여 무한 루프 방지
+            self.slack_logger.send_log(
+                level="ERROR",
+                message="주문 체결 확인 실패",
+                context={"주문번호": order_result.get('output', {}).get('ODNO'), "에러": str(e)}
+            )
+            return 0
 
     def buy_order(self, ticker: str, quantity: int) -> List[Dict]:
         """
@@ -1227,7 +1308,8 @@ class TradingUpper():
                 if not balance_result:
                     self.logger.warning("잔고 조회 결과 없음(매도 중간 단계)", {
                         "세션ID": session_id,
-                        "종목코드": ticker
+                        "종목코드": ticker,
+                        "retry": 1
                     })
                     balance_result = []  # 이후 로직에서 iterable 보장
 
@@ -1562,33 +1644,6 @@ class TradingUpper():
                     }
                 )
                 return order_results
-
-    def order_complete_check(self, order_result: Dict) -> int:
-            """
-            주문 체결 여부를 확인하고 미체결 수량 반환.
-
-            Args:
-                order_result: 주문 결과
-
-            Returns:
-                int: 미체결 수량
-            """
-            print("order_complete_check 실행")
-            try:
-                conclusion_result = self.kis_api.daily_order_execution_inquiry(order_result.get('output', {}).get('ODNO'))
-                print(f"[DEBUG] 일별체결 결과: {conclusion_result}")
-                unfilled_qty = int(conclusion_result.get('output1', [{}])[0].get('rmn_qty', 0))
-                print("주문확인 order_complete_check: - ", unfilled_qty)
-                return unfilled_qty
-            except (KeyError, IndexError, TypeError) as e:
-                print(f"order_complete_check 에러: {e}")
-                self.slack_logger.send_log(
-                    level="ERROR",
-                    message="주문 체결 확인 실패",
-                    context={"주문번호": order_result.get('output', {}).get('ODNO'), "에러": str(e)}
-                )
-                return 0  # 에러 시 미체결 수량 0으로 가정
-
 
     def delete_finished_session(self, session_id):
         db = DatabaseManager()
