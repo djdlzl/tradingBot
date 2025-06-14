@@ -99,6 +99,11 @@ class TradingUpper():
         # # 이전 selected_stocks 정보 삭제
         self.init_selected_stocks()
         
+        # 영업일이 아니면 실행하지 않음
+        current_date = datetime.now()
+        if not DateUtils.is_business_day(current_date):
+            print(f"{current_date.strftime('%Y-%m-%d')}은(는) 영업일이 아니므로 종목 선별을 실행하지 않습니다.")
+            return []
         selected_stocks = []
         tickers_with_prices = db.get_upper_stocks_days_ago(BUY_DAY_AGO_UPPER)  # N일 전 상승 종목 가져오기
         print('tickers_with_prices:  ',tickers_with_prices)
@@ -136,7 +141,7 @@ class TradingUpper():
             result_lstg = self.check_listing_date(stock.get('ticker'))
             
             ### 조건5: 과열 종목 제외
-            stock_info = self.kis_api.get_stock_price('ticker')
+            stock_info = self.kis_api.get_stock_price(stock.get('ticker'))
             result_short_over = stock_info.get('output', {}).get('short_over_yn', 'N')
             
             print(stock.get('name'))
@@ -144,6 +149,7 @@ class TradingUpper():
             # print('조건2: result_decline:',result_decline)
             # print('조건3: result_volume:',result_volume)
             # print('조건4: result_lstg:',result_lstg)
+            # print('조건5: result_lstg:',result_lstg)
             print('매매 확인을 위해 임시로 모든 조건 통과')
 
             # if result_high_price and result_decline and result_volume and result_lstg and (result_short_over=='N'):
@@ -309,80 +315,119 @@ class TradingUpper():
 
 
     def place_order_session_upper(self, session: Dict) -> Optional[List[Dict]]:
-            """
-            세션 정보를 바탕으로 매수 주문 실행.
+        """
+        세션 정보를 바탕으로 분할 매수 주문을 실행합니다.
+        - COUNT_UPPER 회차로 자금을 분할하여 주문
+        - 첫 주문 실패 시 세션 삭제
+        """
+        order_results = None
+        try:
+            time.sleep(0.9)  # API 호출 속도 제한
 
-            Args:
-                session: 세션 정보
+            # 1) DB 연결
+            db = DatabaseManager()
 
-            Returns:
-                Optional[List[Dict]]: 주문 결과 리스트 또는 None
-            """
-            order_results = None  # 초기값 설정
-            try:
-                time.sleep(0.9)
-                db = DatabaseManager()
-                result = self.kis_api.get_current_price(session.get('ticker'))
-                # 현재가 조회 실패 시 건너뛰기
-                if result[0] is None:
-                    print(f"현재가 조회 실패로 건너뛰기: {session.get('ticker')}")
+            # 2) 현재가 조회 (None, None 반환 가능)
+            price, trht_yn = self.kis_api.get_current_price(session.get('ticker'))
+            #    -- api/kis_api.py: 실패 시 (None, None) 반환
+            if price is None:
+                print(f"현재가 조회 실패로 건너뛰기: {session.get('ticker')}")
+                db.close()  # DB 세션 정리
+                return None
 
-                    
-                price = result[0]  # 이미 int로 변환됨
-                
-                ratio = 1 / COUNT_UPPER
-                fund_per_order = int(float(session.get('fund')) * ratio)
-                
-                # 슬리피지 대비 버퍼 적용
-                effective_price = price * (1 + PRICE_BUFFER)
-                
-                if session.get('count') < COUNT_UPPER - 1:
-                    quantity = int(fund_per_order / effective_price)
-                else:
-                    remaining_fund = float(session.get('fund')) - session.get('spent_fund')
-                    quantity = int(remaining_fund / effective_price)
+            # 거래정지 여부 확인
+            if trht_yn != 'N':
+                print(f"거래 정지 종목으로 건너뛰기: {session.get('ticker')}")
+                db.close()  # DB 세션 정리
+                return None
 
-                # 혹시 모를 오버바잉 방지를 위해 잔여 자금 재확인
-                if quantity * price > (float(session.get('fund')) - session.get('spent_fund')):
-                    quantity = max(int((float(session.get('fund')) - session.get('spent_fund')) / effective_price), 0)
-                
-                quantity = int(quantity)
-                if quantity <= 0:
-                    print("⚠ 주문수량 0, 세션 건너뜀")
-                    self.slack_logger.send_log(
-                        level="WARNING",
-                        message="주문 수량 0",
-                        context={"세션ID": session.get('id'), "종목코드": session.get('ticker')}
-                    )
-                    db.close()
-                    return None
+            # 과열 종목 여부 확인
+            stock_info = self.kis_api.get_stock_price(session.get('ticker'))
+            if stock_info.get('output', {}).get('short_over_yn') == 'Y':
+                print(f"과열 종목으로 건너뛰기: {session.get('ticker')}")
+                db.close()  # DB 세션 정리
+                return None
 
-                if session.get('count') < COUNT_UPPER:
-                    order_results = self.buy_order(session.get('ticker'), quantity)
-                    if not order_results or (isinstance(order_results, list) and any(r.get('rt_cd') == '1' for r in order_results)):
-                        if session.get('count') == 0:
-                            print("첫 주문 실패 시 세션 삭제", session)
-                            db.delete_session_one_row(session.get('id'))
-                            self.slack_logger.send_log(
-                                level="ERROR",
-                                message="첫 주문 실패로 세션 삭제",
-                                context={"세션ID": session.get('id'), "종목 이름": session.get('name'), "종목 코드": session.get('ticker')}
-                            )
-                        db.close()
-                        return order_results
+            # 3) 분할 매수 비율 계산
+            ratio = 1 / COUNT_UPPER
+            fund_per_order = int(float(session.get('fund', 0)) * ratio)
 
-                db.close()
-                return order_results
+            # 4) 슬리피지 버퍼 적용
+            effective_price = price * (1 + PRICE_BUFFER)
 
-            except Exception as e:
-                print(f"place_order_session_upper 에러: {e}")
+            # 5) 회차(count)에 따라 주문 수량 산정
+            if session.get('count', 0) < COUNT_UPPER - 1:
+                # 중간 회차: 균등 분할
+                quantity = int(fund_per_order / effective_price)
+            else:
+                # 마지막 회차: 남은 자금 전부 사용
+                remaining_fund = float(session.get('fund', 0)) - session.get('spent_fund', 0)
+                quantity = int(remaining_fund / effective_price)
+
+            # 6) 오버바잉 방지: 계산된 수량이 실제 잔금보다 많으면 조정
+            if quantity * price > (float(session.get('fund', 0)) - session.get('spent_fund', 0)):
+                quantity = max(
+                    int((float(session.get('fund,0 ')) - session.get('spent_fund',0 )) / effective_price),
+                    0
+                )
+
+            quantity = int(quantity)
+            if quantity <= 0:
+                # 수량이 0 이면 주문 불필요
+                print("⚠ 주문수량 0, 세션 건너뜀")
                 self.slack_logger.send_log(
-                    level="ERROR",
-                    message="매수 주문 실행 실패",
-                    context={"세션ID": session.get('id'), "종목코드": session.get('ticker'), "에러": str(e)}
+                    level="WARNING",
+                    message="주문 수량 0",
+                    context={"세션ID": session.get('id'), "종목코드": session.get('ticker')}
                 )
                 db.close()
                 return None
+
+            # 7) 실제 매수 주문 실행 (api 호출)
+            if session.get('count', 0) < COUNT_UPPER:
+                ticker = session.get('ticker')
+                if not isinstance(ticker, str):
+                    print(f"잘못된 티커: {ticker}")
+                    db.close()
+                    return None
+                order_results = self.buy_order(ticker, quantity)
+                # 주문 실패(‘rt_cd’가 '1') 시 처리
+                if (not order_results) or (isinstance(order_results, list)
+                                        and any(r.get('rt_cd') == '1' for r in order_results)):
+                    if session.get('count') == 0:
+                        # 첫 주문 실패: 세션 자체 삭제
+                        print("첫 주문 실패 시 세션 삭제", session)
+                        db.delete_session_one_row(session.get('id'))
+                        self.slack_logger.send_log(
+                            level="ERROR",
+                            message="첫 주문 실패로 세션 삭제",
+                            context={
+                                "세션ID": session.get('id'),
+                                "종목 이름": session.get('name'),
+                                "종목 코드": session.get('ticker')
+                            }
+                        )
+                    db.close()
+                    return order_results
+
+            # 8) 정상 흐름 시 DB 세션은 업데이트 로직(=load_and_update_trading_session)에서 처리
+            db.close()
+            return order_results
+
+        except Exception as e:
+            # 예외 발생 시 로깅 및 세션 정리
+            print(f"place_order_session_upper 에러: {e}")
+            self.slack_logger.send_log(
+                level="ERROR",
+                message="매수 주문 실행 실패",
+                context={
+                    "세션ID": session.get('id'),
+                    "종목코드": session.get('ticker'),
+                    "에러": str(e)
+                }
+            )
+            db.close()
+            return None
 
 
     def load_and_update_trading_session(self, order_list):

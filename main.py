@@ -119,6 +119,11 @@ class MainProcess:
                 self.scheduler.shutdown(wait=False)
 
     def save_upper_stocks(self):
+        # 영업일이 아니면 실행하지 않음
+        current_date = datetime.now()
+        if not DateUtils.is_business_day(current_date):
+            print(f"{current_date.strftime('%Y-%m-%d')}은(는) 영업일이 아니므로 상한가 종목 조회를 실행하지 않습니다.")
+            return
         try:
             trading = TradingLogic()
             trading_upper = TradingUpper()
@@ -130,6 +135,11 @@ class MainProcess:
 
     def execute_buy_task(self):
         """매수 태스크 실행"""
+        # 영업일이 아니면 실행하지 않음
+        current_date = datetime.now()
+        if not DateUtils.is_business_day(current_date):
+            print(f"{current_date.strftime('%Y-%m-%d')}은(는) 영업일이 아니므로 매수 태스크를 실행하지 않습니다.")
+            return
         try:
             # trading = TradingLogic()
             trading_upper = TradingUpper()
