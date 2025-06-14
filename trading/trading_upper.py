@@ -66,7 +66,13 @@ class TradingUpper():
                 continue
 
         today = datetime.now().date()
-        current_day = self.date_utils.is_business_day(today)
+        # is_business_day은 bool을 반환하므로 날짜 계산에 사용하지 않는다.
+        is_bd = self.date_utils.is_business_day(today)
+        # 영업일이 아니라면 가장 최근 영업일(전 영업일)을 구한다.
+        if not is_bd:
+            current_day = self.date_utils.get_previous_business_day(datetime.now(), 1)
+        else:
+            current_day = today
         date_str = current_day.strftime('%Y-%m-%d')
         
         db = DatabaseManager()
@@ -161,10 +167,15 @@ class TradingUpper():
         """
         2개월 전 데이터 삭제
         """
-        today = datetime.now().date() # 현재 날짜와 시간 가져오기
-        current_day = self.date_utils.is_business_day(today)
+        today = datetime.now().date()  # 현재 날짜
         all_holidays = self.date_utils.get_holidays()
-        
+
+        # 기준 날짜를 실제 날짜(today)로 설정. 영업일이 아니면 이전 영업일을 찾음
+        if not self.date_utils.is_business_day(today):
+            current_day = self.date_utils.get_previous_business_day(datetime.now(), 1)
+        else:
+            current_day = today
+
         old_data = current_day
         for _ in range(40):
             old_data -= timedelta(days=1)
