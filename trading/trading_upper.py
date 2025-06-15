@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, date
 from api import kis_api
 from database.db_manager_upper import DatabaseManager
 from utils.date_utils import DateUtils
+from utils.decorators import business_day_only
 from utils.slack_logger import SlackLogger
 from utils.trading_logger import TradingLogger
 from api.kis_api import KISApi
@@ -41,6 +42,7 @@ class TradingUpper():
 #########################    상승 종목 받아오기 / 저장   ###################################
 ######################################################################################
 
+    @business_day_only()
     def fetch_and_save_previous_upper_stocks(self):
         self.logger.info("상승 종목 데이터 조회 시작")
         upper_stocks = self.kis_api.get_upAndDown_rank()
@@ -90,6 +92,7 @@ class TradingUpper():
 #########################    셀렉 메서드   ###################################
 ######################################################################################
 
+    @business_day_only(default=[])
     def select_stocks_to_buy(self):
         """
         2일 전 상한가 종목의 가격과 현재가를 비교하여 매수할 종목을 선정(선별)합니다.
@@ -99,15 +102,17 @@ class TradingUpper():
         # # 이전 selected_stocks 정보 삭제
         self.init_selected_stocks()
         
-        # 영업일이 아니면 실행하지 않음
-        current_date = datetime.now()
-        if not DateUtils.is_business_day(current_date):
-            print(f"{current_date.strftime('%Y-%m-%d')}은(는) 영업일이 아니므로 종목 선별을 실행하지 않습니다.")
-            return []
         selected_stocks = []
-        tickers_with_prices = db.get_upper_stocks_days_ago(BUY_DAY_AGO_UPPER)  # N일 전 상승 종목 가져오기
+        tickers_with_prices = db.get_upper_stocks_days_ago(BUY_DAY_AGO_UPPER) or []  # N일 전 상승 종목 가져오기
         print('tickers_with_prices:  ',tickers_with_prices)
         for stock in tickers_with_prices:
+            if stock is None:
+                self.logger.warning("종목 정보가 None 입니다. 건너뜁니다.")
+                continue
+            ticker = stock.get('ticker')
+            if not ticker:
+                self.logger.warning(f"{stock} ticker 정보 누락, 건너뜁니다.")
+                continue
             ### 조건1: 상승일 기준 10일 전까지 고가 20% 넘은 이력 여부 체크
             df = self.krx_api.get_OHLCV(stock.get('ticker'), UPPER_DAY_AGO_CHECK) # D+2일 8시55분에 실행이라 10일
             # 데이터프레임에서 최하단 2개 행을 제외
@@ -120,7 +125,7 @@ class TradingUpper():
                 percent_change = ((next_day_high - close_price) / close_price) * 100
                 percentage_diff.append(percent_change)
               # 결과를 데이터프레임으로 만들고 포맷팅
-            result_df = pd.DataFrame(percentage_diff, index=filtered_df.index[:-1], columns=['등락률'])
+            result_df = pd.DataFrame({'등락률': percentage_diff}, index=filtered_df.index[:-1])
               # 등락률이 20% 이상인 값이 있으면 False, 없으면 True를 리턴
             result_high_price = not (result_df['등락률'] >= 20).any()
             
@@ -128,8 +133,14 @@ class TradingUpper():
             ### 조건2: 상승일 고가 - 매수일 현재가 -7.5% 체크 -> 매수하면서 체크
             last_high_price = df['고가'].iloc[-2]
             result_decline = False
-            current_price, trht_yn = self.kis_api.get_current_price(stock.get('ticker'))
-            if int(current_price) > (int(last_high_price) * BUY_PERCENT_UPPER):
+            current_price_opt, trht_yn = self.kis_api.get_current_price(stock.get('ticker'))
+            if current_price_opt is None:
+                # 가격 조회 실패 시 건너뛰거나 기본 처리
+                self.logger.warning(f"{stock.get('ticker')} 현재가 조회 실패")
+                continue
+
+            current_price = int(current_price_opt)
+            if current_price > last_high_price * BUY_PERCENT_UPPER:
                 result_decline = True
             
                 
