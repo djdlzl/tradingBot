@@ -332,11 +332,13 @@ class TradingUpper():
         - 첫 주문 실패 시 세션 삭제
         """
         order_results = None
+        
+        # 1) DB 연결
+        db = DatabaseManager()
+
         try:
             time.sleep(0.9)  # API 호출 속도 제한
 
-            # 1) DB 연결
-            db = DatabaseManager()
 
             # 2) 현재가 조회 (None, None 반환 가능)
             price, trht_yn = self.kis_api.get_current_price(session.get('ticker'))
@@ -378,7 +380,7 @@ class TradingUpper():
             # 6) 오버바잉 방지: 계산된 수량이 실제 잔금보다 많으면 조정
             if quantity * price > (float(session.get('fund', 0)) - session.get('spent_fund', 0)):
                 quantity = max(
-                    int((float(session.get('fund,0 ')) - session.get('spent_fund',0 )) / effective_price),
+                    int((float(session.get('fund', 0)) - session.get('spent_fund',0 )) / effective_price),
                     0
                 )
 
