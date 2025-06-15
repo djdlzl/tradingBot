@@ -94,10 +94,13 @@ def test():
 
     # print("결과:",real_quantity, real_spent_fund)
 
+    # ######### 과열 종목 확인 ##########
+    # stock = kis_api.get_stock_price('035420')
+    # print(stock)
 
-    
     ######### 정합성 맞추기 ###########
     # sessions = db.load_trading_session_upper()
+    # print(sessions)
     # for session in sessions:
     #     trading_upper.validate_db_data(session)
 

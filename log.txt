@@ -1,0 +1,700 @@
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008295', 'ORD_TMD': '104305'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008297', 'ORD_TMD': '104306'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008297', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '104306', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '104306', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008308', 'ORD_TMD': '104332'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008310', 'ORD_TMD': '104334'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008310', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '104334', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '104334', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008318', 'ORD_TMD': '104359'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008319', 'ORD_TMD': '104400'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008319', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '104400', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '104400', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008333', 'ORD_TMD': '104426'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008334', 'ORD_TMD': '104427'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008334', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '104427', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '104427', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008342', 'ORD_TMD': '104453'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008343', 'ORD_TMD': '104454'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008343', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '104454', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '104454', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008356', 'ORD_TMD': '104520'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008357', 'ORD_TMD': '104521'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008357', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '104521', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '104521', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008362', 'ORD_TMD': '104547'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008363', 'ORD_TMD': '104548'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008363', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '104548', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '104548', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008379', 'ORD_TMD': '104614'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008381', 'ORD_TMD': '104615'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008381', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '104615', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '104615', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008405', 'ORD_TMD': '104641'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008407', 'ORD_TMD': '104642'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008407', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '104642', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '104642', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008413', 'ORD_TMD': '104708'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008415', 'ORD_TMD': '104709'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008415', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '104709', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '104709', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008422', 'ORD_TMD': '104735'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008425', 'ORD_TMD': '104736'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008425', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '104736', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '104736', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008430', 'ORD_TMD': '104801'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008431', 'ORD_TMD': '104802'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008431', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '104802', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '104802', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008439', 'ORD_TMD': '104828'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008440', 'ORD_TMD': '104829'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008440', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '104829', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '104829', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008447', 'ORD_TMD': '104855'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008448', 'ORD_TMD': '104856'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008448', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '104856', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '104856', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008460', 'ORD_TMD': '104922'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008461', 'ORD_TMD': '104923'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008461', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '104923', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '104923', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008469', 'ORD_TMD': '104949'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008470', 'ORD_TMD': '104950'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008470', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '104950', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '104950', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008480', 'ORD_TMD': '105016'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008482', 'ORD_TMD': '105017'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008482', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '105017', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '105017', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008497', 'ORD_TMD': '105043'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008499', 'ORD_TMD': '105044'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008499', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '105044', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '105044', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008510', 'ORD_TMD': '105110'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008511', 'ORD_TMD': '105111'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008511', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '105111', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '105111', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008527', 'ORD_TMD': '105137'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008529', 'ORD_TMD': '105138'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008529', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '105138', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '105138', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008538', 'ORD_TMD': '105203'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008540', 'ORD_TMD': '105204'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008540', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '105204', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '105204', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008548', 'ORD_TMD': '105230'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008549', 'ORD_TMD': '105231'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008549', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '105231', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '105231', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008560', 'ORD_TMD': '105257'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008562', 'ORD_TMD': '105258'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008562', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '105258', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '105258', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008587', 'ORD_TMD': '105324'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008588', 'ORD_TMD': '105325'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008588', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '105325', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '105325', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008601', 'ORD_TMD': '105351'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008602', 'ORD_TMD': '105352'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008602', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '105352', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '105352', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008620', 'ORD_TMD': '105418'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008622', 'ORD_TMD': '105419'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008622', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '105419', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '105419', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008638', 'ORD_TMD': '105445'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008639', 'ORD_TMD': '105446'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008639', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '105446', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '105446', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008656', 'ORD_TMD': '105512'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008657', 'ORD_TMD': '105513'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008657', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '105513', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '105513', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008678', 'ORD_TMD': '105539'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008689', 'ORD_TMD': '105540'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008689', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '105540', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '105540', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008699', 'ORD_TMD': '105606'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008700', 'ORD_TMD': '105607'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008700', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '105607', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '105607', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008706', 'ORD_TMD': '105633'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008708', 'ORD_TMD': '105634'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008708', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '105634', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '105634', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008720', 'ORD_TMD': '105659'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008722', 'ORD_TMD': '105700'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008722', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '105700', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '105700', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008733', 'ORD_TMD': '105726'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008736', 'ORD_TMD': '105727'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008736', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '105727', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '105727', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008741', 'ORD_TMD': '105753'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008743', 'ORD_TMD': '105754'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008743', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '105754', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '105754', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008748', 'ORD_TMD': '105820'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008750', 'ORD_TMD': '105821'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008750', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '105821', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '105821', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008759', 'ORD_TMD': '105848'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008760', 'ORD_TMD': '105849'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008760', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '105849', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '105849', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008770', 'ORD_TMD': '105915'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008771', 'ORD_TMD': '105916'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008771', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '105916', 'tot_ccld_qty': '0', 'avg_prvs': '0', 'cncl_yn': 'N', 'tot_ccld_amt': '0', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '514', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '105916', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '86', 'tot_ccld_amt': '2979900', 'prsm_tlex_smtl': '4889', 'pchs_avg_pric': '34650.0000'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  514
+cancel_result (buy): -  {'rt_cd': '0', 'msg_cd': '40630000', 'msg1': '모의투자 취소주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008783', 'ORD_TMD': '105942'}}
+새로운 buy 결과 new_order_result {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008784', 'ORD_TMD': '105943'}}
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+daily_order_execution_inquiry 정상 실행
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008784', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '168330', 'prdt_name': '내츄럴엔도텍', 'ord_qty': '514', 'ord_unpr': '0', 'ord_tmd': '105943', 'tot_ccld_qty': '514', 'avg_prvs': '5850', 'cncl_yn': 'N', 'tot_ccld_amt': '3006900', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '0', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '105943', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1114', 'tot_ccld_qty': '1114', 'tot_ccld_amt': '8993700', 'prsm_tlex_smtl': '5739', 'pchs_avg_pric': '8073.3393'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  0
+buy_order - extend 후 order_results 형식 확인 [{'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008207', 'ORD_TMD': '104004'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008207', 'ORD_TMD': '104004'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008214', 'ORD_TMD': '104025'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008231', 'ORD_TMD': '104052'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008240', 'ORD_TMD': '104119'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008258', 'ORD_TMD': '104146'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008271', 'ORD_TMD': '104213'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008282', 'ORD_TMD': '104240'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008297', 'ORD_TMD': '104306'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008310', 'ORD_TMD': '104334'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008319', 'ORD_TMD': '104400'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008334', 'ORD_TMD': '104427'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008343', 'ORD_TMD': '104454'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008357', 'ORD_TMD': '104521'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008363', 'ORD_TMD': '104548'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008381', 'ORD_TMD': '104615'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008407', 'ORD_TMD': '104642'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008415', 'ORD_TMD': '104709'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008425', 'ORD_TMD': '104736'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008431', 'ORD_TMD': '104802'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008440', 'ORD_TMD': '104829'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008448', 'ORD_TMD': '104856'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008461', 'ORD_TMD': '104923'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008470', 'ORD_TMD': '104950'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008482', 'ORD_TMD': '105017'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008499', 'ORD_TMD': '105044'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008511', 'ORD_TMD': '105111'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008529', 'ORD_TMD': '105138'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008540', 'ORD_TMD': '105204'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008549', 'ORD_TMD': '105231'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008562', 'ORD_TMD': '105258'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008588', 'ORD_TMD': '105325'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008602', 'ORD_TMD': '105352'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008622', 'ORD_TMD': '105419'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008639', 'ORD_TMD': '105446'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008657', 'ORD_TMD': '105513'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008689', 'ORD_TMD': '105540'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008700', 'ORD_TMD': '105607'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008708', 'ORD_TMD': '105634'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008722', 'ORD_TMD': '105700'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008736', 'ORD_TMD': '105727'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008743', 'ORD_TMD': '105754'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008750', 'ORD_TMD': '105821'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008760', 'ORD_TMD': '105849'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008771', 'ORD_TMD': '105916'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008784', 'ORD_TMD': '105943'}}]
+place_order_session: 주문 실행 052400 {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008792', 'ORD_TMD': '110010'}}
+order_complete_check 실행
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 일별체결 결과: {'ctx_area_fk100': '                                                                                                    ', 'ctx_area_nk100': '                                                                                                    ', 'output1': [{'ord_dt': '20250612', 'ord_gno_brno': '00950', 'odno': '0000008792', 'orgn_odno': '0000000000', 'ord_dvsn_name': '시장가', 'sll_buy_dvsn_cd': '02', 'sll_buy_dvsn_cd_name': '매수', 'pdno': '052400', 'prdt_name': '코나아이', 'ord_qty': '42', 'ord_unpr': '0', 'ord_tmd': '110010', 'tot_ccld_qty': '42', 'avg_prvs': '69408', 'cncl_yn': 'N', 'tot_ccld_amt': '2915150', 'loan_dt': '', 'ordr_empno': '', 'ord_dvsn_cd': '01', 'cncl_cfrm_qty': '0', 'rmn_qty': '0', 'rjct_qty': '0', 'ccld_cndt_name': '', 'inqr_ip_addr': '', 'cpbc_ordp_ord_rcit_dvsn_cd': '', 'cpbc_ordp_infm_mthd_dvsn_cd': '', 'infm_tmd': '110010', 'ctac_tlno': '', 'prdt_type_cd': '', 'excg_dvsn_cd': '', 'cpbc_ordp_mtrl_dvsn_cd': '', 'ord_orgno': '', 'rsvn_ord_end_dt': ''}], 'output2': {'tot_ord_qty': '1156', 'tot_ccld_qty': '1156', 'tot_ccld_amt': '11908850', 'prsm_tlex_smtl': '6149', 'pchs_avg_pric': '10301.7734'}, 'rt_cd': '0', 'msg_cd': '20310000', 'msg1': '모의투자 조회가 완료되었습니다.                                                 '}
+주문확인 order_complete_check: -  0
+
+[DEBUG] ====== update_session 진입 ======
+[DEBUG] 세션ID: 2889, 주문 결과(order_results): [{'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008207', 'ORD_TMD': '104004'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008207', 'ORD_TMD': '104004'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008214', 'ORD_TMD': '104025'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008231', 'ORD_TMD': '104052'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008240', 'ORD_TMD': '104119'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008258', 'ORD_TMD': '104146'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008271', 'ORD_TMD': '104213'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008282', 'ORD_TMD': '104240'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008297', 'ORD_TMD': '104306'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008310', 'ORD_TMD': '104334'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008319', 'ORD_TMD': '104400'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008334', 'ORD_TMD': '104427'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008343', 'ORD_TMD': '104454'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008357', 'ORD_TMD': '104521'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008363', 'ORD_TMD': '104548'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008381', 'ORD_TMD': '104615'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008407', 'ORD_TMD': '104642'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008415', 'ORD_TMD': '104709'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008425', 'ORD_TMD': '104736'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008431', 'ORD_TMD': '104802'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008440', 'ORD_TMD': '104829'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008448', 'ORD_TMD': '104856'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008461', 'ORD_TMD': '104923'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008470', 'ORD_TMD': '104950'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008482', 'ORD_TMD': '105017'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008499', 'ORD_TMD': '105044'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008511', 'ORD_TMD': '105111'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008529', 'ORD_TMD': '105138'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008540', 'ORD_TMD': '105204'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008549', 'ORD_TMD': '105231'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008562', 'ORD_TMD': '105258'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008588', 'ORD_TMD': '105325'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008602', 'ORD_TMD': '105352'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008622', 'ORD_TMD': '105419'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008639', 'ORD_TMD': '105446'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008657', 'ORD_TMD': '105513'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008689', 'ORD_TMD': '105540'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008700', 'ORD_TMD': '105607'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008708', 'ORD_TMD': '105634'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008722', 'ORD_TMD': '105700'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008736', 'ORD_TMD': '105727'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008743', 'ORD_TMD': '105754'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008750', 'ORD_TMD': '105821'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008760', 'ORD_TMD': '105849'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008771', 'ORD_TMD': '105916'}}, {'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008784', 'ORD_TMD': '105943'}}]
+[DEBUG] 주문[0] 주문번호: 0000008207
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 주문[1] 주문번호: 0000008207
+daily_order_execution_inquiry 정상 실행
+주문 체결 정보 없음: 0000008207 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+[DEBUG] 주문[2] 주문번호: 0000008214
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[3] 주문번호: 0000008231
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[4] 주문번호: 0000008240
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[5] 주문번호: 0000008258
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[6] 주문번호: 0000008271
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[7] 주문번호: 0000008282
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[8] 주문번호: 0000008297
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[9] 주문번호: 0000008310
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[10] 주문번호: 0000008319
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[11] 주문번호: 0000008334
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[12] 주문번호: 0000008343
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[13] 주문번호: 0000008357
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[14] 주문번호: 0000008363
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[15] 주문번호: 0000008381
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[16] 주문번호: 0000008407
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[17] 주문번호: 0000008415
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[18] 주문번호: 0000008425
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[19] 주문번호: 0000008431
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[20] 주문번호: 0000008440
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[21] 주문번호: 0000008448
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[22] 주문번호: 0000008461
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[23] 주문번호: 0000008470
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[24] 주문번호: 0000008482
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[25] 주문번호: 0000008499
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[26] 주문번호: 0000008511
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[27] 주문번호: 0000008529
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[28] 주문번호: 0000008540
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[29] 주문번호: 0000008549
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[30] 주문번호: 0000008562
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[31] 주문번호: 0000008588
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[32] 주문번호: 0000008602
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[33] 주문번호: 0000008622
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[34] 주문번호: 0000008639
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[35] 주문번호: 0000008657
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[36] 주문번호: 0000008689
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[37] 주문번호: 0000008700
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[38] 주문번호: 0000008708
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[39] 주문번호: 0000008722
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[40] 주문번호: 0000008736
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[41] 주문번호: 0000008743
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[42] 주문번호: 0000008750
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[43] 주문번호: 0000008760
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[44] 주문번호: 0000008771
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 1/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 2/3)
+daily_order_execution_inquiry 정상 실행
+유효하지 않은 체결 수량 또는 금액: 수량=0, 금액=0 (재시도 3/3)
+[DEBUG] 주문[45] 주문번호: 0000008784
+daily_order_execution_inquiry 정상 실행
+잔고 조회 실패: 응답 없음 (재시도 1/3)
+[DEBUG] 세션 업데이트 완료: 세션ID=2889, 보유수량=1028, 사용금액=6013800, 평균가=5850, 거래횟수=1
+[디버그] 168330 모니터링 시작
+[DEBUG] 모니터링 시작: 세션ID=2889, 종목코드=168330
+
+[DEBUG] ====== update_session 진입 ======
+[DEBUG] 세션ID: 7806, 주문 결과(order_results): [{'rt_cd': '0', 'msg_cd': '40600000', 'msg1': '모의투자 매수주문이 완료 되었습니다.', 'output': {'KRX_FWDG_ORD_ORGNO': '00950', 'ODNO': '0000008792', 'ORD_TMD': '110010'}}]
+[DEBUG] 주문[0] 주문번호: 0000008792
+이벤트 루프 저장 및 웹소켓 연결 성공
+168330 모니터링 태스크 추가됨
+daily_order_execution_inquiry 정상 실행
+잔고 조회 실패: 응답 없음 (재시도 1/3)
+sell_order 중 에러 발생 :  'NoneType' object is not iterable
+종목 구독 취소 성공: 168330
+real_time_monitoring 반환값: []
+[디버그] 168330 모니터링 태스크 정리 중: 4 태스크
+잔고 조회 실패: 응답 없음 (재시도 2/3)
+[DEBUG] 세션 업데이트 완료: 세션ID=7806, 보유수량=42, 사용금액=2915150, 평균가=69408, 거래횟수=1
+[디버그] 052400 모니터링 시작
+[DEBUG] 모니터링 시작: 세션ID=7806, 종목코드=052400
+{'session': 2, 'slot': 0}
+종목 구독 실패: 052400, 에러: Task <Task pending name='Task-12' coro=<TradingUpper.start_monitoring_for_session() running at /home/ubuntu/tradingBot/trading/trading_upper.py:1619> cb=[_run_until_complete_cb() at /usr/lib/python3.12/asyncio/base_events.py:182]> got Future <Future pending cb=[shield.<locals>._outer_done_callback() at /usr/lib/python3.12/asyncio/tasks.py:922]> attached to a different loop
+052400 모니터링 태스크 추가됨
+real_time_monitoring 반환값: []
+[디버그] 052400 모니터링 태스크 정리 중: 1 태스크
+웹소켓 종료 중 오류: Task <Task pending name='Task-15' coro=<KISWebSocket.close() running at /home/ubuntu/tradingBot/api/kis_websocket.py:658> cb=[_run_until_complete_cb() at /usr/lib/python3.12/asyncio/base_events.py:182]> got Future <Future pending cb=[shield.<locals>._outer_done_callback() at /usr/lib/python3.12/asyncio/tasks.py:922]> attached to a different loop
+WebSocket 연결이 완전히 종료되었습니다.
+[디버그] 052400 웹소켓 안전 종료 완료
+[디버그] 052400 모니터링 종료
+WebSocket 연결이 완전히 종료되었습니다.
+[디버그] 168330 웹소켓 안전 종료 완료
+[디버그] 168330 모니터링 종료
+⚠ 주문수량 0, 세션 건너뜀
+place_order_session: 주문 실행 052400 {'rt_cd': '1', 'msg_cd': '40250000', 'msg1': '모의투자 주문가능금액이 부족합니다.'}
+buy_order - ERROR order_results 값:  [{'rt_cd': '1', 'msg_cd': '40250000', 'msg1': '모의투자 주문가능금액이 부족합니다.'}]
+
+[DEBUG] ====== update_session 진입 ======
+[DEBUG] 세션ID: 2889, 주문 결과(order_results): [{'rt_cd': '1', 'msg_cd': '40250000', 'msg1': '모의투자 주문가능금액이 부족합니다.'}]
+주문 실패: 모의투자 주문가능금액이 부족합니다.

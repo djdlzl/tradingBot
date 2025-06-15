@@ -1,11 +1,15 @@
 import mysql.connector
+from mysql.connector.cursor import MySQLCursor, MySQLCursorDict
 import logging
 from datetime import datetime
 from config.config import DB_CONFIG
 from config.condition import BUY_DAY_AGO_UPPER
 from utils.date_utils import DateUtils
+from typing import Any, Dict, List, Optional, Sequence, cast
 
 class DatabaseManager:
+    cursor: MySQLCursorDict
+
     def __init__(self):
         """
         DatabaseManager 클래스의 생성자
@@ -16,7 +20,7 @@ class DatabaseManager:
         - database: 데이터베이스명
         """
         self.conn = mysql.connector.connect(**DB_CONFIG)
-        self.cursor = self.conn.cursor(buffered=True, dictionary=True)
+        self.cursor = cast(MySQLCursorDict, self.conn.cursor(buffered=True, dictionary=True))
         self._create_tables()
 
     def __enter__(self):
@@ -35,23 +39,32 @@ class DatabaseManager:
             logging.error(f"데이터베이스 종료 중 오류: {e}")
         finally:
             # 명시적으로 None으로 설정하여 참조 제거
-            self.cursor = None
-            self.conn = None
+            pass
+            
+            
 
     def _reset_cursor(self):
         """
         커서를 안전하게 재설정하는 메서드
         """
         try:
+            # 연결이 없거나 끊겼으면 재연결
+            if self.conn is None or not self.conn.is_connected():
+                self.conn = mysql.connector.connect(**DB_CONFIG)
             if self.cursor:
                 self.cursor.close()
-            self.cursor = self.conn.cursor(buffered=True, dictionary=True)
+            self.cursor = cast(MySQLCursorDict, self.conn.cursor(buffered=True, dictionary=True))
         except mysql.connector.Error as e:
             logging.error(f"커서 재설정 오류: {e}")
             raise
 
     def _create_tables(self):
         """필요한 데이터베이스 테이블을 생성합니다."""
+        # 커서가 None이거나 연결이 끊겼으면 재설정
+        if self.cursor is None or not self.conn.is_connected():
+            self._reset_cursor()
+        assert self.cursor is not None
+        assert self.cursor is not None
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS tokens (
                 token_type VARCHAR(50) PRIMARY KEY,
@@ -106,6 +119,23 @@ class DatabaseManager:
             ) ENGINE=InnoDB
         ''')
 
+        # 거래 내역 저장용 테이블
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS trade_history (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                trade_date DATE,
+                trade_time TIME,
+                ticker VARCHAR(20),
+                name VARCHAR(100),
+                buy_avg_price INT,
+                sell_price INT,
+                quantity INT,
+                profit_amount INT,
+                profit_rate DECIMAL(7,2),
+                remaining_assets INT
+            ) ENGINE=InnoDB
+        ''')
+
         self.conn.commit()
 
     def save_token(self, token_type, access_token, expires_at):
@@ -133,11 +163,10 @@ class DatabaseManager:
                 (token_type,)
             )
             result = self.cursor.fetchone()
-            if result:
-                access_token = result.get('access_token')
-                expires_at = result.get('expires_at')
-                return access_token, expires_at
-            return None, None
+            if result is not None and len(result) >= 2:
+                return result[0], result[1]
+            else:
+                return None, None
         except mysql.connector.Error as e:
             logging.error("Error retrieving token: %s", e)
             raise
@@ -164,13 +193,10 @@ class DatabaseManager:
                 (approval_type,)
             )
             result = self.cursor.fetchone()
-            if result:
-                approval_key, expires_at_str = result
-                approval_key = str(approval_key)
-                expires_at_str = str(expires_at_str)
-                expires_at = datetime.fromisoformat(expires_at_str)
-                return approval_key, expires_at
-            return None, None
+            if result is not None and len(result) >= 2:
+                return result[0], result[1]
+            else:
+                return None, None
         except mysql.connector.Error as e:
             logging.error("Error retrieving approval: %s", e)
             raise
@@ -263,13 +289,13 @@ class DatabaseManager:
             logging.error("Error retrieving selected stocks: %s", e)
             return None
 
-    def get_upper_stocks_days_ago(self):
+    def get_upper_stocks_days_ago(self, day_ago):
         try:
             # selected_upper_stocks 테이블 초기화
             self.delete_selected_upper_stocks()
             
             today = datetime.now()
-            days_ago = DateUtils.get_previous_business_day(today, BUY_DAY_AGO_UPPER)
+            days_ago = DateUtils.get_previous_business_day(today, day_ago)
             days_ago_str = days_ago.strftime('%Y-%m-%d')
             
             self.cursor.execute('''
@@ -405,7 +431,7 @@ class DatabaseManager:
             logging.error(error_msg)
             raise
 
-    def load_trading_session_upper(self, random_id=None):
+    def load_trading_session_upper(self, random_id: Optional[int] = None) -> Sequence[Dict[str, Any]]:
         try:
             # 커서 재설정
             self._reset_cursor()
@@ -449,15 +475,49 @@ class DatabaseManager:
             ''', (session_id,))
             
             result = self.cursor.fetchone()
-            return result
+            if result:
+                if isinstance(result, dict):
+                    return {
+                        'no': int(result.get('no', 0)) if 'no' in result else None,
+                        'date': result.get('date'),
+                        'ticker': result.get('ticker'),
+                        'name': result.get('name'),
+                        'closing_price': result.get('closing_price')
+                    }
+                else:
+                    logging.error("Result is not a dictionary in get_session_by_id: %s", result)
+                    return None
+            else:
+                return None
             
         except mysql.connector.Error as e:
             logging.error("Error getting session by ID: %s", e)
             raise
 
+    #####################################################################################
+    #                                  Trade History                                   #
+    #####################################################################################
 
+    def save_trade_history(self, trade_date, trade_time, ticker, name, buy_avg_price,
+                            sell_price, quantity, profit_amount, profit_rate, remaining_assets):
+        """거래 내역을 trade_history 테이블에 저장"""
+        try:
+            self.cursor.execute('''
+                INSERT INTO trade_history (
+                    trade_date, trade_time, ticker, name, buy_avg_price, sell_price,
+                    quantity, profit_amount, profit_rate, remaining_assets)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ''', (
+                trade_date, trade_time, ticker, name, buy_avg_price, sell_price,
+                quantity, profit_amount, profit_rate, remaining_assets
+            ))
+            self.conn.commit()
+        except mysql.connector.Error as e:
+            logging.error("Error saving trade history: %s", e)
+            self.conn.rollback()
+            raise
 
-################## Utility ###################################
+    ################## Utility ###################################
     def delete_upper_limit_stocks(self, date):
         try:
             self.cursor.execute(

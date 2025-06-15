@@ -1,5 +1,5 @@
 schedule==1.2.2
-holidays
+holidayskr
 apscheduler
 python-dotenv
 websockets==13.1

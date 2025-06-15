@@ -1,6 +1,7 @@
 """ 날짜를 워킹데이로 변환하는 모듈 """
 from datetime import timedelta, date as dt # date 클래스를 추가로 가져옵니다.
-import holidays
+# import holidays
+import holidayskr
 
 class DateUtils:
     """날짜 관련 유틸리티 기능을 제공하는 클래스입니다."""
@@ -17,11 +18,20 @@ class DateUtils:
         Returns:
             list: 영업일 목록
         """
-        kr_holidays = holidays.country_holidays('KR')
+        # 해당 기간에 포함된 년도들 추출
+        years = range(start_date.year, end_date.year + 1)
+        kr_holidays_list = []
+        
+        # 각 년도별 공휴일 가져오기
+        for year in years:
+            holidays_for_year = holidayskr.year_holidays(year)
+            kr_holidays_list.extend([holiday[0] for holiday in holidays_for_year])
+        
         business_days = []
         current_date = start_date
         while current_date <= end_date:
-            if current_date.weekday() < 5 and current_date not in kr_holidays:
+            # 주말이 아니고 공휴일이 아닌 경우에만 영업일로 추가
+            if current_date.weekday() < 5 and current_date.date() not in kr_holidays_list:
                 business_days.append(current_date)
             current_date += timedelta(days=1)
         return business_days
@@ -38,8 +48,9 @@ class DateUtils:
         Returns:
             datetime: 계산된 이전 영업일
         """
-        # 한국의 2025년 공휴일 가져오기
-        kr_holidays = holidays.CountryHoliday('KR', years=2025)  
+        # 한국의 2025년 공휴일 가져오기 (holidayskr 사용)
+        holidays_2025 = holidayskr.year_holidays(2025)
+        kr_holidays = [holiday[0] for holiday in holidays_2025]
         
         # 추가 공휴일 수동으로 추가 (datetime.date 객체로 추가)
         additional_holidays = [
@@ -47,9 +58,13 @@ class DateUtils:
         ]
 
         # 기존 공휴일에 추가 공휴일 합치기
-        all_holidays = set(kr_holidays.keys()).union(additional_holidays)
-        current_date = date
-        current_date = date.date() 
+        all_holidays = set(kr_holidays).union(additional_holidays)
+        
+        # date가 datetime 객체인 경우 date 객체로 변환
+        if hasattr(date, 'date'):
+            current_date = date.date()
+        else:
+            current_date = date
 
         while days_back > 0 or current_date.weekday() == 5 or current_date.weekday() == 6 or ((current_date in all_holidays) and (current_date.weekday() < 5)):
 
@@ -82,77 +97,58 @@ class DateUtils:
         Returns:
             bool: 영업일이면 True, 아니면 False
         """
-        # 한국의 2024년 공휴일 가져오기
+        # 날짜가 datetime 객체인 경우 date 객체로 변환
+        if hasattr(date, 'date'):
+            check_date = date.date()
+        else:
+            check_date = date
+            
+        # 한국의 공휴일 가져오기
         all_holidays = DateUtils.get_holidays()
-        current_date = date
-
-#####################예외 없이 확인하려면 2번씩 돌려야 함. 임시방편###################
-        #주말에만 동작
-        while current_date.weekday() > 4:
-            # 주말 건너뛰기
-            if current_date.weekday() == 5:
-                current_date -= timedelta(days=1)
-            elif current_date.weekday() == 6:
-                current_date -= timedelta(days=2)
-
-        #공휴일에만 동작, 건너뛰기
-        while (current_date in all_holidays) and (current_date.weekday() < 5):
-            current_date -= timedelta(days=1)
-
-        #주말에만 동작
-        while current_date.weekday() > 4:
-            # 주말 건너뛰기
-            if current_date.weekday() == 5:
-                current_date -= timedelta(days=1)
-            elif current_date.weekday() == 6:
-                current_date -= timedelta(days=2)
-
-        #공휴일에만 동작, 건너뛰기
-        while (current_date in all_holidays) and (current_date.weekday() < 5):
-            current_date -= timedelta(days=1)
-
-        return current_date
+        
+        # 주말이거나 공휴일이면 영업일이 아님 (False 반환)
+        if check_date.weekday() >= 5 or check_date in all_holidays:
+            return False
+            
+        # 주말도 아니고 공휴일도 아니라면 영업일 (True 반환)
+        return True
 
 
     @staticmethod
-    def get_target_date(date, later):
+    def get_target_date(date, later=1):
         """
-        강제 매도일자 계산. 당일은 영업일+later 
+        강제 매도일자 계산. 당일에서 later일 후의 영업일 반환
 
         Args:
-            date (datetime): 확인할 날짜
+            date (datetime): 기준 날짜
+            later (int): 추가할 영업일 수 (기본값: 1)
 
         Returns:
-            bool: 영업일이면 True, 아니면 False
+            datetime: 계산된 후일의 영업일
         """
-        # 한국의 2024년 공휴일 가져오기
+        # 날짜가 datetime 객체인 경우 date 객체로 변환
+        if hasattr(date, 'date'):
+            target_date = date.date()
+        else:
+            target_date = date
+        
+        # 한국의 공휴일 가져오기
         all_holidays = DateUtils.get_holidays()
-        target_date = DateUtils.is_business_day(date)
+        
+        # 출발 날짜가 영업일이 아니면 가장 가까운 영업일로 설정
+        if not DateUtils.is_business_day(target_date):
+            # 출발 날짜가 영업일이 될 때까지 다음 날로 이동
+            while not DateUtils.is_business_day(target_date):
+                target_date += timedelta(days=1)
 
-        for _ in range(later):
+        # later만큼 영업일 이동
+        business_days_passed = 0
+        while business_days_passed < later:
             target_date += timedelta(days=1)
-    #####################예외 없이 확인하려면 2번씩 돌려야 함. 임시방편###################
-            #주말에만 동작
-            while target_date.weekday() > 4:
-                if target_date.weekday() == 5:
-                    target_date += timedelta(days=2)
-                elif target_date.weekday() == 6:
-                    target_date += timedelta(days=1)
-
-            #공휴일에만 동작, 건너뛰기
-            while (target_date in all_holidays) and (target_date.weekday() < 5):
-                target_date += timedelta(days=1)
-
-            #주말에만 동작
-            while target_date.weekday() > 4:
-                if target_date.weekday() == 5:
-                    target_date += timedelta(days=2)
-                elif target_date.weekday() == 6:
-                    target_date += timedelta(days=1)
-
-            #공휴일에만 동작, 건너뛰기
-            while (target_date in all_holidays) and (target_date.weekday() < 5):
-                target_date += timedelta(days=1)
+            
+            # 영업일인 경우만 카운트
+            if DateUtils.is_business_day(target_date):
+                business_days_passed += 1
     #############################################################################
         
         return target_date
@@ -160,18 +156,37 @@ class DateUtils:
     @staticmethod
     def get_holidays():
         """
-        공휴일 받아오기
+        공휴일 받아오기 (holidayskr 패키지 활용)
         """
+        # holidayskr 패키지를 사용하여 한국 공휴일 가져오기
+        year = 2025
+        kr_holidays_dict = {}
         
-        # 한국의 2024년 공휴일 가져오기
-        kr_holidays = holidays.CountryHoliday('KR', years=2024)  
+        # holidayskr로 한국 공휴일 가져오기 (year_holidays 함수 사용)
+        holidays_list = holidayskr.year_holidays(year)
         
-        # 추가 공휴일 수동으로 추가 (datetime.date 객체로 추가)
+        # 날짜와 이름을 딕셔너리로 변환
+        for holiday in holidays_list:
+            date = holiday[0].strftime('%Y-%m-%d')
+            name = holiday[1]
+            kr_holidays_dict[date] = name
+        
+        # 추가 공휴일 수동으로 추가 (필요한 경우)
         additional_holidays = [
-            dt(2024, 10, 1)
+            dt(2025, 6, 3)  # 기존에 추가했던 공휴일
         ]
-
-        # 기존 공휴일에 추가 공휴일 합치기
-        all_holidays = set(kr_holidays.keys()).union(additional_holidays)
+        
+        # 날짜 문자열을 date 객체로 변환하여 set에 추가
+        holiday_dates_set = set()
+        for date_str in kr_holidays_dict.keys():
+            # 'YYYY-MM-DD' 형식을 year, month, day로 변환
+            y, m, d = map(int, date_str.split('-'))
+            holiday_dates_set.add(dt(y, m, d))
+        
+        # 추가 공휴일과 합치기
+        all_holidays = holiday_dates_set.union(additional_holidays)
+        
+        # 디버깅을 위해 공휴일 목록 출력
+        # print(f"2025년 공휴일 목록: {sorted([h.strftime('%Y-%m-%d') for h in all_holidays])}")
         
         return all_holidays

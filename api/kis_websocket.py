@@ -11,6 +11,7 @@ from config.condition import SELLING_POINT_UPPER, RISK_MGMT_UPPER
 from utils.slack_logger import SlackLogger
 from datetime import datetime, timedelta, time
 from database.db_manager import DatabaseManager
+from api.kis_api import KISApi
 
 
 class KISWebSocket:
@@ -40,6 +41,8 @@ class KISWebSocket:
         self.locks = {}  # 종목별 락 관리
         self.LOCK_TIMEOUT = 10
         self._loop = None  # 이벤트 루프 저장용
+        # 잔고 확인을 위한 API 인스턴스
+        self.kis_api = KISApi()
 
 ######################################################################################
 ##################################    매도 로직   #####################################
@@ -50,13 +53,32 @@ class KISWebSocket:
             return False
             
         ### 매도 전 전처리 ###
-        # 호가 저장
+        # 현재 호가(매도 1호가)를 2틱 낮춰 안전가 계산
         try:
-            target_price = int(recvvalue[15])
+            raw_price = int(recvvalue[15])
         except Exception as e:
-            print("sell_condition - recvvalue[15]: ",e )
+            print("sell_condition - recvvalue[15]: ", e)
             return False
-            
+
+        # 한국거래소 호가단위에 맞춰 2틱 아래 가격 계산
+        def _get_tick(p: int) -> int:
+            """가격대별 호가단위를 반환 (코스닥·코스피 동일 기준)."""
+            if p < 1000:
+                return 1
+            elif p < 5000:
+                return 5
+            elif p < 10000:
+                return 10
+            elif p < 50000:
+                return 50
+            elif p < 100000:
+                return 100
+            else:
+                return 1000
+
+        tick = _get_tick(raw_price)
+        target_price = max(raw_price - tick * 2, tick)  # 2틱 아래, 음수가 되지 않도록 보정
+
         # 종목 락 설정
         if ticker not in self.locks:
             self.locks[ticker] = asyncio.Lock()
@@ -66,6 +88,18 @@ class KISWebSocket:
         today = now.date()
         current_time = now.time()
         
+        # 매도 시간 범위 설정 (9시-20시)
+        trading_start_time = time(9, 0)  # 오전 9시
+        trading_end_time = time(20, 0)   # 오후 8시
+        
+        # 매도 가능 시간(9시-20시)이 아니면 바로 종료
+        # 불필요한 매도 시도 반복을 방지하기 위해 15분 간격으로만 로깅
+        if current_time < trading_start_time or current_time > trading_end_time:
+            # 10분 단위일 때만 로그 기록 (예: 8:00, 8:10, 8:20...)
+            if current_time.minute % 10 == 0 and current_time.second < 10:
+                print(f"[{now.strftime('%H:%M:%S')}] 거래 시간 외 ({trading_start_time}-{trading_end_time}) - 매도 모니터링만 진행")
+            return False
+            
         # 매도 시간 설정 (15시 10분)
         sell_time = time(15, 10)
         
@@ -103,9 +137,7 @@ class KISWebSocket:
                     if sell_reason:
                         try:
                             # 매도 실행 전 잔고 확인
-                            from api.kis_api import KISApi
-                            kis_api = KISApi()
-                            balance_result = kis_api.balance_inquiry()
+                            balance_result = self.kis_api.balance_inquiry()
                             
                             if not balance_result:
                                 print(f"잔고 조회 실패: {ticker}")
@@ -126,6 +158,22 @@ class KISWebSocket:
                             # 잔고가 없으면 모니터링 중단
                             if not balance_data or int(balance_data.get('hldg_qty', 0)) == 0:
                                 print(f"잔고 없음 - 모니터링 중단: {ticker}")
+                                # 세션 DB에서도 삭제하여 데이터 정합성 유지
+                                try:
+                                    from database.db_manager_upper import DatabaseManager
+                                    with DatabaseManager() as db:
+                                        db.delete_session_one_row(session_id)
+                                except Exception as db_err:
+                                    print(f"[ERROR] 세션 삭제 실패: {db_err}")
+                                    self.slack_logger.send_log(
+                                        level="ERROR",
+                                        message="잔고 없음 세션 삭제 실패",
+                                        context={
+                                            "세션ID": session_id,
+                                            "종목코드": ticker,
+                                            "에러": str(db_err)
+                                        }
+                                    )
                                 self.slack_logger.send_log(
                                     level="INFO",
                                     message="잔고 없음으로 모니터링 중단",
@@ -157,7 +205,25 @@ class KISWebSocket:
                                     }
                                 )
                             
-                            # 1. 매도 주문 실행
+                            # 기존 미체결 매도 주문이 있으면 모두 취소
+                            try:
+                                today_orders = self.kis_api.daily_order_execution_inquiry("")
+                                for od in today_orders.get("output1", []):
+                                    if od.get("pdno") == ticker and od.get("sll_buy_dvsn_cd") == "01":  # 매도 주문
+                                        if int(od.get("rmn_qty", 0)) > 0:
+                                            self.kis_api.cancel_order(od.get("odno"))
+                                            await asyncio.sleep(0.5)
+                            except Exception as cancel_err:
+                                self.slack_logger.send_log(
+                                    level="ERROR",
+                                    message="기존 주문 취소 실패",
+                                    context={
+                                        "종목코드": ticker,
+                                        "에러": str(cancel_err)
+                                    }
+                                )
+
+                            # 1. 매도 주문 실행 (2틱 아래 안전가 주문)
                             if self.callback is not None:
                                 sell_completed = self.callback(session_id, ticker, quantity, target_price)
                             else:
@@ -178,8 +244,33 @@ class KISWebSocket:
                                         **sell_reason
                                     }
                                 )
-                                
-                                # 4. 모니터링 완전 종료
+                                # 3-1. 매도 후 잔고 재확인
+                                try:
+                                    balance_list = self.kis_api.balance_inquiry()
+                                    remaining = next((item for item in balance_list if item.get("pdno") == ticker), None)
+                                    if remaining:
+                                        self.slack_logger.send_log(
+                                            level="CRITICAL",
+                                            message="매도 후 잔고가 남았습니다",
+                                            context={
+                                                "종목코드": ticker,
+                                                "잔여수량": remaining.get("hldg_qty"),
+                                            }
+                                        )
+                                    else:
+                                        self.slack_logger.send_log(
+                                            level="INFO",
+                                            message="매도 완료 및 잔고 없음 확인",
+                                            context={"종목코드": ticker}
+                                        )
+                                except Exception as bal_err:
+                                    self.slack_logger.send_log(
+                                        level="ERROR",
+                                        message="매도 후 잔고 확인 실패",
+                                        context={"종목코드": ticker, "에러": str(bal_err)}
+                                    )
+                                 
+                                 # 4. 모니터링 완전 종료
                                 await self.stop_monitoring(ticker)
                                 return True
                                 
@@ -707,9 +798,9 @@ class KISWebSocket:
         # 새 종목 구독
         await self.subscribe_ticker(ticker)
         
-        # 새 종목에 대한 큐 생성
-        if ticker not in self.ticker_queues:
-            self.ticker_queues[ticker] = asyncio.Queue()
+        # 이벤트 루프별 큐 정합성 보장: 항상 현재 루프에 바인딩된 새 큐 생성
+        # 기존 큐가 다른 루프에 바인딩되어 있을 경우 "다른 event loop" 오류가 발생하므로 새로 생성한다.
+        self.ticker_queues[ticker] = asyncio.Queue()
             
         # 새 종목에 대한 모니터링 태스크 생성
         task = asyncio.create_task(
@@ -727,8 +818,11 @@ class KISWebSocket:
 
     async def _monitor_ticker(self, session_id, ticker, name, quantity, avr_price, target_date):
         """개별 종목 모니터링 및 매도 처리"""
-        # 해당 종목의 전용 큐 생성
-        if ticker not in self.ticker_queues:
+        # 큐가 없거나 다른 루프에 바인딩되어 있으면 새로 생성
+        if (
+            ticker not in self.ticker_queues or
+            getattr(self.ticker_queues[ticker], "_loop", None) is not asyncio.get_running_loop()
+        ):
             self.ticker_queues[ticker] = asyncio.Queue()
 
         #SLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACK
@@ -745,7 +839,10 @@ class KISWebSocket:
             }
         )
         # 모니터링 프로세스 시작
-        while self.is_connected and ticker in self.subscribed_tickers:
+        while True:
+            # 구독이 해제되면 모니터링 종료
+            if ticker not in self.subscribed_tickers:
+                break
             try:
                 try:
                 # 타임아웃을 설정하여 데이터 대기
@@ -764,6 +861,8 @@ class KISWebSocket:
                     self.ticker_queues[ticker].task_done()
 
                 except asyncio.TimeoutError:
+                    # 타임아웃은 데이터 미수신 상태를 나타내며, 네트워크 재연결 대기 동안 자주 발생할 수 있다.
+                    # 웹소켓 연결 여부와 관계없이 계속 루프를 유지하여 재연결을 기다린다.
                     continue
             except asyncio.CancelledError:
                 print(f"{ticker} 모니터링 취소됨")

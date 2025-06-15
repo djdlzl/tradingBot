@@ -15,6 +15,9 @@ BUY_DAY_AGO = 2
 # 매수 횟수(최초 9회였음)
 COUNT = 6
 
+# Slippage buffer to account for possible price increase between quote and execution
+PRICE_BUFFER = 0.01  # 1% buffer added on top of quoted price when calculating buy quantity
+
 
 
 ######################################################
@@ -23,10 +26,10 @@ COUNT = 6
 
 
 #selling_point_1 이상일 때 매도
-SELLING_POINT_UPPER = 1.0
+SELLING_POINT_UPPER = 2.0
 
 #selling_point_1 이상일 때 매도
-RISK_MGMT_UPPER = 0.99
+RISK_MGMT_UPPER = 0.98
 
 # 매도 주문 후 대기 / 초
 SELL_WAIT = 3
@@ -43,15 +46,15 @@ DAYS_LATER = 7 #마지막 매수로부터 4(7-3)일째 매도
 GET_ULS_HOUR = 20
 GET_ULS_MINUTE = 00
 # 종목 중 선별하는 시간
-GET_SELECT_HOUR = 20
-GET_SELECT_MINUTE = 3
+GET_SELECT_HOUR = 8
+GET_SELECT_MINUTE = 50
 
 # 매수 시간 1
-ORDER_HOUR_1 = 9
-ORDER_MINUTE_1 = 5
+ORDER_HOUR_1 = 13
+ORDER_MINUTE_1 = 6
 # 매수 시간 2
 ORDER_HOUR_2 = 10
-ORDER_MINUTE_2 = 30
+ORDER_MINUTE_2 = 40
 # # 매수 시간 3
 ORDER_HOUR_3 = 15
 ORDER_MINUTE_3 = 00
@@ -72,7 +75,7 @@ COUNT_UPPER = 2 # 총 매수 회수 (현재 1일 2회 매수)
 
 SLOT_UPPER = 2 # 매수 종목 개수
 
-BUY_DAY_AGO_UPPER = 2 # DB 상승 종목에서 며칠 전 종목 받아올건지
+BUY_DAY_AGO_UPPER = 3 # DB 상승 종목에서 며칠 전 종목 받아올건지
 
 DAYS_LATER_UPPER = 1 #마지막 매수로부터 +1일
 
