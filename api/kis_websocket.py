@@ -154,14 +154,35 @@ class KISWebSocket:
                     # 매도 조건 충족 시에만 잔고 확인 및 매도 실행
                     if sell_reason:
                         try:
-                            # 매도 실행 전 잔고 확인
-                            balance_result = self.kis_api.balance_inquiry()
+                            # 매도 실행 전 잔고 확인 (최대 3회 재시도)
+                            max_retry = 3
+                            balance_result = None
+                            for attempt in range(1, max_retry + 1):
+                                try:
+                                    balance_result = self.kis_api.balance_inquiry()
+                                    if balance_result:
+                                        break  # 성공적으로 조회됨
+                                except Exception as e:
+                                    # 예외 발생 시 로깅 후 재시도
+                                    self.slack_logger.send_log(
+                                        level="ERROR",
+                                        message="잔고 조회 예외 발생",
+                                        context={
+                                            "세션ID": session_id,
+                                            "종목코드": ticker,
+                                            "attempt": attempt,
+                                            "에러": str(e)
+                                        }
+                                    )
+                                # 조회 실패 → 다음 재시도 전 잠시 대기
+                                if attempt < max_retry:
+                                    await asyncio.sleep(1)
                             
                             if not balance_result:
-                                print(f"잔고 조회 실패: {ticker}")
+                                print(f"잔고 조회 실패(재시도 후): {ticker}")
                                 self.slack_logger.send_log(
                                     level="ERROR",
-                                    message="매도 전 잔고 조회 실패",
+                                    message="매도 전 잔고 조회 실패(재시도 후)",
                                     context={
                                         "세션ID": session_id,
                                         "종목코드": ticker
