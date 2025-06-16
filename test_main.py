@@ -83,6 +83,10 @@ def test():
     date_utils = DateUtils()
     db = DatabaseManager()
 
+    ############# sell logic fix ##################
+    result = kis_api.balance_inquiry()
+    print(result)
+
     ############# DB에 상승종목 저장 ###############
     # main.save_upper_stocks()
 
@@ -135,8 +139,8 @@ def test():
 
 
     # ###### 선별 종목 저장 ######
-    stocks = trading_upper.select_stocks_to_buy()
-    print(stocks)
+    # stocks = trading_upper.select_stocks_to_buy()
+    # print(stocks)
 
 
     # #####상한가 조회#############    

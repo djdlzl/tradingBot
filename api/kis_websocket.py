@@ -154,74 +154,74 @@ class KISWebSocket:
                     # 매도 조건 충족 시에만 잔고 확인 및 매도 실행
                     if sell_reason:
                         try:
-                            # 매도 실행 전 잔고 확인
-                            balance_result = self.kis_api.balance_inquiry()
+                            # # 매도 실행 전 잔고 확인
+                            # balance_result = self.kis_api.balance_inquiry()
                             
-                            if not balance_result:
-                                print(f"잔고 조회 실패: {ticker}")
-                                self.slack_logger.send_log(
-                                    level="ERROR",
-                                    message="매도 전 잔고 조회 실패",
-                                    context={
-                                        "세션ID": session_id,
-                                        "종목코드": ticker
-                                    }
-                                )
-                                # 잔고 조회 실패 시 모니터링 중단
-                                await self.stop_monitoring(ticker)
-                                return True
+                            # if not balance_result:
+                            #     print(f"잔고 조회 실패: {ticker}")
+                            #     self.slack_logger.send_log(
+                            #         level="ERROR",
+                            #         message="매도 전 잔고 조회 실패",
+                            #         context={
+                            #             "세션ID": session_id,
+                            #             "종목코드": ticker
+                            #         }
+                            #     )
+                            #     # 잔고 조회 실패 시 모니터링 중단
+                            #     await self.stop_monitoring(ticker)
+                            #     return True
                             
-                            balance_data = next((item for item in balance_result if item.get('pdno') == ticker), None)
+                            # balance_data = next((item for item in balance_result if item.get('pdno') == ticker), None)
                             
-                            # 잔고가 없으면 모니터링 중단
-                            if not balance_data or int(balance_data.get('hldg_qty', 0)) == 0:
-                                print(f"잔고 없음 - 모니터링 중단: {ticker}")
-                                # 세션 DB에서도 삭제하여 데이터 정합성 유지
-                                try:
-                                    from database.db_manager_upper import DatabaseManager
-                                    with DatabaseManager() as db:
-                                        db.delete_session_one_row(session_id)
-                                except Exception as db_err:
-                                    print(f"[ERROR] 세션 삭제 실패: {db_err}")
-                                    self.slack_logger.send_log(
-                                        level="ERROR",
-                                        message="잔고 없음 세션 삭제 실패",
-                                        context={
-                                            "세션ID": session_id,
-                                            "종목코드": ticker,
-                                            "에러": str(db_err)
-                                        }
-                                    )
-                                self.slack_logger.send_log(
-                                    level="INFO",
-                                    message="잔고 없음으로 모니터링 중단",
-                                    context={
-                                        "세션ID": session_id,
-                                        "종목코드": ticker,
-                                        "종목명": name
-                                    }
-                                )
-                                # 구독 해제 및 모니터링 중단
-                                await self.unsubscribe_ticker(ticker)
-                                await self.stop_monitoring(ticker)
-                                return True
+                            # # 잔고가 없으면 모니터링 중단
+                            # if not balance_data or int(balance_data.get('hldg_qty', 0)) == 0:
+                            #     print(f"잔고 없음 - 모니터링 중단: {ticker}")
+                            #     # 세션 DB에서도 삭제하여 데이터 정합성 유지
+                            #     try:
+                            #         from database.db_manager_upper import DatabaseManager
+                            #         with DatabaseManager() as db:
+                            #             db.delete_session_one_row(session_id)
+                            #     except Exception as db_err:
+                            #         print(f"[ERROR] 세션 삭제 실패: {db_err}")
+                            #         self.slack_logger.send_log(
+                            #             level="ERROR",
+                            #             message="잔고 없음 세션 삭제 실패",
+                            #             context={
+                            #                 "세션ID": session_id,
+                            #                 "종목코드": ticker,
+                            #                 "에러": str(db_err)
+                            #             }
+                            #         )
+                            #     self.slack_logger.send_log(
+                            #         level="INFO",
+                            #         message="잔고 없음으로 모니터링 중단",
+                            #         context={
+                            #             "세션ID": session_id,
+                            #             "종목코드": ticker,
+                            #             "종목명": name
+                            #         }
+                            #     )
+                            #     # 구독 해제 및 모니터링 중단
+                            #     await self.unsubscribe_ticker(ticker)
+                            #     await self.stop_monitoring(ticker)
+                            #     return True
                             
-                            # 실제 보유 수량 확인
-                            actual_quantity = int(balance_data.get('hldg_qty', 0))
-                            if actual_quantity < quantity:
-                                print(f"보유수량 조정 - 요청: {quantity}, 보유: {actual_quantity}")
-                                quantity = actual_quantity  # 실제 보유 수량으로 조정
-                                self.slack_logger.send_log(
-                                    level="WARNING",
-                                    message="매도 수량 조정",
-                                    context={
-                                        "세션ID": session_id,
-                                        "종목코드": ticker,
-                                        "원래수량": quantity,
-                                        "실제보유": actual_quantity,
-                                        "조정수량": quantity
-                                    }
-                                )
+                            # # 실제 보유 수량 확인
+                            # actual_quantity = int(balance_data.get('hldg_qty', 0))
+                            # if actual_quantity < quantity:
+                            #     print(f"보유수량 조정 - 요청: {quantity}, 보유: {actual_quantity}")
+                            #     quantity = actual_quantity  # 실제 보유 수량으로 조정
+                            #     self.slack_logger.send_log(
+                            #         level="WARNING",
+                            #         message="매도 수량 조정",
+                            #         context={
+                            #             "세션ID": session_id,
+                            #             "종목코드": ticker,
+                            #             "원래수량": quantity,
+                            #             "실제보유": actual_quantity,
+                            #             "조정수량": quantity
+                            #         }
+                            #     )
                             
                             # 기존 미체결 매도 주문이 있으면 모두 취소
                             try:
