@@ -395,7 +395,27 @@ class KISApi:
             tr_id_code = "VTTC0801U"
         else:
             raise ValueError("Invalid order type. Must be 'buy' or 'sell'.")  # 추가된 코드: 잘못된 주문 유형 처리
-        
+
+        # --- 주문가능금액 기반 수량 조정 (모의투자 40250000 오류 방지) ---
+        if order_type == 'buy':
+            try:
+                available_cash = self.get_available_cash()
+                price_to_use = price
+                if price_to_use is None:
+                    cur_price, _ = self.get_current_price(ticker)
+                    price_to_use = cur_price if cur_price else 0
+                if available_cash and price_to_use > 0:
+                    max_qty = int(available_cash * 0.99 // price_to_use)  # 1% 여유 확보
+                    if max_qty <= 0:
+                        logging.warning("[place_order] 주문가능금액 부족 – 주문 건너뜀")
+                        return {"rt_cd": "1", "msg_cd": "40250000", "msg1": "모의투자 주문가능금액이 부족합니다."}
+                    if quantity > max_qty:
+                        logging.info("[place_order] 주문 수량 %s → %s (available cash %s)", quantity, max_qty, available_cash)
+                        quantity = max_qty
+            except Exception as e:
+                logging.error("available cash check 실패: %s", e)
+
+
         self._set_headers(is_mock=True, tr_id=tr_id_code)
         url = "https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/order-cash"
         data = {
@@ -532,6 +552,24 @@ class KISApi:
         
         return json_response
     
+    def get_available_cash(self):
+        """현재 주문가능 현금(모의투자 서버 기준)을 정수로 반환합니다. 실패 시 0."""
+        try:
+            resp = self.purchase_availability_inquiry()
+            if not resp:
+                return 0
+            target = None
+            if 'output' in resp and resp['output']:
+                target = resp['output'][0] if isinstance(resp['output'], list) else resp['output']
+            elif 'output1' in resp and resp['output1']:
+                target = resp['output1'][0] if isinstance(resp['output1'], list) else resp['output1']
+            if target:
+                cash_str = target.get('ord_psbl_cash') or target.get('ord_psbl_cash_amt') or '0'
+                return int(str(cash_str).replace(',', ''))
+        except Exception as e:
+            logging.error("get_available_cash error: %s", e)
+        return 0
+
 ######################################################################################
 ################################    잔고 메서드   ###################################
 ######################################################################################
