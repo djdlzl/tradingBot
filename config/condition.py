@@ -26,10 +26,10 @@ PRICE_BUFFER = 0.01  # 1% buffer added on top of quoted price when calculating b
 
 
 #selling_point_1 이상일 때 매도
-SELLING_POINT_UPPER = 2.0
+SELLING_POINT_UPPER = 1.0
 
 #selling_point_1 이상일 때 매도
-RISK_MGMT_UPPER = 0.98
+RISK_MGMT_UPPER = 0.99
 
 # 매도 주문 후 대기 / 초
 SELL_WAIT = 3
@@ -47,14 +47,14 @@ GET_ULS_HOUR = 14
 GET_ULS_MINUTE = 0
 # 종목 중 선별하는 시간
 GET_SELECT_HOUR = 14
-GET_SELECT_MINUTE = 4
+GET_SELECT_MINUTE = 19
 
 # 매수 시간 1
-ORDER_HOUR_1 = 9
-ORDER_MINUTE_1 = 5
+ORDER_HOUR_1 = 14
+ORDER_MINUTE_1 = 22
 # 매수 시간 2
-ORDER_HOUR_2 = 10
-ORDER_MINUTE_2 = 40
+ORDER_HOUR_2 = 14
+ORDER_MINUTE_2 = 27
 # # 매수 시간 3
 ORDER_HOUR_3 = 15
 ORDER_MINUTE_3 = 00
