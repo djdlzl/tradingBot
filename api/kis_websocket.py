@@ -106,15 +106,33 @@ class KISWebSocket:
         # 매도 사유와 조건을 먼저 확인
         sell_reason = None
         
-        # 조건1: 보유기간 만료로 매도
-        if today > target_date and current_time >= sell_time:
-            sell_reason = {
-                "매도사유": "기간만료",
-                "매도목표일": target_date
-            }
+        # target_date가 boolean인지 확인하고 처리
+        if isinstance(target_date, bool):
+            # 타겟데이트가 boolean이면, 우선 매도 조건2, 3으로만 진행하고 조건1은 무시
+            print(f"[경고] {ticker} 타겟데이트가 boolean({target_date})입니다. 기간만료 체크를 건너뜁니다.")
+            # 로그 남기기
+            self.slack_logger.send_log(
+                level="WARNING",
+                message="타겟데이트 형식 오류",
+                context={
+                    "종목코드": ticker,
+                    "타겟데이트타입": str(type(target_date)),
+                    "값": str(target_date)
+                }
+            )
+        else:
+            # 조건1: 보유기간 만료로 매도
+            try:
+                if today > target_date and current_time >= sell_time:
+                    sell_reason = {
+                        "매도사유": "기간만료",
+                        "매도목표일": target_date.strftime('%Y-%m-%d') if hasattr(target_date, 'strftime') else str(target_date)
+                    }
+            except TypeError as e:
+                print(f"[오류] 날짜 비교 실패: {e}, 타겟데이트: {type(target_date)}, 값: {target_date}")
         
         # 조건2: 주가 상승으로 익절
-        elif target_price > (avr_price * SELLING_POINT_UPPER):
+        if target_price > (avr_price * SELLING_POINT_UPPER):
             sell_reason = {
                 "매도사유": "주가 상승: 목표가 도달",
                 "매도가": target_price,
