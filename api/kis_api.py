@@ -600,7 +600,10 @@ class KISApi:
         response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
         json_response = response.json()
         
-        return json_response.get("output1")
+        output1 = json_response.get("output1")
+        if not output1:
+            logging.error("[balance_inquiry] output1가 비어있습니다 - raw response: %s", json.dumps(json_response, ensure_ascii=False, indent=2))
+        return output1
     
 
 ######################################################################################
