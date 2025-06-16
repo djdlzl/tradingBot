@@ -389,31 +389,45 @@ class KISApi:
             dict: 주문 실행 결과를 포함한 딕셔너리
         """
         
-        if order_type == 'buy':
-            tr_id_code = "VTTC0802U"
-        elif order_type == 'sell':
-            tr_id_code = "VTTC0801U"
-        else:
-            raise ValueError("Invalid order type. Must be 'buy' or 'sell'.")  # 추가된 코드: 잘못된 주문 유형 처리
+        # --- 기본 파라미터 검증 ---
+        if not ticker or quantity is None:
+            logging.error("[place_order] 잘못된 주문 파라미터: ticker=%s, quantity=%s", ticker, quantity)
+            return {"rt_cd": "1", "msg_cd": "00010000", "msg1": "잘못된 주문 파라미터"}
 
-        # --- 주문가능금액 기반 수량 조정 (모의투자 40250000 오류 방지) ---
+        quantity = int(quantity)
+        if quantity <= 0:
+            logging.warning("[place_order] 주문 수량이 0 이하입니다. ticker=%s", ticker)
+            return {"rt_cd": "1", "msg_cd": "00010001", "msg1": "주문 수량이 0 이하입니다."}
+
+        # --- 거래 ID 설정 ---
+        tr_id_code = "VTTC0802U" if order_type == 'buy' else "VTTC0801U"
+
+        # --- 시장·지정가 구분 및 가격 선정 ---
+        # price 가 None 이면 시장가, 지정가면 입력값 사용
+        if price is None:
+            price_to_use, _ = self.get_current_price(ticker)
+        else:
+            price_to_use = price
+
+        # --- 매수 시 주문가능금액 기반 수량 조정 ---
         if order_type == 'buy':
             try:
                 available_cash = self.get_available_cash()
-                price_to_use = price
-                if price_to_use is None:
-                    cur_price, _ = self.get_current_price(ticker)
-                    price_to_use = cur_price if cur_price else 0
-                if available_cash and price_to_use > 0:
-                    max_qty = int(available_cash * 0.99 // price_to_use)  # 1% 여유 확보
+                if available_cash <= 0:
+                    logging.warning("[place_order] 주문가능금액 없음 – 주문 건너뜀")
+                    return {"rt_cd": "1", "msg_cd": "40250000", "msg1": "모의투자 주문가능금액이 부족합니다."}
+
+                if price_to_use and price_to_use > 0:
+                    max_qty = int((available_cash * 0.99) // price_to_use)  # 1% 여유 확보
                     if max_qty <= 0:
-                        logging.warning("[place_order] 주문가능금액 부족 – 주문 건너뜀")
                         return {"rt_cd": "1", "msg_cd": "40250000", "msg1": "모의투자 주문가능금액이 부족합니다."}
                     if quantity > max_qty:
-                        logging.info("[place_order] 주문 수량 %s → %s (available cash %s)", quantity, max_qty, available_cash)
+                        logging.info("[place_order] 주문 수량 %s → %s (available_cash=%s)", quantity, max_qty, available_cash)
                         quantity = max_qty
             except Exception as e:
-                logging.error("available cash check 실패: %s", e)
+                logging.error("[place_order] available cash check 실패: %s", e)
+
+        # --- (선택적) 매도 시 보유 수량 초과 방지는 호출 측에서 수행한다. ---
 
 
         self._set_headers(is_mock=True, tr_id=tr_id_code)
@@ -428,8 +442,16 @@ class KISApi:
         }
         self.headers["hashkey"] = None
 
-        response = requests.post(url=url, data=json.dumps(data), headers=self.headers, timeout=10)
-        json_response = response.json()
+        try:
+            response = requests.post(url=url, data=json.dumps(data), headers=self.headers, timeout=10)
+            response.raise_for_status()
+            json_response = response.json()
+        except RequestException as e:
+            logging.error("[place_order] API 호출 실패: %s", e)
+            json_response = {"rt_cd": "1", "msg_cd": "50000000", "msg1": f"API 호출 실패: {e}"}
+        except Exception as e:
+            logging.error("[place_order] 예기치 못한 오류: %s", e)
+            json_response = {"rt_cd": "1", "msg_cd": "50000001", "msg1": f"Unexpected error: {e}"}
 
         return json_response
 
