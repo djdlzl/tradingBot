@@ -188,8 +188,13 @@ class TradingLogic:
             stocks_info = [(stock['mksc_shrn_iscd'], stock['hts_kor_isnm'], stock['stck_prpr'], stock['prdy_ctrt']) for stock in upper_limit_stocks['output']]
             
             # 오늘 날짜 가져오기
-            today = datetime.now().date()  # 현재 날짜와 시간 가져오기 - .date()로 2024-00-00 형태로 변경
-            current_day = self.date_utils.is_business_day(today)
+            today = datetime.now().date()
+            # 영업일 여부 확인 후 날짜 결정
+            if self.date_utils.is_business_day(today):
+                current_day = today
+            else:
+                # 오늘이 영업일이 아니면 가장 가까운 이전 영업일 사용
+                current_day = self.date_utils.get_previous_business_day(datetime.now(), 1)
             
             # 데이터베이스에 저장
             db = DatabaseManager()
@@ -263,8 +268,12 @@ class TradingLogic:
         """
         2개월 전 데이터 삭제
         """
-        today = datetime.now().date() # 현재 날짜와 시간 가져오기
-        current_day = self.date_utils.is_business_day(today)
+        today = datetime.now().date()
+        # 영업일 여부 확인 후 날짜 결정
+        if self.date_utils.is_business_day(today):
+            current_day = today
+        else:
+            current_day = self.date_utils.get_previous_business_day(datetime.now(), 1)
         all_holidays = self.date_utils.get_holidays()
         
         old_data = current_day
