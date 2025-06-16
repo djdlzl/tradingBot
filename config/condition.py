@@ -2,6 +2,20 @@
 트레이딩 조건 설정 파일
 """
 
+import os
+from datetime import time
+
+# 한국거래소(KRX) 장 시작·종료 시간 (환경변수로 덮어쓰기 가능)
+KRX_START_HOUR = int(os.getenv("KRX_START_HOUR", 9))
+KRX_START_MINUTE = int(os.getenv("KRX_START_MINUTE", 0))
+KRX_END_HOUR = int(os.getenv("KRX_END_HOUR", 15))
+KRX_END_MINUTE = int(os.getenv("KRX_END_MINUTE", 20))
+
+KRX_TRADING_START = time(KRX_START_HOUR, KRX_START_MINUTE)
+KRX_TRADING_END = time(KRX_END_HOUR, KRX_END_MINUTE)
+
+# ------------------------------------------------------------------------------
+
 ######################################################
 ####################    매수   ########################
 ######################################################

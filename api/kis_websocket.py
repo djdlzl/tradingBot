@@ -7,7 +7,7 @@ import websockets
 from requests.exceptions import RequestException
 from websockets.exceptions import ConnectionClosed
 from config.config import R_APP_KEY, R_APP_SECRET, M_APP_KEY, M_APP_SECRET
-from config.condition import SELLING_POINT_UPPER, RISK_MGMT_UPPER
+from config.condition import SELLING_POINT_UPPER, RISK_MGMT_UPPER, KRX_TRADING_START, KRX_TRADING_END
 from utils.slack_logger import SlackLogger
 from datetime import datetime, timedelta, time
 from database.db_manager import DatabaseManager
@@ -88,9 +88,9 @@ class KISWebSocket:
         today = now.date()
         current_time = now.time()
         
-        # 매도 시간 범위 설정 (9시-20시)
-        trading_start_time = time(9, 0)  # 오전 9시
-        trading_end_time = time(20, 0)   # 오후 8시
+        # 매도 시간 범위 설정 (한국거래소 기준)
+        trading_start_time = KRX_TRADING_START
+        trading_end_time = KRX_TRADING_END
         
         # 매도 가능 시간(9시-20시)이 아니면 바로 종료
         # 불필요한 매도 시도 반복을 방지하기 위해 15분 간격으로만 로깅
