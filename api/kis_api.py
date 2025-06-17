@@ -432,8 +432,6 @@ class KISApi:
         # --- (선택적) 매도 시 보유 수량 초과 방지는 호출 측에서 수행한다. ---
 
 
-        self._set_headers(is_mock=True, tr_id=tr_id_code)
-        url = "https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/order-cash"
         data = {
             "CANO": M_ACCOUNT_NUMBER,
             "ACNT_PRDT_CD": "01",
@@ -442,20 +440,24 @@ class KISApi:
             "ORD_QTY": str(quantity),
             "ORD_UNPR": "0" if price is None else str(price),
         }
-        self.headers["hashkey"] = None
+        # hashkey 생성 및 헤더 설정
+        self._get_hashkey(data, is_mock=True)
+        self._set_headers(is_mock=True, tr_id=tr_id_code)
+        self.headers["hashkey"] = self.hashkey
+        url = "https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/order-cash"
 
-        try:
-            response = requests.post(url=url, data=json.dumps(data), headers=self.headers, timeout=10)
-            response.raise_for_status()
-            json_response = response.json()
-        except RequestException as e:
-            logging.error("[place_order] API 호출 실패: %s", e)
-            json_response = {"rt_cd": "1", "msg_cd": "50000000", "msg1": f"API 호출 실패: {e}"}
-        except Exception as e:
-            logging.error("[place_order] 예기치 못한 오류: %s", e)
-            json_response = {"rt_cd": "1", "msg_cd": "50000001", "msg1": f"Unexpected error: {e}"}
-
-        return json_response
+        for attempt in range(1, 4):
+            try:
+                with KISApi._global_api_lock:
+                    response = requests.post(url=url, data=json.dumps(data), headers=self.headers, timeout=10)
+                response.raise_for_status()
+                return response.json()
+            except RequestException as e:
+                logging.error("[place_order] API 호출 실패(%s/3): %s", attempt, e)
+                if attempt < 3:
+                    time.sleep(1)
+                    continue
+                return {"rt_cd": "1", "msg_cd": "50000000", "msg1": f"API 호출 실패: {e}"}
 
 
     def sell_order(self, ticker, quantity, price=None):
@@ -470,9 +472,6 @@ class KISApi:
         Returns:
             dict: 주문 실행 결과를 포함한 딕셔너리
         """
-        self._set_headers(is_mock=True, tr_id="VTTC0801U")  # 매도 거래 ID
-        url = "https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/order-cash"
-        
         data = {
             "CANO": M_ACCOUNT_NUMBER,
             "ACNT_PRDT_CD": "01",
@@ -481,12 +480,24 @@ class KISApi:
             "ORD_QTY": str(quantity),
             "ORD_UNPR": "0" if price is None else str(price),
         }
-        self.headers["hashkey"] = None
+        # hashkey 생성 및 헤더 설정
+        self._get_hashkey(data, is_mock=True)
+        self._set_headers(is_mock=True, tr_id="VTTC0801U")  # 매도 거래 ID
+        self.headers["hashkey"] = self.hashkey
+        url = "https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/order-cash"
 
-        response = requests.post(url=url, data=json.dumps(data), headers=self.headers, timeout=10)
-        json_response = response.json()
-
-        return json_response
+        for attempt in range(1, 4):
+            try:
+                with KISApi._global_api_lock:
+                    response = requests.post(url=url, data=json.dumps(data), headers=self.headers, timeout=10)
+                response.raise_for_status()
+                return response.json()
+            except RequestException as e:
+                logging.error("[sell_order] API 호출 실패(%s/3): %s", attempt, e)
+                if attempt < 3:
+                    time.sleep(1)
+                    continue
+                return {"rt_cd": "1", "msg_cd": "50000000", "msg1": f"API 호출 실패: {e}"}
 
 
     def cancel_order(self, order_num):
