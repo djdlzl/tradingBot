@@ -8,11 +8,13 @@ from config.condition import BUY_DAY_AGO
 from datetime import datetime, timedelta
 from database.db_manager import DatabaseManager
 import time
+from threading import Lock
 
 
 
 class KISApi:
     """한국투자증권 API와 상호작용하기 위한 클래스입니다."""
+    _global_api_lock = Lock()  # 전역 API 호출 락
 
     def __init__(self):
         """KISApi 클래스의 인스턴스를 초기화합니다."""
@@ -635,7 +637,7 @@ class KISApi:
 
 
 
-    def balance_inquiry(self):
+    def balance_inquiry(self, max_retries: int = 3, retry_delay: float = 1.0):
 
         # url="https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/trading/inquire-daily-ccld"
         url="https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/inquire-balance"
@@ -653,17 +655,28 @@ class KISApi:
             "CTX_AREA_NK100": "",
         }
                 
-        self._get_hashkey(body, is_mock=True)
-        self._set_headers(is_mock=True, tr_id="VTTC8434R")
-        self.headers["hashkey"] = self.hashkey
-        
-        response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
-        json_response = response.json()
-        
-        output1 = json_response.get("output1")
-        if not output1:
-            logging.error("[balance_inquiry] output1가 비어있습니다 - raw response: %s", json.dumps(json_response, ensure_ascii=False, indent=2))
-        return output1
+        # 재시도 로직 포함
+        for attempt in range(1, max_retries + 1):
+            try:
+                # 전역 락을 사용하여 동시 호출 방지
+                with KISApi._global_api_lock:
+                    self._get_hashkey(body, is_mock=True)
+                    self._set_headers(is_mock=True, tr_id="VTTC8434R")
+                    self.headers["hashkey"] = self.hashkey
+                    response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
+                json_response = response.json()
+                output1 = json_response.get("output1")
+                if output1:
+                    return output1
+                logging.warning("[balance_inquiry] 빈 응답 – 재시도 %s/%s", attempt, max_retries)
+            except RequestException as e:
+                logging.error("[balance_inquiry] 요청 예외 – 재시도 %s/%s: %s", attempt, max_retries, e)
+            except Exception as e:
+                logging.error("[balance_inquiry] 기타 예외 – 재시도 %s/%s: %s", attempt, max_retries, e)
+            if attempt < max_retries:
+                time.sleep(retry_delay)
+        # 모든 재시도 실패 시 빈 리스트 반환
+        return []
     
 
 ######################################################################################
