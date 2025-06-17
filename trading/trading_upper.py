@@ -1354,8 +1354,24 @@ class TradingUpper():
                 })
                 
                 # 매도 주문 전 잔고 확인
-                self.logger.debug("매도 전 잔고 확인 시작", {"종목코드": ticker, "세션ID": session_id})
-                balance_result = self.kis_api.balance_inquiry()
+                # 매도 주문 전 잔고 확인 (직렬화 + 재시도)
+                MAX_BAL_RETRY = 3
+                RETRY_BAL_DELAY = 1  # 초
+                balance_result = None
+                for attempt in range(1, MAX_BAL_RETRY + 1):
+                    with self.api_lock:
+                        balance_result = self.kis_api.balance_inquiry()
+                    if balance_result:
+                        break
+                    # 재시도 로그
+                    self.logger.warning("잔고 조회 실패 - 재시도", {
+                        "세션ID": session_id,
+                        "종목코드": ticker,
+                        "retry": attempt
+                    })
+                    if attempt < MAX_BAL_RETRY:
+                        time.sleep(RETRY_BAL_DELAY)
+                
                 if not balance_result:
                     error_msg = f"잔고 조회 실패: {ticker}"
                     print(error_msg)
@@ -1372,15 +1388,6 @@ class TradingUpper():
                         }
                     )
                     return []
-
-                # 잔고 조회 결과가 None일 경우 대비
-                if not balance_result:
-                    self.logger.warning("잔고 조회 결과 없음(매도 중간 단계)", {
-                        "세션ID": session_id,
-                        "종목코드": ticker,
-                        "retry": 1
-                    })
-                    balance_result = []  # 이후 로직에서 iterable 보장
 
                 balance_data = next((item for item in balance_result if item.get('pdno') == ticker), None)
                 self.logger.debug("매도 전 잔고 최종 확인", {
