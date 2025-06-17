@@ -38,9 +38,13 @@ class KISWebSocket:
         }
         self.active_tasks = {}
         self.slack_logger = SlackLogger()
+        # 수신 전용 태스크 (웹소켓당 하나만 유지)
+        self.receiver_task = None
         self.locks = {}  # 종목별 락 관리
         self.LOCK_TIMEOUT = 10
         self._loop = None  # 이벤트 루프 저장용
+        # recv 동시 호출 방지를 위한 락
+        self.recv_lock = asyncio.Lock()
         # 잔고 확인을 위한 API 인스턴스
         self.kis_api = KISApi()
 
@@ -522,8 +526,9 @@ class KISWebSocket:
             for session_id, ticker, name, qty, price, start_date, target_date in sessions_info:
                 await self.add_new_stock_to_monitoring(session_id, ticker, name, qty, price, start_date, target_date)
             
-            # 단일 웹소켓 수신 처리 시작
-            asyncio.create_task(self._message_receiver())
+            # 단일 웹소켓 수신 처리 시작 (중복 생성 방지)
+            if self.receiver_task is None or self.receiver_task.done():
+                self.receiver_task = asyncio.create_task(self._message_receiver())
             
             # 모든 태스크가 완료될 때까지 대기
             while self.background_tasks:
@@ -625,8 +630,10 @@ class KISWebSocket:
                         
                         # 재연결 후 종목 재구독
                         if self.subscribed_tickers:
-                            print(f"재구독 시도: {list(self.subscribed_tickers)}")
-                            for ticker in list(self.subscribed_tickers):
+                            to_resub = list(self.subscribed_tickers)
+                            self.subscribed_tickers.clear()  # 집합을 비워 실제 재구독 실행
+                            print(f"재구독 시도: {to_resub}")
+                            for ticker in to_resub:
                                 try:
                                     await self.subscribe_ticker(ticker)
                                 except Exception as sub_e:
@@ -643,13 +650,17 @@ class KISWebSocket:
                     self.websocket = None
                     continue
                 
-                # 웹소켓 응답 수신
-                data = await self.websocket.recv()
+                # 웹소켓 응답 수신 (동시 호출 방지)
+                async with self.recv_lock:
+                    data = await self.websocket.recv()
                 # print(f"수신된 원본 데이터: {data}")  # 디버깅용
             
                 #웹소켓 연결상태 체크
                 if '"tr_id":"PINGPONG"' in data:
-                    await self.websocket.pong(data)
+                    try:
+                        await self.websocket.send(data)  # 서버 요구에 따라 그대로 반송
+                    except Exception as e:
+                        print(f"PINGPONG 응답 실패: {e}")
                     continue
 
                 # 구독 성공 메시지 체크
@@ -753,6 +764,15 @@ class KISWebSocket:
                 except (asyncio.CancelledError, Exception) as e:
                     pass
         self.active_tasks.clear()
+        
+        # 메시지 수신 태스크 취소
+        if self.receiver_task and not self.receiver_task.done():
+            self.receiver_task.cancel()
+            try:
+                await self.receiver_task
+            except asyncio.CancelledError:
+                pass
+        self.receiver_task = None
         
         # 웹소켓 연결 종료
         if self.websocket and not self.websocket.closed:
