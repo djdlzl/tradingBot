@@ -1558,6 +1558,7 @@ class TradingUpper():
                 with DatabaseManager() as db:
                     # 세션 정보 조회
                     session_info = db.get_session_by_id(session_id)
+                    time.sleep(2)  # 서버 반영 대기
                     # 잔고·평균단가 재조회(매도 직후 시점)
                     balance_result = self.kis_api.balance_inquiry()
                     if not balance_result:

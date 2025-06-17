@@ -673,8 +673,9 @@ class KISApi:
                 with KISApi._global_api_lock:
                     self._get_hashkey(body, is_mock=True)
                     self._set_headers(is_mock=True, tr_id="VTTC8434R")
-                    self.headers["hashkey"] = self.hashkey
-                    response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
+                    local_headers = self.headers.copy()
+                    local_headers["hashkey"] = self.hashkey
+                    response = requests.get(url=url, headers=local_headers, params=body, timeout=10)
                 json_response = response.json()
                 output1 = json_response.get("output1")
                 if output1:
@@ -686,8 +687,8 @@ class KISApi:
                 logging.error("[balance_inquiry] 기타 예외 – 재시도 %s/%s: %s", attempt, max_retries, e)
             if attempt < max_retries:
                 time.sleep(retry_delay)
-        # 모든 재시도 실패 시 빈 리스트 반환
-        return []
+        # 모든 재시도 실패 시 None 반환
+        return None
     
 
 ######################################################################################

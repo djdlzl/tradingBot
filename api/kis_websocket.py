@@ -165,8 +165,9 @@ class KISWebSocket:
                             balance_result = None
                             for attempt in range(1, max_retry + 1):
                                 try:
+                                    # balance inquiry must not block event loop; run in thread
                                     async with self.api_lock:
-                                        balance_result = self.kis_api.balance_inquiry()
+                                        balance_result = await asyncio.to_thread(self.kis_api.balance_inquiry)
                                     if balance_result:
                                         break  # 성공적으로 조회됨
                                 except Exception as e:
@@ -292,8 +293,9 @@ class KISWebSocket:
                                 )
                                 # 3-1. 매도 후 잔고 재확인
                                 try:
+                                    # balance inquiry must not block event loop; run in thread
                                     async with self.api_lock:
-                                        balance_list = self.kis_api.balance_inquiry()
+                                        balance_list = await asyncio.to_thread(self.kis_api.balance_inquiry)
                                     remaining = next((item for item in balance_list if item.get("pdno") == ticker), None)
                                     if remaining:
                                         self.slack_logger.send_log(
@@ -858,6 +860,10 @@ class KISWebSocket:
 
 
     async def add_new_stock_to_monitoring(self, session_id, ticker, name, qty, price, start_date, target_date):
+        # 기존 모니터링이 있으면 우선 중단해 중복 태스크 방지
+        if ticker in self.active_tasks:
+            await self.stop_monitoring(ticker)
+
         # 새 종목 구독
         await self.subscribe_ticker(ticker)
         
