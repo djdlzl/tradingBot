@@ -1726,8 +1726,10 @@ class TradingUpper():
 
     async def monitor_for_selling_upper(self, sessions_info):
         try:
-            kis_websocket = KISWebSocket(self.sell_order)
-            complete = await kis_websocket.real_time_monitoring(sessions_info)
+            # KISWebSocket 인스턴스 재사용 (중복 연결 방지)
+            if self.kis_websocket is None:
+                self.kis_websocket = KISWebSocket(self.sell_order)
+            complete = await self.kis_websocket.real_time_monitoring(sessions_info)
             print("콜백함수 실행함.")
             if complete:
                 print("모니터링이 정상적으로 종료되었습니다.")

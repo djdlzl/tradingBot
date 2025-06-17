@@ -47,6 +47,8 @@ class KISWebSocket:
         self.recv_lock = asyncio.Lock()
         # 잔고 확인을 위한 API 인스턴스
         self.kis_api = KISApi()
+        # API 호출 동시성 제어 락
+        self.api_lock = asyncio.Lock()
 
 ######################################################################################
 ##################################    매도 로직   #####################################
@@ -163,7 +165,8 @@ class KISWebSocket:
                             balance_result = None
                             for attempt in range(1, max_retry + 1):
                                 try:
-                                    balance_result = self.kis_api.balance_inquiry()
+                                    async with self.api_lock:
+                                        balance_result = self.kis_api.balance_inquiry()
                                     if balance_result:
                                         break  # 성공적으로 조회됨
                                 except Exception as e:
@@ -289,7 +292,8 @@ class KISWebSocket:
                                 )
                                 # 3-1. 매도 후 잔고 재확인
                                 try:
-                                    balance_list = self.kis_api.balance_inquiry()
+                                    async with self.api_lock:
+                                        balance_list = self.kis_api.balance_inquiry()
                                     remaining = next((item for item in balance_list if item.get("pdno") == ticker), None)
                                     if remaining:
                                         self.slack_logger.send_log(
