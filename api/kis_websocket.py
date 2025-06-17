@@ -909,6 +909,15 @@ class KISWebSocket:
         )
         # 모니터링 프로세스 시작
         while True:
+            # 거래시간 체크: 거래시간 외면 모니터링 중단
+            if not self._is_market_open():
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] 거래시간 외 - {ticker} 모니터링 중단")
+                self.slack_logger.send_log(
+                    level="INFO",
+                    message="거래시간 외 모니터링 중단",
+                    context={"종목코드": ticker}
+                )
+                break
             # 구독이 해제되면 모니터링 종료
             if ticker not in self.subscribed_tickers:
                 break
@@ -945,9 +954,10 @@ class KISWebSocket:
     
     def _is_market_open(self):
         """장 운영 시간 체크"""
+        from config.condition import KRX_TRADING_START, KRX_TRADING_END
         now = datetime.now()
-        market_start = now.replace(hour=9, minute=0, second=0)
-        market_end = now.replace(hour=15, minute=30, second=0)
+        market_start = now.replace(hour=KRX_TRADING_START.hour, minute=KRX_TRADING_START.minute, second=0)
+        market_end = now.replace(hour=KRX_TRADING_END.hour, minute=KRX_TRADING_END.minute, second=0)
         
         # 주말 체크
         if now.weekday() >= 5:  # 5: 토요일, 6: 일요일
