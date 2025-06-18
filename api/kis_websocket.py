@@ -493,11 +493,28 @@ class KISWebSocket:
             # 2. 태스크 취소
             if ticker in self.active_tasks:
                 task = self.active_tasks[ticker]
-                task.cancel()
                 try:
-                    await task
-                except asyncio.CancelledError:
-                    pass
+                    # Python 3.7+에서 Task 루프 확인
+                    task_loop = task.get_loop()
+                except AttributeError:
+                    task_loop = self._loop  # Fallback
+                current_loop = asyncio.get_running_loop()
+                if task_loop != current_loop:
+                    # 다른 루프에서 생성된 태스크는 해당 루프에서 안전하게 취소 및 await
+                    def cancel_and_await():
+                        task.cancel()
+                        return asyncio.ensure_future(task)
+                    fut = asyncio.run_coroutine_threadsafe(cancel_and_await(), task_loop)
+                    try:
+                        fut.result()
+                    except Exception:
+                        pass
+                else:
+                    task.cancel()
+                    try:
+                        await task
+                    except asyncio.CancelledError:
+                        pass
                 del self.active_tasks[ticker]
             # 3. 큐 정리
             if ticker in self.ticker_queues:
