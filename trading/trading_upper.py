@@ -465,13 +465,21 @@ class TradingUpper():
     def update_session(self, session, order_results):
         print("\n[DEBUG] ====== update_session 진입 ======")
         print(f"[DEBUG] 세션ID: {session.get('id')}, 주문 결과(order_results): {order_results}")
+
         import time
         MAX_RETRY = 3
-        RETRY_DELAY = 1
+        RETRY_DELAY = 1  # 초
         try:
             with self.session_lock:
                 with DatabaseManager() as db:
-                    # 1. 주문 결과 유효성 검사
+                    # 최신 세션 정보 다시 조회하여 count 동기화
+                    db_session = db.get_session_by_id(session.get('id'))
+                    if db_session:
+                        count = db_session.get('count', 0)
+                    else:
+                        count = session.get('count', 0)
+
+                    # 주문 결과 유효성 검사
                     if not order_results or not isinstance(order_results, (list, tuple)):
                         error_msg = f"유효하지 않은 주문 결과: {order_results}"
                         print(error_msg)
@@ -486,7 +494,7 @@ class TradingUpper():
                         )
                         return
 
-                    # 2. 주문 실패 체크
+                    # 주문 실패 체크
                     if any(result.get('rt_cd') != '0' for result in order_results):
                         error_msg = next(
                             (f"주문 실패: {result.get('msg1')}" 
@@ -506,15 +514,21 @@ class TradingUpper():
                         )
                         return
 
-                    # 3. 주문 체결 정보 재조회 및 누적
                     total_spent_fund = int(session.get('spent_fund', 0))
                     total_quantity = int(session.get('quantity', 0))
+                    current_date = datetime.now()
                     updated = False
+
                     for idx, order_result in enumerate(order_results):
+                        odno = order_result.get('output', {}).get('ODNO')
+                        print(f"[DEBUG] 주문[{idx}] 주문번호: {odno}")
+
                         odno = order_result.get('output', {}).get('ODNO')
                         if not odno:
                             print(f"주문 번호 누락: {order_result.get('msg1')}")
                             continue
+
+                        # 체결 정보 재시도 루프
                         for retry in range(1, MAX_RETRY+1):
                             try:
                                 result = self.kis_api.daily_order_execution_inquiry(odno)
@@ -525,19 +539,22 @@ class TradingUpper():
                                         continue
                                     else:
                                         break
+
                                 real_spent_fund = int(result['output1'][0].get('tot_ccld_amt', 0))
                                 real_quantity = int(result['output1'][0].get('tot_ccld_qty', 0))
-                                if real_quantity <= 0 or real_spent_fund < 0:
-                                    print(f"유효하지 않은 체결 수량/금액: {real_quantity}, {real_spent_fund} (재시도 {retry}/{MAX_RETRY})")
+                                
+                                if real_quantity <= 0 or real_spent_fund <= 0:
+                                    print(f"유효하지 않은 체결 수량 또는 금액: 수량={real_quantity}, 금액={real_spent_fund} (재시도 {retry}/{MAX_RETRY})")
                                     if retry < MAX_RETRY:
                                         time.sleep(RETRY_DELAY)
                                         continue
                                     else:
                                         break
+
                                 total_spent_fund += real_spent_fund
                                 total_quantity += real_quantity
                                 updated = True
-                                break
+                                break  # 성공 시 루프 탈출
                             except Exception as e:
                                 print(f"주문 체결 조회 중 오류: {e} (재시도 {retry}/{MAX_RETRY})")
                                 if retry < MAX_RETRY:
@@ -545,11 +562,20 @@ class TradingUpper():
                                     continue
                                 else:
                                     break
+
                     if not updated:
                         print("유효한 주문 체결 정보가 없습니다. (최대 재시도 후에도 실패)")
+                        self.slack_logger.send_log(
+                            level="ERROR",
+                            message="체결 정보 조회 실패, 세션 미업데이트",
+                            context={
+                                "세션ID": session.get('id'),
+                                "종목코드": session.get('ticker')
+                            }
+                        )
                         return
 
-                    # 4. 매도/매수 후 실제 잔고 재조회 및 DB 동기화
+                    # 잔고 조회 재시도
                     balance_data = None
                     for retry in range(1, MAX_RETRY+1):
                         try:
@@ -561,7 +587,10 @@ class TradingUpper():
                                     continue
                                 else:
                                     break
-                            balance_data = next((item for item in balance_result if item.get('pdno') == session.get('ticker')), None)
+                            balance_data = next(
+                                (item for item in balance_result if item.get('pdno') == session.get('ticker')),
+                                None
+                            )
                             if not balance_data:
                                 print(f"종목 잔고 정보 없음: {session.get('ticker')} (재시도 {retry}/{MAX_RETRY})")
                                 if retry < MAX_RETRY:
@@ -569,7 +598,7 @@ class TradingUpper():
                                     continue
                                 else:
                                     break
-                            break
+                            break  # 성공 시 루프 탈출
                         except Exception as e:
                             print(f"잔고 조회 중 오류: {e} (재시도 {retry}/{MAX_RETRY})")
                             if retry < MAX_RETRY:
@@ -577,15 +606,21 @@ class TradingUpper():
                                 continue
                             else:
                                 break
+                    # balance_data 조회 성공 후 다음 코드를 추가해야 합니다 (약 519줄)
                     if balance_data:
+                        # 잔고 정보에서 실제 값 가져오기
                         actual_quantity = int(balance_data.get('hldg_qty', 0))
                         actual_spent_fund = int(float(balance_data.get('pchs_amt', 0)))
                         actual_avg_price = int(float(balance_data.get('pchs_avg_pric', 0)))
+                        
+                        # 세션 횟수 업데이트
                         count = int(session.get('count', 0)) + 1
+                        
+                        # DB 업데이트
                         db.save_trading_session_upper(
                             session.get('id'),
                             session.get('start_date'),
-                            datetime.now(),
+                            current_date,
                             session.get('ticker'),
                             session.get('name'),
                             session.get('high_price', 0),
@@ -595,25 +630,19 @@ class TradingUpper():
                             actual_avg_price,
                             count
                         )
+                        
                         print(f"[DEBUG] 세션 업데이트 완료: 세션ID={session.get('id')}, 보유수량={actual_quantity}, 사용금액={actual_spent_fund}, 평균가={actual_avg_price}, 거래횟수={count}")
-                        # 5. 수량 0 이하이면 세션 삭제
-                        if actual_quantity <= 0:
-                            print(f"[INFO] 매도/매수 후 세션 수량 0: 세션 삭제 (세션ID: {session.get('id')})")
-                            self.delete_finished_session(session.get('id'))
-                            self.slack_logger.send_log(
-                                level="INFO",
-                                message="거래 후 세션 삭제",
-                                context={"세션ID": session.get('id'), "종목코드": session.get('ticker')}
+                        
+                        # 모니터링 시작
+                        if actual_quantity > 0:
+                            monitoring_thread = threading.Thread(
+                                target=self._run_monitoring_for_session,
+                                args=(session,)
                             )
-                            return
-                        # 6. 남은 수량이 있으면 모니터링 재시작
-                        monitoring_thread = threading.Thread(
-                            target=self._run_monitoring_for_session,
-                            args=(session,)
-                        )
-                        monitoring_thread.start()
-                        print(f"[DEBUG] 모니터링 시작: 세션ID={session.get('id')}, 종목코드={session.get('ticker')}")
-                    else:
+                            monitoring_thread.start()
+                            print(f"[DEBUG] 모니터링 시작: 세션ID={session.get('id')}, 종목코드={session.get('ticker')}")
+                    
+                    elif not balance_data:
                         print("잔고 정보 조회 실패 (최대 재시도 후에도 실패), 세션 미업데이트")
                         self.slack_logger.send_log(
                             level="ERROR",
@@ -629,6 +658,15 @@ class TradingUpper():
                                 "거래횟수": None
                             }
                         )
+    
+                        # 모니터링 시작
+                        if total_quantity > 0:
+                            monitoring_thread = threading.Thread(
+                                target=self._run_monitoring_for_session,
+                                args=(session,)
+                            )
+                            monitoring_thread.start()
+    
         except Exception as e:
             error_msg = f"세션 업데이트 중 심각한 오류: {str(e)}"
             print(error_msg)
@@ -641,6 +679,673 @@ class TradingUpper():
                     "에러": error_msg
                 }
             )
+
+
+    def validate_db_data(self, session, balance_data=None):
+        """실제 보유 정보와 DB를 비교하고 필요시 DB를 업데이트 합니다.
+        
+        Args:
+            session: 검증할 세션 정보
+            balance_data: 잔고 데이터 (None일 경우 API로 조회)
+            
+        Returns:
+            bool: 검증/업데이트 성공 여부
+        """
+        print(f"\n[DEBUG] ====== validate_db_data 진입: 세션ID {session.get('id')} ======")
+        
+        import time
+        MAX_RETRY = 3
+        RETRY_DELAY = 1  # 초
+        price_tolerance = 1  # 평균가격 차이 허용 범위
+        
+        try:
+            with DatabaseManager() as db:
+                # 1. 실제 잔고 정보 조회 (balance_data가 제공되지 않은 경우)
+                if balance_data is None:
+                    for retry in range(1, MAX_RETRY+1):
+                        try:
+                            balance_result = self.kis_api.balance_inquiry()
+                            if not balance_result:
+                                print(f"잔고 조회 실패: 응답 없음 (재시도 {retry}/{MAX_RETRY})")
+                                if retry < MAX_RETRY:
+                                    time.sleep(RETRY_DELAY)
+                                    continue
+                                else:
+                                    break
+                                    
+                            balance_data = next((item for item in balance_result 
+                                            if item.get('pdno') == session.get('ticker')), None)
+                            
+                            if balance_data:
+                                break  # 성공적으로 데이터를 얻으면 루프 탈출
+                                
+                            print(f"종목 잔고 정보 없음: {session.get('ticker')} (재시도 {retry}/{MAX_RETRY})")
+                            if retry < MAX_RETRY:
+                                time.sleep(RETRY_DELAY)
+                                continue
+                            
+                        except Exception as e:
+                            print(f"잔고 조회 중 오류: {e} (재시도 {retry}/{MAX_RETRY})")
+                            if retry < MAX_RETRY:
+                                time.sleep(RETRY_DELAY)
+                                continue
+                            else:
+                                break
+                
+                # 잔고 정보가 없는 경우 처리
+                if balance_data is None:
+                    print(f"최종 잔고 조회 실패: {session.get('ticker')}")
+                    self.slack_logger.send_log(
+                        level="ERROR",
+                        message="잔고 조회 실패로 DB 검증 불가",
+                        context={"세션ID": session.get('id'), "종목코드": session.get('ticker')}
+                    )
+                    return False
+
+                # 2. 실제 보유 정보 파싱
+                actual_quantity = int(balance_data.get('hldg_qty', 0))
+                actual_spent_fund = int(float(balance_data.get('pchs_amt', 0)))
+                actual_avg_price = int(float(balance_data.get('pchs_avg_pric', 0)))
+                
+                print(f"[DEBUG] 실제 잔고 - 수량: {actual_quantity}, 비용: {actual_spent_fund}, 평균가: {actual_avg_price}")
+
+                # 3. DB에서 세션 정보 조회
+                session_data = db.load_trading_session_upper()
+                db_session = next((s for s in session_data if s.get('id') == session.get('id')), None)
+                
+                if db_session is None:
+                    print(f"DB 세션 조회 실패: {session.get('id')}")
+                    return False
+                    
+                print(f"[DEBUG] DB 상태 - 수량: {db_session.get('quantity')}, 비용: {db_session.get('spent_fund')}, 평균가: {db_session.get('avr_price')}, 거래횟수: {db_session.get('count')}")
+
+                # 4. DB와 실제 잔고 비교
+                is_mismatch = (
+                    db_session.get('quantity', 0) != actual_quantity or
+                    db_session.get('spent_fund', 0) != actual_spent_fund or
+                    abs(db_session.get('avr_price', 0) - actual_avg_price) > price_tolerance
+                )
+                
+                # 거래 횟수 업데이트 필요 여부 확인 (새 주문이 들어왔는지 판단)
+                update_count = False
+                if actual_quantity > 0 and actual_quantity != db_session.get('quantity', 0):
+                    update_count = True
+                    
+                # 5. 불일치 시 DB 업데이트
+                if is_mismatch or update_count:
+                    print(f"[DB 업데이트 필요] 세션 ID: {session.get('id')}, 종목: {session.get('name')}")
+                    
+                    # 업데이트할 횟수 계산
+                    count = db_session.get('count', 0)
+                    if update_count:
+                        count += 1
+                        print(f"[DEBUG] 거래 횟수 증가: {db_session.get('count', 0)} -> {count}")
+                    
+                    # DB 업데이트 실행
+                    try:
+                        db.save_trading_session_upper(
+                            session.get('id'), 
+                            db_session.get('start_date'),  # 원본 시작일 유지
+                            datetime.now(),  # 현재 시간으로 업데이트 시간 갱신
+                            session.get('ticker'), 
+                            session.get('name'), 
+                            db_session.get('high_price', 0),  # 원본 고가 유지
+                            db_session.get('fund'),  # 원본 투자금액 유지
+                            actual_spent_fund,  # 실제 사용 금액 갱신
+                            actual_quantity,  # 실제 수량 갱신
+                            actual_avg_price,  # 실제 평균가 갱신
+                            count  # 업데이트된 거래 횟수
+                        )
+                        print("[DB 업데이트 성공] 세션 데이터 갱신 완료")
+                    except Exception as db_error:
+                        print(f"[DB 업데이트 실패] 오류: {db_error}")
+                        self.slack_logger.send_log(
+                            level="ERROR",
+                            message="세션 DB 업데이트 실패",
+                            context={
+                                "세션ID": session.get('id'),
+                                "종목코드": session.get('ticker'),
+                                "에러": str(db_error)
+                            }
+                        )
+                        return False
+
+                    # 로그 기록
+                    self.slack_logger.send_log(
+                        level="INFO",
+                        message="DB 데이터 일치화 수행",
+                        context={
+                            "세션ID": session.get('id'),
+                            "종목명": session.get('name'),
+                            "DB_quantity": db_session.get('quantity'),
+                            "DB_spent_fund": db_session.get('spent_fund'),
+                            "Actual_quantity": actual_quantity,
+                            "Actual_spent_fund": actual_spent_fund,
+                            "거래횟수": count
+                        }
+                    )
+
+                    # 6. 재검증
+                    session_data = db.load_trading_session_upper()
+                    updated_session = next((s for s in session_data if s.get('id') == session.get('id')), None)
+                    
+                    if updated_session and (
+                        updated_session.get('quantity') == actual_quantity and
+                        updated_session.get('spent_fund') == actual_spent_fund and
+                        abs(updated_session.get('avr_price', 0) - actual_avg_price) <= price_tolerance
+                    ):
+                        print("[DB 재검증 성공] 데이터 일치 확인")
+                        return True
+                    else:
+                        print("[DB 재검증 실패] 데이터 불일치 지속")
+                        return False
+                else:
+                    print("[DB 검증 완료] 데이터 일치 - 업데이트 불필요")
+                    return True
+
+        except Exception as e:
+            error_msg = f"[심각한 오류] validate_db_data 실행 중 예외 발생: {e}"
+            print(error_msg)
+            
+            # 로그 기록: 데이터 검증 오류
+            self.logger.log_error("데이터 검증", e, {
+                "세션ID": session.get('id'), 
+                "종목코드": session.get('ticker'),
+                "함수": "validate_db_data"
+            })
+            
+            self.slack_logger.send_log(
+                level="ERROR",
+                message="데이터 검증/업데이트 실패",
+                context={"세션ID": session.get('id'), "종목코드": session.get('ticker'), "에러": str(e)}
+            )
+            return False
+
+    # def validate_db_data(self, session, balance_data=None):
+    #     try:
+    #         db = DatabaseManager()
+            
+    #         if balance_data is None:
+    #             balance_result = self.kis_api.balance_inquiry()
+    #             balance_data = next((item for item in balance_result if item.get('pdno') == session.get('ticker')), None)
+    #             if balance_data is None:
+    #                 print(f"잔고 조회 실패: {session.get('ticker')}")
+    #                 db.close()
+    #                 return False
+
+    #         actual_quantity = int(balance_data.get('hldg_qty'))
+    #         actual_spent_fund = int(float(balance_data.get('pchs_amt')))
+    #         actual_avg_price = int(float(balance_data.get('pchs_avg_pric')))
+
+    #         session_data = db.load_trading_session_upper()
+    #         db_session = next((s for s in session_data if s.get('id') == session.get('id')), None)
+    #         if db_session is None:
+    #             print(f"DB 세션 조회 실패: {session.get('id')}")
+    #             db.close()
+    #             return False
+
+    #         # db_session이 딕셔너리 타입인지 확인
+    #         if not isinstance(db_session, dict):
+    #             print(f"DB 세션이 올바른 형식이 아닙니다: {type(db_session)}")
+    #             db.close()
+    #             return False
+
+    #         # avr_price 비교 시 허용 오차 추가
+    #         price_tolerance = 1  # 1원 이내 차이는 무시
+    #         if (db_session.get('quantity', 0) != actual_quantity or 
+    #             db_session['spent_fund'] != actual_spent_fund or
+    #             abs(db_session['avr_price'] - actual_avg_price) > price_tolerance):
+    #             print(f"DB 데이터 불일치 감지: {session.get('ticker')}")
+    #             print(f"DB - quantity: {db_session['quantity']}, spent_fund: {db_session['spent_fund']}, avr_price: {db_session['avr_price']}")
+    #             print(f"Actual - quantity: {actual_quantity}, spent_fund: {actual_spent_fund}, avr_price: {actual_avg_price}")
+
+    #             db.save_trading_session_upper(
+    #                 session.get('id'),
+    #                 session.get('start_date'),
+    #                 datetime.now(),
+    #                 session.get('ticker'),
+    #                 session.get('name'),
+    #                 session.get('high_price', 0),
+    #                 session.get('fund'),
+    #                 actual_spent_fund,
+    #                 actual_quantity,
+    #                 actual_avg_price,
+    #                 session.get('count')
+    #             )
+
+    #             self.slack_logger.send_log(
+    #                 level="WARNING",
+    #                 message="DB 데이터 불일치 수정",
+    #                 context={
+    #                     "세션ID": session.get('id'),
+    #                     "종목명": session.get('name'),
+    #                     "DB_quantity": db_session['quantity'],
+    #                     "DB_spent_fund": db_session['spent_fund'],
+    #                     "Actual_quantity": actual_quantity,
+    #                     "Actual_spent_fund": actual_spent_fund
+    #                 }
+    #             )
+
+    #         db.close()
+    #         return True
+
+    #     except Exception as e:
+    #         print(f"validate_db_data 중 에러 발생: {e}")
+    #         db.close()
+    #         return False
+
+
+    def generate_random_id(self, min_value=1000, max_value=9999, exclude=None):
+        """
+        아이디값 랜덤 생성
+        """
+        if exclude is None:
+            exclude = []
+        
+        # 제외할 숫자를 집합으로 변환하여 빠른 검색을 가능하게 함
+        exclude_set = set(exclude)
+        
+        while True:
+            random_id = random.randint(min_value, max_value)  # 랜덤 숫자 생성
+            if random_id not in exclude_set:  # 제외할 숫자가 아닐 경우
+                return random_id  # 유효한 랜덤 숫자 반환
+
+
+    def calculate_funds(self, slot):
+        try:
+            data = self.kis_api.purchase_availability_inquiry()
+            balance = float(data.get('output', {}).get('nrcvb_buy_amt', 0))
+            print('calculate_funds - 가용 가능 현금: ', balance)
+
+            rest_fund = 0
+            with DatabaseManager() as db:
+                sessions = db.load_trading_session_upper()
+                for session in sessions:
+                    fund = session.get('fund', 0)
+                    spent_fund = session.get('spent_fund', 0)
+                    rest_fund += int(fund) - int(spent_fund)
+                    print("rest_fund:--", rest_fund)
+
+            available = max(balance - rest_fund, 0)
+            if slot <= 0:
+                print("calculate_funds - 슬롯이 0 이하입니다.")
+                return 0
+
+            if slot == 1:
+                allocated_funds = available
+                print("slot==1 실행")
+            elif slot == 2:
+                allocated_funds = available / 2
+                print("slot==2 실행")
+            else:
+                allocated_funds = 0
+                print("slot>2 실행")
+            
+            if allocated_funds <= 0:
+                print("calculate_funds - 할당 가능한 자금이 없습니다.")
+                return 0
+
+            print("calculate_funds - allocated_funds: ", allocated_funds)
+            return int(allocated_funds)
+
+        except Exception as e:
+            print(f"Error allocating funds: {e}")
+            self.slack_logger.send_log(
+                level="ERROR",
+                message="자금 할당 실패",
+                context={"에러": str(e)}
+            )
+            return 0
+
+
+    def allocate_stock(self):
+        """
+        세션에 거래할 종목을 할당
+        """
+        db = DatabaseManager()
+
+        try:
+            # selected_stocks에서 첫 번째 종목 가져오기
+            selected_stock = db.get_selected_stocks()  # selected_stocks 조회
+            if selected_stock is not None:
+                db.delete_selected_stock_by_no(selected_stock['no'])  # no로 삭제 
+                db.close()
+                return selected_stock
+            else:
+                db.close()
+                return None
+            
+        except Exception as e:
+            print(f"Error allocating funds: {e}")
+            return None
+
+
+######################################################################################
+################################    거래량   ##########################################
+######################################################################################
+
+    def get_volume_check(self, ticker):
+        volumes = self.kis_api.get_stock_volume(ticker)
+
+        # 거래량 비교
+        diff_1_2, diff_2_3 = self.kis_api.compare_volumes(volumes)
+        
+        if diff_1_2 > -80:
+            return True
+        else:
+            return False
+        
+        
+        
+    def check_listing_date(self, ticker):
+        result = self.kis_api.get_basic_stock_info(ticker)
+        
+        scts_date = result.get('output').get('scts_mket_lstg_dt')
+        kosdaq_date = result.get('output').get('kosdaq_mket_lstg_dt')
+        
+        # 유효한 날짜 선택 (빈 문자열이 아닌 것)
+        listing_date = scts_date if scts_date and scts_date.strip() else kosdaq_date
+        
+        if listing_date and listing_date.strip():  # 유효한 날짜 문자열인지 확인
+            listing_date_dt = datetime.strptime(listing_date, '%Y%m%d')
+            threshold_date = datetime.now() - timedelta(days=300)
+            return listing_date_dt < threshold_date
+        return False
+    
+######################################################################################
+################################    매수/매도   ##########################################
+######################################################################################
+    
+    def handle_unfilled_order(self, order_result: Dict, ticker: str, quantity: int, order_type: str, wait_time: float) -> List[Dict]:
+            """
+            미체결 주문을 반복적으로 처리합니다. 재주문 과정에서 동일한 오류로 인해
+            무한 루프가 발생하지 않도록 최대 재시도 횟수를 두어 제어합니다.
+
+            Args:
+                order_result: 최초 주문 결과
+                ticker: 종목 코드
+                quantity: 최초 주문 수량(로깅용)
+                order_type: 'buy' 또는 'sell'
+                wait_time: 주문 후 대기 시간(sec)
+
+            Returns:
+                List[Dict]: (재)주문 결과 목록
+            """
+            order_results: List[Dict] = [order_result]
+
+            # 최초 미체결 수량 확인
+            unfilled_qty: int = self.order_complete_check(order_result)
+            if unfilled_qty <= 0:
+                return order_results
+
+            MAX_TOTAL_ATTEMPT = 5      # 전체 재주문 시도 횟수 제한
+            MAX_API_RETRY = 3          # cancel / place API 호출 재시도 횟수
+            attempt = 0
+
+            # ----- 헬퍼: 호가 단위 계산 -----
+            def _get_tick_size(price: int) -> int:
+                """한국거래소 호가단위 규칙에 따라 1틱 크기를 반환"""
+                if price < 1000:
+                    return 1
+                elif price < 5000:
+                    return 5
+                elif price < 10000:
+                    return 10
+                elif price < 50000:
+                    return 50
+                elif price < 100000:
+                    return 100
+                elif price < 500000:
+                    return 500
+                else:
+                    return 1000
+
+            while unfilled_qty > 0 and attempt < MAX_TOTAL_ATTEMPT:
+                attempt += 1
+                
+                ###############################
+                # 1) 기존 주문 취소
+                ###############################
+                cancel_success = False
+                for _ in range(MAX_API_RETRY):
+                    cancel_result = self.kis_api.cancel_order(order_result.get('output', {}).get('ODNO'))
+                    self.logger.debug("주문 취소 시도", {"ticker": ticker, "result": cancel_result})
+                    if cancel_result.get('rt_cd') == '0':
+                        cancel_success = True
+                        break
+                    # 초당 거래건수 초과 등 속도 제한 처리
+                    time.sleep(1)
+
+                if not cancel_success:
+                    # 취소 실패가 지속되면 재주문 로직을 중단하고 종료 (무한 루프 방지)
+                    self.slack_logger.send_log(
+                        level="ERROR",
+                        message="주문 취소 반복 실패 – 미체결 주문 처리 중단",
+                        context={"종목코드": ticker, "미체결": unfilled_qty, "order_type": order_type}
+                    )
+                    break
+
+                ###############################
+                # 2) 미체결 수량 재주문 (시장가 → 현재가 + 1틱 지정가)
+                ###############################
+                re_order_success = False
+                new_order_result: Dict = {}
+                for _ in range(MAX_API_RETRY):
+                    if order_type == 'buy':
+                        # 현재가 조회 및 유동성 / 거래정지 체크
+                        cur_price, trade_halt = self.kis_api.get_current_price(ticker)
+                        if cur_price is None or trade_halt:
+                            self.slack_logger.send_log(
+                                level="WARNING",
+                                message="현재가 조회 실패 또는 거래정지 – 재주문 중단",
+                                context={"종목코드": ticker}
+                            )
+                            return order_results
+                        safe_price = cur_price + _get_tick_size(cur_price)
+                        new_order_result = self.kis_api.place_order(
+                            ticker,
+                            unfilled_qty,
+                            order_type=order_type,
+                            price=safe_price
+                        )
+                    else:
+                        # 매도의 경우 기존 로직 유지 (시장가/지정가 호출 시 price None 처리)
+                        new_order_result = self.kis_api.place_order(ticker, unfilled_qty, order_type=order_type)
+
+                    # 오류 코드 처리
+                    if new_order_result.get('rt_cd') == '1':
+                        msg_cd = new_order_result.get('msg_cd')
+                        msg1 = new_order_result.get('msg1')
+                        # 잔고 부족/없음, 속도 제한 등
+                        if msg_cd in {'40240000', '40310000'}:
+                            self.slack_logger.send_log(
+                                level="WARNING",
+                                message="재주문 불가 오류 – 처리 중단",
+                                context={"종목코드": ticker, "msg_cd": msg_cd, "msg": msg1}
+                            )
+                            return order_results
+                        time.sleep(1)
+                        continue
+
+                    # 정상 접수(rt_cd == '0')
+                    re_order_success = True
+                    break
+
+                order_results.append(new_order_result)
+
+                # 재주문 성공 여부 확인 후 처리
+                if not re_order_success:
+                    self.slack_logger.send_log(
+                        level="ERROR",
+                        message="재주문 반복 실패 – 미체결 주문 처리 중단",
+                        context={"종목코드": ticker, "미체결": unfilled_qty, "order_type": order_type}
+                    )
+                    break
+
+                # 다음 루프를 위한 준비
+                order_result = new_order_result
+                time.sleep(wait_time)
+                unfilled_qty = self.order_complete_check(order_result)
+
+            if unfilled_qty > 0:
+                # 최대 시도 후에도 미체결 수량이 남아 있으면 경고
+                self.slack_logger.send_log(
+                    level="WARNING",
+                    message="재주문 시도 종료 – 미체결 수량 잔존",
+                    context={"종목코드": ticker, "남은수량": unfilled_qty, "order_type": order_type, "시도횟수": attempt}
+                )
+
+            return order_results
+
+    def order_complete_check(self, order_result: Dict) -> int:
+        """주문 체결 여부를 확인하고 미체결 수량을 반환합니다."""
+        try:
+            order_num = order_result.get('output', {}).get('ODNO')
+            if not order_num:
+                return 0
+
+            conclusion_result = self.kis_api.daily_order_execution_inquiry(order_num)
+            unfilled_qty = int(conclusion_result.get('output1', [{}])[0].get('rmn_qty', 0))
+            return unfilled_qty
+        except Exception as e:
+            # 실패 시 0으로 간주하여 무한 루프 방지
+            self.slack_logger.send_log(
+                level="ERROR",
+                message="주문 체결 확인 실패",
+                context={"주문번호": order_result.get('output', {}).get('ODNO'), "에러": str(e)}
+            )
+            return 0
+
+    def buy_order(self, ticker: str, quantity: int) -> List[Dict]:
+        """
+        주식 매수 주문을 실행하고, 미체결 주문이 있으면 취소 후 재주문.
+
+        Args:
+            ticker: 종목 코드
+            quantity: 주문 수량
+
+        Returns:
+            List[Dict]: 모든 주문 결과 리스트
+        """
+        order_results = []
+        order_odnos = set()
+        try:
+            # 로그 기록: 매수 주문 시작
+            self.logger.log_order("매수", ticker, quantity, context={"주문시작": "true"})
+            self.slack_logger.send_log(
+                level="INFO",
+                message="매수 주문 시작",
+                context={"종목코드": ticker, "주문수량": quantity, "주문타입": "매수"}
+            )
+
+            with self.api_lock:
+                while True:
+                    # 로그 기록: API 호출
+                    self.logger.debug(f"KIS API 매수 주문 호출", {"ticker": ticker, "quantity": quantity})
+                    order_result = self.kis_api.place_order(ticker, quantity, order_type='buy')
+                    print("place_order_session: 주문 실행", ticker, order_result)
+                    
+                    # 로그 기록: API 응답 결과
+                    self.logger.debug(f"KIS API 매수 주문 응답", {
+                        "ticker": ticker,
+                        "rt_cd": order_result.get('rt_cd'),
+                        "msg": order_result.get('msg1')
+                    })
+                    
+                    if order_result['msg1'] == '초당 거래건수를 초과하였습니다.':
+                        self.logger.warning("초당 거래건수 초과로 재시도", {"ticker": ticker})
+                        time.sleep(1)
+                        continue
+                    if order_result['msg1'] == '모의투자 주문처리가 안되었습니다(매매불가 종목)':
+                        self.logger.warning("매매불가 종목으로 세션 생성 후 재시도", {"ticker": ticker})
+                        db = DatabaseManager()
+                        self.add_new_trading_session(1)
+                        sessions = db.load_trading_session_upper()
+                        session = sessions[-1]
+                        order_result = self.place_order_session_upper(session)
+                        db.close()
+                    odno = order_result.get('output', {}).get('ODNO')
+                    if odno is not None and odno not in order_odnos:
+                        order_results.append(order_result)
+                        order_odnos.add(odno)
+                    break
+
+            if order_result.get('rt_cd') == '1':
+                error_context = {
+                    "종목코드": ticker,
+                    "주문번호": order_result.get('output', {}).get('ODNO'),
+                    "상태코드": order_result.get('rt_cd'),
+                    "메시지": order_result.get('msg1')
+                }
+                self.logger.error(f"매수 주문 실패", error_context)
+                self.slack_logger.send_log(
+                    level="ERROR",
+                    message="매수 주문 결과",
+                    context={
+                        "종목코드": ticker,
+                        "주문번호": order_result.get('output', {}).get('ODNO'),
+                        "상태": "실패",
+                        "메시지": order_result.get('msg1')
+                    }
+                )
+                print("buy_order - ERROR order_results 값: ", order_results)
+                return order_results
+
+            self.logger.info(f"매수 주문 대기 시작", {"ticker": ticker, "wait_time": BUY_WAIT})
+            time.sleep(BUY_WAIT)
+            
+            # 주문 완료 체크
+            unfilled_qty = self.order_complete_check(order_result)
+            self.logger.info(f"매수 주문 미체결 수량 확인", {"ticker": ticker, "unfilled": unfilled_qty})
+            
+            if unfilled_qty == 0:
+                self.logger.info(f"매수 주문 전체 체결 완료", {"ticker": ticker})
+                return order_results
+            
+            print("buy_order - order_results 형식 확인", order_results)
+            
+            # 미체결 주문 처리
+            self.logger.info(f"매수 미체결 주문 처리 시작", {"ticker": ticker, "unfilled": unfilled_qty})
+            # 미체결 주문 처리 결과 중 중복 주문번호 제거
+            extra_results = self.handle_unfilled_order(order_result, ticker, quantity, 'buy', BUY_WAIT)
+            for res in extra_results:
+                odno = res.get('output', {}).get('ODNO')
+                if odno is not None and odno not in order_odnos:
+                    order_results.append(res)
+                    order_odnos.add(odno)
+            print("buy_order - extend 후 order_results 형식 확인", order_results)
+
+            # 최종 주문 결과
+            success_context = {
+                "종목코드": ticker, 
+                "주문번호": order_results[-1].get('output', {}).get('ODNO'),
+                "메시지": order_results[-1].get('msg1')
+            }
+            self.logger.info(f"매수 주문 최종 결과: 성공", success_context)
+            self.slack_logger.send_log(
+                level="INFO",
+                message="매수 주문 결과",
+                context={
+                    "종목코드": ticker,
+                    "주문번호": order_results[-1].get('output', {}).get('ODNO'),
+                    "상태": "성공",
+                    "메시지": order_results[-1].get('msg1')
+                }
+            )
+
+            return order_results
+
+        except Exception as e:
+            # 예외 발생 로깅
+            error_msg = f"buy_order 중 에러 발생 : {e}"
+            print(error_msg)
+            self.logger.log_error("매수 주문", e, {"ticker": ticker, "quantity": quantity})
+            self.slack_logger.send_log(
+                level="ERROR",
+                message="매수 주문 실패",
+                context={"종목코드": ticker, "에러": str(e)}
+            )
+            return order_results
 
 
     def sell_order(self, session_id: int, ticker: str, quantity: int, price: Optional[int] = None) -> List[Dict]:
@@ -737,7 +1442,7 @@ class TradingUpper():
                     )
                     return []
                 
-                # 실제 보유 수량 확인 및 방어적 동기화
+                # 실제 보유 수량 확인
                 actual_quantity = int(balance_data.get('hldg_qty', 0))
                 self.logger.info("매도 수량 확인", {
                     "세션ID": session_id,
@@ -745,53 +1450,20 @@ class TradingUpper():
                     "요청수량": quantity,
                     "실제보유": actual_quantity
                 })
-
-                # DB 세션 동기화: 실제 잔고와 DB 세션 수량이 다르면 DB를 동기화
-                with self.session_lock:
-                    with DatabaseManager() as db:
-                        db_session = db.get_session_by_id(session_id)
-                        if db_session and db_session.get('quantity', 0) != actual_quantity:
-                            db.save_trading_session_upper(
-                                session_id,
-                                db_session.get('start_date'),
-                                datetime.now(),
-                                ticker,
-                                db_session.get('name'),
-                                db_session.get('high_price', 0),
-                                db_session.get('fund'),
-                                db_session.get('spent_fund', 0),
-                                actual_quantity,
-                                db_session.get('avr_price', 0),
-                                db_session.get('count', 0)
-                            )
-                            self.logger.info("DB 세션 수량 동기화", {
-                                "세션ID": session_id,
-                                "종목코드": ticker,
-                                "DB수량": db_session.get('quantity', 0),
-                                "실제수량": actual_quantity
-                            })
-
-                # 매도 주문 전 수량 0 이하 방어
-                if actual_quantity <= 0 or quantity is None or quantity <= 0:
-                    self.delete_finished_session(session_id)
-                    self.slack_logger.send_log(
-                        level="INFO",
-                        message="매도 주문수량 0: 세션 삭제",
-                        context={"세션ID": session_id, "종목코드": ticker, "요청수량": quantity, "실제보유": actual_quantity}
-                    )
-                    return []
-
+                
                 if actual_quantity < quantity:
                     warning_msg = f"보유수량 부족 - 요청: {quantity}, 보유: {actual_quantity}"
                     print(warning_msg)
+                    
                     # 수량 조정 로깅
                     self.logger.warning("매도 수량 자동 조정", {
                         "세션ID": session_id,
                         "종목코드": ticker,
                         "원래수량": quantity,
-                        "실제보유": actual_quantity,
+                        "실제보유": actual_quantity, 
                         "조정후": actual_quantity
                     })
+                    
                     quantity = actual_quantity  # 실제 보유 수량으로 조정
                     self.slack_logger.send_log(
                         level="WARNING",
@@ -1051,6 +1723,26 @@ class TradingUpper():
                             )
                     
                     break
+
+                # === [보강] 매도 주문 후 잔고 재확인 및 세션 row 삭제 로직 ===
+                try:
+                    with self.api_lock:
+                        final_balance_result = self.kis_api.balance_inquiry()
+                    final_balance_data = next((item for item in final_balance_result if item.get('pdno') == ticker), None)
+                    if not final_balance_data or int(final_balance_data.get('hldg_qty', 0)) == 0:
+                        self.delete_finished_session(session_id)
+                        self.logger.info("[보강] 매도 후 잔고 0 - 세션 row 삭제", {"세션ID": session_id, "종목코드": ticker})
+                        self.slack_logger.send_log(
+                            level="INFO",
+                            message="[보강] 매도 후 잔고 0으로 세션 row 삭제",
+                            context={"세션ID": session_id, "종목코드": ticker}
+                        )
+                except Exception as e:
+                    self.logger.error(f"[보강] 매도 후 잔고 확인/세션 삭제 중 예외: {e}", {"세션ID": session_id, "종목코드": ticker})
+                    self.slack_logger.send_log(
+                        level="ERROR",
+                        message="[보강] 매도 후 잔고 확인/세션 삭제 중 예외",
+                        context={"세션ID": session_id, "종목코드": ticker, "에러": str(e)})
 
                 return order_results
 
