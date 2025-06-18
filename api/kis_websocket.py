@@ -27,6 +27,11 @@ class KISWebSocket:
         self.websocket = None
         self.subscribed_tickers = set()
         self.ticker_queues = {}
+        # 현재 루프 저장 (생성 시점 루프)
+        try:
+            self._loop = asyncio.get_running_loop()
+        except RuntimeError:
+            self._loop = asyncio.get_event_loop()
         self.message_queue = asyncio.Queue()
         self.is_connected = False
         self.approval_key = None
@@ -38,16 +43,11 @@ class KISWebSocket:
         }
         self.active_tasks = {}
         self.slack_logger = SlackLogger()
-        # 수신 전용 태스크 (웹소켓당 하나만 유지)
         self.receiver_task = None
-        self.locks = {}  # 종목별 락 관리
+        self.locks = {}
         self.LOCK_TIMEOUT = 10
-        self._loop = None  # 이벤트 루프 저장용
-        # recv 동시 호출 방지를 위한 락
         self.recv_lock = asyncio.Lock()
-        # 잔고 확인을 위한 API 인스턴스
         self.kis_api = KISApi()
-        # API 호출 동시성 제어 락
         self.api_lock = asyncio.Lock()
 
 ######################################################################################
@@ -356,90 +356,6 @@ class KISWebSocket:
             if ticker in self.locks:
                 if not self.locks[ticker].locked():
                     del self.locks[ticker]
-                    
-############################  코드 백업  ##############################
-    # async def sell_condition(self, recvvalue, session_id, ticker, quantity, avr_price, target_date): # 실제 거래 시간에 값이 받아와지는지 확인 필요
-
-    #     # print("sell_condition: ",recvvalue)
-        
-    #     # 구독 성공 메시지 체크
-    #     if len(recvvalue) == 1 and "SUBSCRIBE SUCCESS" in recvvalue[0]:
-    #         # print("sell_condition - Subscription successful")
-    #         return False
-        
-    #     try:
-    #         # 매도 목표가 정하기
-    #         target_price = int(recvvalue[15])
-                       
-    #     except Exception as e:
-    #         # print("recvvalue 데이터 없음", e)
-    #         return False
-        
-    #     today = datetime.now().date()
-             
-             
-    #     # 조건1: 보유기간 만료로 매도
-    #     if today > target_date:
-    #         sell_completed = await self.callback(session_id, ticker, quantity, target_price)
-            
-    #         # 매도 실행 로그
-    #         self.slack_logger.send_log(
-    #             level="WARNING",
-    #             message="매도 조건 충족",
-    #             context={
-    #                 "종목코드": ticker,
-    #                 "매도목표일": target_date,
-    #                 "매도사유": "기간만료"
-    #             }
-    #         )
-            
-    #         # 매도 발생 시
-    #         await self.stop_monitoring(ticker)  # 해당 종목만 모니터링 중단
-            
-    #     # 조건2: 주가 상승으로 익절
-    #     if target_price > (avr_price * SELLING_POINT_UPPER):
-    #         sell_completed = await self.callback(session_id, ticker, quantity, target_price)
-
-    #         # 매도 실행 로그
-    #         self.slack_logger.send_log(
-    #             level="WARNING",
-    #             message="매도 조건 충족",
-    #             context={
-    #                 "종목코드": ticker,
-    #                 "매도가": target_price,
-    #                 "매도조건가": avr_price * SELLING_POINT_UPPER,
-    #                 "매도사유": "주가 상승: 목표가 도달"
-    #             }
-    #         )
-
-    #         # 매도 발생 시
-    #         await self.stop_monitoring(ticker)  # 해당 종목만 모니터링 중단
-            
-    #     # 조건3: 리스크 관리차 매도
-    #     if target_price < (avr_price * RISK_MGMT_UPPER):
-    #         sell_completed = await self.callback(session_id, ticker, quantity, target_price)
-
-    #         # 매도 실행 로그
-    #         self.slack_logger.send_log(
-    #             level="WARNING",
-    #             message="매도 조건 충족",
-    #             context={
-    #                 "종목코드": ticker,
-    #                 "매도가": target_price,
-    #                 "매도조건가": avr_price * RISK_MGMT_UPPER,
-    #                 "매도사유": "주가 하락: 리스크 관리차 매도"
-    #             }
-    #         )
-            
-    #         # 매도 발생 시
-    #         await self.stop_monitoring(ticker)  # 해당 종목만 모니터링 중단
-            
-    #         # print("매도 : ", sell_completed)
-    #         return True
-    #     else:
-    #         # print("매도 조건 불일치")
-    #         return False
-
 
 ######################################################################################
 ##############################    인증 관련 메서드   #####################################
@@ -558,12 +474,22 @@ class KISWebSocket:
 
 
     async def stop_monitoring(self, ticker):
-        """특정 종목의 모니터링만 중단"""
+        """특정 종목의 모니터링만 중단 (루프 일치 보장)"""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = self._loop
+        if loop != self._loop:
+            fut = asyncio.run_coroutine_threadsafe(self._stop_monitoring_internal(ticker), self._loop)
+            fut.result()
+            return
+        await self._stop_monitoring_internal(ticker)
+
+    async def _stop_monitoring_internal(self, ticker):
         try:
             # 1. 구독 해제
             if ticker in self.subscribed_tickers:
                 await self.unsubscribe_ticker(ticker)
-            
             # 2. 태스크 취소
             if ticker in self.active_tasks:
                 task = self.active_tasks[ticker]
@@ -573,27 +499,18 @@ class KISWebSocket:
                 except asyncio.CancelledError:
                     pass
                 del self.active_tasks[ticker]
-                
             # 3. 큐 정리
             if ticker in self.ticker_queues:
-                while not self.ticker_queues[ticker].empty():
-                    try:
-                        self.ticker_queues[ticker].get_nowait()
-                    except asyncio.QueueEmpty:
-                        break
                 del self.ticker_queues[ticker]
-                
             # 4. 락 정리
             if hasattr(self, 'locks') and ticker in self.locks:
                 if not self.locks[ticker].locked():
                     del self.locks[ticker]
-                    
             self.slack_logger.send_log(
                 level="INFO",
                 message=f"{ticker} 모니터링 중단 완료",
                 context={"종목코드": ticker}
             )
-                
         except Exception as e:
             self.slack_logger.send_log(
                 level="ERROR",
@@ -758,7 +675,19 @@ class KISWebSocket:
             self.websocket = None
 
     async def close(self):
-        """웹소켓 연결 종료"""
+        """웹소켓 연결 종료 (루프 일치 보장)"""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = self._loop
+        if loop != self._loop:
+            # 다른 루프에서 호출 시 안전하게 run_coroutine_threadsafe 사용
+            fut = asyncio.run_coroutine_threadsafe(self._close_internal(), self._loop)
+            fut.result()  # 동기화 보장(필요시)
+            return
+        await self._close_internal()
+
+    async def _close_internal(self):
         self.is_connected = False
         
         # 모든 활성 태스크 취소
