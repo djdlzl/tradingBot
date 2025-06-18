@@ -472,6 +472,13 @@ class TradingUpper():
         try:
             with self.session_lock:
                 with DatabaseManager() as db:
+                    # 최신 세션 정보 다시 조회하여 count 동기화
+                    db_session = db.get_session_by_id(session.get('id'))
+                    if db_session:
+                        count = db_session.get('count', 0)
+                    else:
+                        count = session.get('count', 0)
+
                     # 주문 결과 유효성 검사
                     if not order_results or not isinstance(order_results, (list, tuple)):
                         error_msg = f"유효하지 않은 주문 결과: {order_results}"
