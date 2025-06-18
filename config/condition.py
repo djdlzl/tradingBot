@@ -57,18 +57,18 @@ DAYS_LATER = 7 #마지막 매수로부터 4(7-3)일째 매도
 ######################################################
 
 # 종목 받아오는 시간
-GET_ULS_HOUR = 14
+GET_ULS_HOUR = 20
 GET_ULS_MINUTE = 0
 # 종목 중 선별하는 시간
-GET_SELECT_HOUR = 14
-GET_SELECT_MINUTE = 43
+GET_SELECT_HOUR = 9
+GET_SELECT_MINUTE = 23
 
 # 매수 시간 1
-ORDER_HOUR_1 = 14
-ORDER_MINUTE_1 = 44
+ORDER_HOUR_1 = 9
+ORDER_MINUTE_1 = 24
 # 매수 시간 2
-ORDER_HOUR_2 = 14
-ORDER_MINUTE_2 = 48
+ORDER_HOUR_2 = 9
+ORDER_MINUTE_2 = 28
 # # 매수 시간 3
 ORDER_HOUR_3 = 15
 ORDER_MINUTE_3 = 00
