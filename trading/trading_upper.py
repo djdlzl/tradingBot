@@ -1678,38 +1678,51 @@ class TradingUpper():
                             with DatabaseManager() as db:
                                 session_info = db.get_session_by_id(session_id)
                                 if session_info:
-                                    original_qty = int(session_info.get('quantity', 0))
-                                    sold_qty = original_qty - remaining_qty
-                                    avr_price = int(float(balance_data.get('pchs_avg_pric', 0)))
-                                    new_spent_fund = remaining_qty * avr_price
+                                    # 값 보정: 음수/이상치 방지
+                                    original_qty = max(0, int(session_info.get('quantity', 0)))
+                                    remaining_qty = max(0, remaining_qty)
+                                    avr_price = max(0, int(float(balance_data.get('pchs_avg_pric', 0))))
+                                    new_spent_fund = max(0, remaining_qty * avr_price)
 
-                                    db.save_trading_session_upper(
-                                        session_id,
-                                        session_info.get('start_date'),
-                                        datetime.now(),
-                                        session_info.get('ticker'),
-                                        session_info.get('name'),
-                                        session_info.get('high_price'),
-                                        session_info.get('fund'),
-                                        new_spent_fund,
-                                        remaining_qty,
-                                        avr_price,
-                                        session_info.get('count', 0)
+                                    # DB와 실제 잔고 불일치 시 동기화
+                                    db_mismatch = (
+                                        original_qty != remaining_qty or
+                                        int(session_info.get('avr_price', 0)) != avr_price or
+                                        int(session_info.get('spent_fund', 0)) != new_spent_fund
                                     )
-
-                                    self.slack_logger.send_log(
-                                        level="INFO",
-                                        message="매도 후 세션 수량 업데이트",
-                                        context={
+                                    if db_mismatch:
+                                        db.save_trading_session_upper(
+                                            session_id,
+                                            session_info.get('start_date'),
+                                            datetime.now(),
+                                            session_info.get('ticker'),
+                                            session_info.get('name'),
+                                            session_info.get('high_price'),
+                                            session_info.get('fund'),
+                                            new_spent_fund,
+                                            remaining_qty,
+                                            avr_price,
+                                            session_info.get('count', 0)
+                                        )
+                                        self.slack_logger.send_log(
+                                            level="WARNING",
+                                            message="매도 후 세션 DB-실잔고 불일치 → 동기화",
+                                            context={
+                                                "세션ID": session_id,
+                                                "종목코드": ticker,
+                                                "DB수량": original_qty,
+                                                "실제잔고": remaining_qty,
+                                                "DB평균단가": session_info.get('avr_price', 0),
+                                                "실제평균단가": avr_price,
+                                                "DB투자금액": session_info.get('spent_fund', 0),
+                                                "실제투자금액": new_spent_fund
+                                            }
+                                        )
+                                    else:
+                                        self.logger.info("매도 후 세션 DB-실잔고 일치, 동기화 불필요", {
                                             "세션ID": session_id,
-                                            "종목코드": ticker,
-                                            "원래수량": original_qty,
-                                            "매도수량": sold_qty,
-                                            "남은수량": remaining_qty,
-                                            "업데이트된평균단가": avr_price
-                                        }
-                                    )
-                                    
+                                            "종목코드": ticker
+                                        })
                         except Exception as e:
                             print(f"[ERROR] update_session 예외: {e}")
                             self.slack_logger.send_log(
