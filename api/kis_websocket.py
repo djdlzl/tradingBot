@@ -558,41 +558,66 @@ class KISWebSocket:
         """웹소켓 메시지 수신 전담 코루틴"""
         while True:
             try:
-                # 웹소켓 연결 상태 확인
-                if not self.is_connected or self.websocket is None:
+                # --- 웹소켓 연결 상태 및 속성 체크 ---
+                if self.websocket is None or not self.is_connected:
+                    print("[WS] self.websocket is None 또는 연결 안 됨. 재연결 시도...")
                     try:
-                        print("웹소켓 재연결 시도...")
                         await self.connect_websocket()
-                        if not self.is_connected or self.websocket is None:
-                            print("웹소켓 재연결 실패, 5초 후 재시도")
-                            await asyncio.sleep(5)
-                            continue
-                        
-                        # 재연결 후 종목 재구독
-                        if self.subscribed_tickers:
-                            to_resub = list(self.subscribed_tickers)
-                            self.subscribed_tickers.clear()  # 집합을 비워 실제 재구독 실행
-                            print(f"재구독 시도: {to_resub}")
-                            for ticker in to_resub:
-                                try:
-                                    await self.subscribe_ticker(ticker)
-                                except Exception as sub_e:
-                                    print(f"재구독 실패 {ticker}: {sub_e}")
                     except Exception as e:
-                        print(f"재연결 실패: {e}")
+                        print(f"[WS] connect_websocket 예외: {e}")
                         await asyncio.sleep(5)
                         continue
-                
-                # 웹소켓이 닫혔는지 추가 확인
-                if self.websocket.closed:
-                    print("웹소켓이 닫혀있음, 재연결 필요")
+                    if self.websocket is None or not self.is_connected:
+                        print("[WS] 재연결 실패, 5초 후 재시도")
+                        await asyncio.sleep(5)
+                        continue
+                    # 재연결 후 종목 재구독
+                    if self.subscribed_tickers:
+                        to_resub = list(self.subscribed_tickers)
+                        self.subscribed_tickers.clear()
+                        print(f"[WS] 재구독 시도: {to_resub}")
+                        for ticker in to_resub:
+                            try:
+                                await self.subscribe_ticker(ticker)
+                            except Exception as sub_e:
+                                print(f"[WS] 재구독 실패 {ticker}: {sub_e}")
+
+                # 닫힌 소켓 체크
+                if self.websocket is None or getattr(self.websocket, "closed", True):
+                    print("[WS] 웹소켓이 None이거나 닫혀 있음. 재연결 필요")
                     self.is_connected = False
                     self.websocket = None
+                    await asyncio.sleep(2)
                     continue
-                
-                # 웹소켓 응답 수신 (동시 호출 방지)
-                async with self.recv_lock:
-                    data = await self.websocket.recv()
+
+                # --- recv() 호출 및 예외 처리 ---
+                try:
+                    async with self.recv_lock:
+                        data = await self.websocket.recv()
+                except (KeyboardInterrupt, asyncio.CancelledError):
+                    print("[WS] 수신 루프가 사용자 요청(ctrl+c) 또는 태스크 취소로 종료됩니다.")
+                    break
+                except AttributeError as e:
+                    print(f"[WS] AttributeError: {e}. self.websocket={self.websocket}")
+                    self.is_connected = False
+                    self.websocket = None
+                    await asyncio.sleep(2)
+                    continue
+                except OSError as e:
+                    if getattr(e, 'errno', None) == 11001:
+                        print(f"[WS] DNS 에러(getaddrinfo failed): {e}")
+                    else:
+                        print(f"[WS] OSError: {e}")
+                    self.is_connected = False
+                    self.websocket = None
+                    await asyncio.sleep(5)
+                    continue
+                except Exception as e:
+                    print(f"[WS] recv 예외: {e}")
+                    self.is_connected = False
+                    self.websocket = None
+                    await asyncio.sleep(2)
+                    continue
                 # print(f"수신된 원본 데이터: {data}")  # 디버깅용
             
                 #웹소켓 연결상태 체크
@@ -618,6 +643,9 @@ class KISWebSocket:
                     if ticker in self.subscribed_tickers:
                         await self.ticker_queues[ticker].put((recvvalue))
 
+            except (KeyboardInterrupt, asyncio.CancelledError):
+                print("[WS] 수신 루프가 사용자 요청(ctrl+c) 또는 태스크 취소로 종료됩니다.")
+                break
             except ConnectionClosed:
                 print("웹소켓 연결이 끊어졌습니다. 재연결을 시도합니다.")
                 self.is_connected = False
@@ -625,23 +653,7 @@ class KISWebSocket:
                 await asyncio.sleep(1)
                 continue
 
-            except AttributeError as e:
-                if "'NoneType' object has no attribute 'recv'" in str(e):
-                    print("웹소켓이 None 상태입니다. 재연결이 필요합니다.")
-                else:
-                    print(f"속성 에러: {e}")
-                self.is_connected = False
-                self.websocket = None
-                await asyncio.sleep(2)
-                continue
 
-            except Exception as e:
-                print(f"수신 에러: {e}")
-                print(f"에러 발생 데이터: {data if 'data' in locals() else 'No data'}")
-                self.is_connected = False
-                self.websocket = None
-                await asyncio.sleep(1)
-                continue
 
     async def connect_websocket(self):
         """웹소켓 연결 설정"""

@@ -259,4 +259,5 @@ if __name__ == "__main__":
             main_process.stop_event.set()
     finally:
         if main_process:
+            main_process.stop_all()
             main_process.cleanup()
