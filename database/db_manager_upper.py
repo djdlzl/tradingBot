@@ -163,10 +163,11 @@ class DatabaseManager:
                 (token_type,)
             )
             result = self.cursor.fetchone()
-            if result is not None and len(result) >= 2:
-                return result[0], result[1]
-            else:
-                return None, None
+            if result:
+                access_token = result.get('access_token')
+                expires_at = result.get('expires_at')
+                return access_token, expires_at
+            return None, None
         except mysql.connector.Error as e:
             logging.error("Error retrieving token: %s", e)
             raise
@@ -193,10 +194,11 @@ class DatabaseManager:
                 (approval_type,)
             )
             result = self.cursor.fetchone()
-            if result is not None and len(result) >= 2:
-                return result[0], result[1]
-            else:
-                return None, None
+            if result:
+                approval_key = result.get('access_token')
+                expires_at = result.get('expires_at')
+                return approval_key, expires_at
+            return None, None
         except mysql.connector.Error as e:
             logging.error("Error retrieving approval: %s", e)
             raise

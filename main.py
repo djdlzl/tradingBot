@@ -18,7 +18,6 @@ import time
 import atexit
 import asyncio
 from datetime import datetime
-from trading.trading import TradingLogic
 from trading.trading_upper import TradingUpper
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -121,10 +120,8 @@ class MainProcess:
     @business_day_only()
     def save_upper_stocks(self):
         try:
-            trading = TradingLogic()
-            trading_upper = TradingUpper()
-            
-            trading.fetch_and_save_previous_upper_limit_stocks()
+            trading_upper = TradingUpper()            
+
             trading_upper.fetch_and_save_previous_upper_stocks()
         except Exception as e:
             print('오류가 발생했습니다. error: ', e)

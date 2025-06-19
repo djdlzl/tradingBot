@@ -6,7 +6,7 @@ from utils.string_utils import unicode_to_korean
 from config.config import R_APP_KEY, R_APP_SECRET, M_APP_KEY, M_APP_SECRET, M_ACCOUNT_NUMBER
 from config.condition import BUY_DAY_AGO
 from datetime import datetime, timedelta
-from database.db_manager import DatabaseManager
+from database.db_manager_upper import DatabaseManager
 import time
 from threading import Lock
 
