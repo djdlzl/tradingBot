@@ -1347,6 +1347,10 @@ class TradingUpper():
                     # 로그 기록: API 호출
                     self.logger.debug(f"KIS API 매수 주문 호출", {"ticker": ticker, "quantity": quantity})
                     order_result = self.kis_api.place_order(ticker, quantity, order_type='buy')
+                    if not isinstance(order_result, dict):  # order_result가 딕셔너리가 아닌 경우
+                        error_msg = f"유효하지 않은 주문 응답: {order_result}"
+                        print(error_msg)
+                        continue  # 다음 루프로 넘어가거나 적절한 에러 처리
                     print("place_order_session: 주문 실행", ticker, order_result)
                     
                     # 로그 기록: API 응답 결과
@@ -1367,6 +1371,9 @@ class TradingUpper():
                         sessions = db.load_trading_session_upper()
                         session = sessions[-1]
                         order_result = self.place_order_session_upper(session)
+                        if not isinstance(order_result, dict):  # order_result가 딕셔너리인지 확인
+                            print(f"place_order_session_upper가 유효한 결과를 반환하지 않았습니다. 결과: {order_result}")
+                            continue
                         db.close()
                     odno = order_result.get('output', {}).get('ODNO')
                     if odno is not None and odno not in order_odnos:
@@ -1493,32 +1500,54 @@ class TradingUpper():
                     if attempt < MAX_BAL_RETRY:
                         time.sleep(RETRY_BAL_DELAY)
                 
-                if not balance_result:
-                    error_msg = f"잔고 조회 실패: {ticker}"
-                    print(error_msg)
-                    self.logger.error("매도 전 잔고 조회 실패", {
-                        "세션ID": session_id,
-                        "종목코드": ticker
-                    })
-                    self.slack_logger.send_log(
-                        level="ERROR",
-                        message="매도 전 잔고 조회 실패",
-                        context={
+                # balance_result가 리스트인 경우 첫 번째 항목 사용
+                if isinstance(balance_result, list):
+                    if not balance_result:
+                        error_msg = f"잔고 조회 실패: {ticker} - 빈 응답"
+                        print(error_msg)
+                        self.logger.error("매도 전 잔고 조회 실패 - 빈 응답", {
                             "세션ID": session_id,
+                            "balance_result_type": "empty list",
                             "종목코드": ticker
-                        }
-                    )
-                    return []
-
-                balance_data = next((item for item in balance_result if item.get('pdno') == ticker), None)
+                        })
+                        self.slack_logger.send_log(
+                            level="ERROR",
+                            message="매도 전 잔고 조회 실패 - 빈 응답",
+                            context={
+                                "세션ID": session_id,
+                                "종목코드": ticker
+                            }
+                        )
+                        return []
+                    balance_result = balance_result[0]
+                # 보유 종목 확인
+                output1 = balance_result.get('output1', [])
+                if not isinstance(output1, list):
+                    output1 = []
+                    
+                balance_data = next((item for item in output1 
+                                  if isinstance(item, dict) and item.get('pdno') == ticker), None)
+                
+                # 보유 수량 안전하게 추출
+                hold_qty = 0
+                if balance_data and isinstance(balance_data, dict):
+                    try:
+                        hold_qty = int(balance_data.get('hldg_qty', 0))
+                    except (ValueError, TypeError):
+                        hold_qty = 0
+                
                 self.logger.debug("매도 전 잔고 최종 확인", {
                     "종목코드": ticker, 
                     "세션ID": session_id,
-                    "잔고정보": balance_data is not None
+                    "잔고정보": balance_data is not None,
+                    "보유수량": hold_qty,
+                    "output1_length": len(output1) if isinstance(output1, list) else 0,
+                    "balance_result_keys": list(balance_result.keys()) if hasattr(balance_result, 'keys') else 'N/A',
+                    "balance_data_keys": list(balance_data.keys()) if balance_data and hasattr(balance_data, 'keys') else 'N/A'
                 })
                 
                 # 잔고가 없으면 세션 삭제하고 종료
-                if not balance_data or int(balance_data.get('hldg_qty', 0)) == 0:
+                if hold_qty <= 0:
                     info_msg = f"잔고 없음 - 세션 삭제: {ticker}"
                     print(info_msg)
                     
@@ -1547,7 +1576,7 @@ class TradingUpper():
                     return []
                 
                 # 실제 보유 수량 확인
-                actual_quantity = int(balance_data.get('hldg_qty', 0))
+                actual_quantity = hold_qty
                 self.logger.info("매도 수량 확인", {
                     "세션ID": session_id,
                     "종목코드": ticker,

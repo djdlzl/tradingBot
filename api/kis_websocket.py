@@ -17,6 +17,7 @@ from utils.slack_logger import SlackLogger
 from datetime import datetime, timedelta, time
 from database.db_manager_upper import DatabaseManager
 from api.kis_api import KISApi
+from trading.trading_upper import TradingUpper
 
 
 class KISWebSocket:
@@ -54,6 +55,7 @@ class KISWebSocket:
         self.recv_lock = asyncio.Lock()
         self.kis_api = KISApi()
         self.api_lock = asyncio.Lock()
+        self.trading_upper = TradingUpper()
 
     ######################################################################################
     ##################################    매도 로직   #####################################
@@ -62,6 +64,9 @@ class KISWebSocket:
     async def sell_condition(
         self, recvvalue, session_id, ticker, name, quantity, avr_price, target_date
     ):
+        sell_completed = False
+        lock_start_time = None
+
         if len(recvvalue) == 1 and "SUBSCRIBE SUCCESS" in recvvalue[0]:
             return False
 
@@ -253,12 +258,31 @@ class KISWebSocket:
                                     return False
                                     
                                 sell_start = datetime.now()
-                                # 매도 실행
-                                sell_completed = await self._sell_until_done(
-                                    session_id, ticker, name, real_quantity, avr_price, price
-                                )
+                                # 매도 실행 - TradingUpper의 sell_order 메서드 사용 (비동기 실행, 타임아웃 추가)
+                                try:
+                                    loop = asyncio.get_event_loop()
+                                    sell_results = await asyncio.wait_for(
+                                        loop.run_in_executor(
+                                            None, 
+                                            self.trading_upper.sell_order,
+                                            session_id, ticker, real_quantity, target_price
+                                        ),
+                                        timeout=30.0  # 30초 타임아웃
+                                    )
+                                except asyncio.TimeoutError:
+                                    self.slack_logger.send_log(
+                                        level="ERROR",
+                                        message=f"{ticker} 매도 주문 타임아웃 (30초)",
+                                        context={**log_context}
+                                    )
+                                    return False
                                 sell_end = datetime.now()
                                 sell_ms = (sell_end - sell_start).total_seconds() * 1000
+                                
+                                # 매도 결과 확인
+                                sell_completed = len(sell_results) > 0 and any(
+                                    result.get('success', False) for result in sell_results
+                                )
                                 
                                 self.slack_logger.send_log(
                                     level="INFO",
@@ -326,7 +350,7 @@ class KISWebSocket:
                     message=f"{ticker} 락 획득 타임아웃",
                     context={
                         **log_context,
-                        "대기시간ms": f"{total_ms:.1f}ms"
+                        "대기시간ms": f"{total_wait_ms:.1f}ms"
                     }
                 )
                 return False
@@ -382,9 +406,32 @@ class KISWebSocket:
         """
 
         cached_approval, cached_expires_at = self.db_manager.get_approval(approval_type)
-        if cached_approval and cached_expires_at > datetime.utcnow():
-            logging.info("Using cached %s approval", approval_type)
-            return cached_approval, cached_expires_at
+        if cached_approval and cached_expires_at:
+            # cached_expires_at이 문자열이면 datetime 객체로 변환
+            if isinstance(cached_expires_at, str):
+                try:
+                    cached_expires_at = datetime.fromisoformat(cached_expires_at)
+                except (ValueError, TypeError) as e:
+                    logging.error(f"Failed to parse cached_expires_at: {e}")
+                    cached_expires_at = None
+            
+            # datetime 객체인 경우에만 비교
+            if cached_expires_at and hasattr(cached_expires_at, '__gt__'):
+                if not isinstance(cached_expires_at, datetime):
+                    try:
+                        if isinstance(cached_expires_at, str):
+                            cached_expires_at = datetime.fromisoformat(cached_expires_at)
+                        elif isinstance(cached_expires_at, (int, float)):
+                            cached_expires_at = datetime.fromtimestamp(cached_expires_at)
+                        # 다른 타입들에 대한 변환 로직 추가 가능
+                    except (ValueError, TypeError) as e:
+                        logging.error(f"Failed to convert cached_expires_at: {e}")
+                        cached_expires_at = None
+                
+                # datetime 객체인지 다시 확인 후 비교
+                if isinstance(cached_expires_at, datetime) and cached_expires_at > datetime.utcnow():
+                    logging.info("Using cached %s approval", approval_type)
+                    return cached_approval, cached_expires_at
 
         url = "https://openapi.koreainvestment.com:9443/oauth2/Approval"
         headers = {"content-type": "application/json; utf-8"}
@@ -431,7 +478,7 @@ class KISWebSocket:
                 )
                 if attempt < max_retries - 1:
                     logging.info("Retrying in %d seconds...", retry_delay)
-                    time.sleep(retry_delay)
+                    await asyncio.sleep(retry_delay)
                 else:
                     logging.error(
                         "Max retries reached. Unable to obtain %s approval_key.",
@@ -451,14 +498,14 @@ class KISWebSocket:
         # print("##########is_mock: ", is_mock)
         now = datetime.now()
         if is_mock:
-            if not self.mock_approval or now >= self.mock_approval_expires_at:
+            if not self.mock_approval or self.mock_approval_expires_at is None or now >= self.mock_approval_expires_at:
                 (
                     self.mock_approval,
                     self.mock_approval_expires_at,
                 ) = await self._get_approval(M_APP_KEY, M_APP_SECRET, "mock")
             return self.mock_approval
         else:
-            if not self.real_approval or now >= self.real_approval_expires_at:
+            if not self.real_approval or self.real_approval_expires_at is None or now >= self.real_approval_expires_at:
                 (
                     self.real_approval,
                     self.real_approval_expires_at,
@@ -667,7 +714,9 @@ class KISWebSocket:
                 # print(f"수신된 원본 데이터: {data}")  # 디버깅용
 
                 # 웹소켓 연결상태 체크
-                if '"tr_id":"PINGPONG"' in data:
+                data_str = data.decode('utf-8') if isinstance(data, bytes) else data
+                
+                if '"tr_id":"PINGPONG"' in data_str:
                     try:
                         await self.websocket.send(data)  # 서버 요구에 따라 그대로 반송
                     except Exception as e:
@@ -675,17 +724,18 @@ class KISWebSocket:
                     continue
 
                 # 구독 성공 메시지 체크
-                if "SUBSCRIBE SUCCESS" in data:
+                if "SUBSCRIBE SUCCESS" in data_str:
                     # JSON 파싱 시도
-                    data_dict = json.loads(data)
+                    data_dict = json.loads(data_str)
                     ticker = data_dict["header"]["tr_key"]
                     continue
 
                 # 실시간 호가 데이터일 경우
-                recvvalue = data.split("^")
+                data_bytes = data.encode('utf-8') if isinstance(data, str) else data
+                recvvalue = data_bytes.split(b"^")
 
                 if len(recvvalue) > 1:  # 실제 호가 데이터인 경우
-                    ticker = recvvalue[0].split("|")[-1]
+                    ticker = recvvalue[0].split(b"|")[-1]
                     if ticker in self.subscribed_tickers:
                         await self.ticker_queues[ticker].put((recvvalue))
 
@@ -778,7 +828,7 @@ class KISWebSocket:
                 task.cancel()
                 try:
                     await task
-                except (asyncio.CancelledError, Exception) as e:
+                except (asyncio.CancelledError, Exception):
                     pass
         self.active_tasks.clear()
 
@@ -834,12 +884,36 @@ class KISWebSocket:
             },
         }
 
+        # 웹소켓 연결 상태 확인 및 재연결 시도
+        if self.websocket is None or self.websocket.closed:
+            await self.ensure_websocket_connected()
+            
+            # 재연결 후에도 웹소켓이 None이면 에러 처리
+            if self.websocket is None:
+                self.slack_logger.send_log(
+                    level="ERROR",
+                    message=f"웹소켓 연결 실패: {ticker} 구독 불가",
+                    context={"ticker": ticker}
+                )
+                return
+
         try:
             await self.websocket.send(json.dumps(request_data))
             self.subscribed_tickers.add(ticker)
             # print(f"종목 구독 성공: {ticker}")
         except Exception as e:
-            print(f"종목 구독 실패: {ticker}, 에러: {e}")
+            error_msg = f"종목 구독 실패: {ticker}, 에러: {str(e)}"
+            print(error_msg)
+            self.slack_logger.send_log(
+                level="ERROR",
+                message=error_msg,
+                context={"ticker": ticker, "error": str(e)}
+            )
+            
+            # 에러 발생 시 웹소켓 정리
+            if self.websocket:
+                await self._close_internal()
+                self.websocket = None
 
     async def unsubscribe_ticker(self, ticker):
         """종목 구독 취소"""
