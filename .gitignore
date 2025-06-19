@@ -10,3 +10,6 @@ __pycache__/
 quant_trading.db
 *.bak
 test_*
+logs/
+test_main.py
+pyrightconfig.json
