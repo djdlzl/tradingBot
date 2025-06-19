@@ -220,7 +220,7 @@ class KISWebSocket:
                             max_retry = 3
                             balance_result = None
                             for attempt in range(max_retry):
-                                balance_result = await self.kis_api.check_balance_async(ticker)
+                                balance_result = await self.check_balance_async(ticker)
                                 if balance_result:
                                     break
                                 await asyncio.sleep(0.5)
