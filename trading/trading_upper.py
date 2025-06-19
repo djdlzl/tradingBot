@@ -28,6 +28,9 @@ class TradingUpper():
     """
     트레이딩과 관련된 로직들. main에는 TradinLogic 클래스만 있어야 함.
     """
+    # 체결 대기 세션 관리용 dict
+    pending_sessions = {}
+
     def __init__(self):
         self.kis_api = KISApi()
         self.krx_api = KRXApi()
@@ -396,36 +399,108 @@ class TradingUpper():
                 db.close()
                 return None
 
-            # 7) 실제 매수 주문 실행 (api 호출)
-            if session.get('count', 0) < COUNT_UPPER:
-                ticker = session.get('ticker')
-                if not isinstance(ticker, str):
-                    print(f"잘못된 티커: {ticker}")
-                    db.close()
-                    return None
-                order_results = self.buy_order(ticker, quantity)
-                # 주문 실패(‘rt_cd’가 '1') 시 처리
-                if (not order_results) or (isinstance(order_results, list)
-                                        and any(r.get('rt_cd') == '1' for r in order_results)):
-                    if session.get('count') == 0:
-                        # 첫 주문 실패: 세션 자체 삭제
-                        print("첫 주문 실패 시 세션 삭제", session)
+            # 7) 실제 매수 주문 실행 + 미체결 관리 (완전 체결될 때까지 반복)
+            ticker = session.get('ticker')
+            if not isinstance(ticker, str):
+                print(f"잘못된 티커: {ticker}")
+                db.close()
+                return None
+
+            MAX_BUY_ATTEMPTS = 3              # 주문 재시도(재주문) 최대 횟수
+            MAX_POLL_RETRY = 15               # 체결 정보 polling 재시도 횟수 (2초*15 ≒ 30초)
+            POLL_DELAY = 2                    # polling 간격(sec)
+
+            remaining_quantity = quantity     # 남은 수량
+            buy_attempt = 0                   # 재주문 횟수 카운터
+            aggregated_order_results = []     # 모든 주문 결과를 누적 저장
+
+            while remaining_quantity > 0 and buy_attempt < MAX_BUY_ATTEMPTS:
+                # 7-1) 매수 주문 실행
+                current_order_results = self.buy_order(ticker, remaining_quantity)
+                if (not current_order_results) or (isinstance(current_order_results, list) and any(r.get('rt_cd') != '0' for r in current_order_results)):
+                    # 주문 실패
+                    print(f"매수 주문 실패(시도 {buy_attempt+1}/{MAX_BUY_ATTEMPTS}): {current_order_results}")
+                    if buy_attempt == 0 and session.get('count', 0) == 0:
+                        # 첫 주문부터 실패하면 세션 삭제
                         db.delete_session_one_row(session.get('id'))
                         self.slack_logger.send_log(
                             level="ERROR",
                             message="첫 주문 실패로 세션 삭제",
-                            context={
-                                "세션ID": session.get('id'),
-                                "종목 이름": session.get('name'),
-                                "종목 코드": session.get('ticker')
-                            }
+                            context={"세션ID": session.get('id'), "종목 코드": ticker}
                         )
-                    db.close()
-                    return order_results
+                    buy_attempt += 1
+                    time.sleep(1)
+                    continue
 
-            # 8) 정상 흐름 시 DB 세션은 업데이트 로직(=load_and_update_trading_session)에서 처리
+                aggregated_order_results.extend(current_order_results)
+
+                # 7-2) 체결 정보 polling으로 실체결 수량 계산
+                filled_qty_in_attempt = 0
+                for order_res in current_order_results:
+                    odno = order_res.get('output', {}).get('ODNO')
+                    if not odno:
+                        continue
+                    for retry_idx in range(1, MAX_POLL_RETRY + 1):
+                        try:
+                            exec_info = self.kis_api.daily_order_execution_inquiry(odno)
+                            if exec_info and exec_info.get('output1'):
+                                real_qty = int(exec_info['output1'][0].get('tot_ccld_qty', 0))
+                                if real_qty > 0:
+                                    filled_qty_in_attempt += real_qty
+                                    break  # polling 탈출
+                            time.sleep(POLL_DELAY)
+                        except Exception as pe:
+                            print(f"[WARN] 체결 조회 실패(주문번호 {odno}, 재시도 {retry_idx}/{MAX_POLL_RETRY}): {pe}")
+                            if retry_idx < MAX_POLL_RETRY:
+                                time.sleep(POLL_DELAY)
+                                continue
+                            break
+
+                # 7-3) 미체결 수량 계산
+                unfilled_qty = max(remaining_quantity - filled_qty_in_attempt, 0)
+                if unfilled_qty == 0:
+                    # 전량 체결 → 루프 종료
+                    remaining_quantity = 0
+                    break
+
+                # 7-4) 미체결 취소
+                for order_res in current_order_results:
+                    odno = order_res.get('output', {}).get('ODNO')
+                    if odno:
+                        try:
+                            self.kis_api.cancel_order(odno)
+                        except Exception as ce:
+                            print(f"[WARN] 주문 취소 실패(주문번호 {odno}): {ce}")
+
+                # 7-5) 재주문을 위해 파라미터 업데이트
+                remaining_quantity = unfilled_qty
+                buy_attempt += 1
+                time.sleep(1)  # 짧은 쿨타임 후 재주문
+
+            # 8) 최종 처리
             db.close()
-            return order_results
+
+            if remaining_quantity > 0:
+                # 최대 재시도 후에도 미체결 남음 → 에러 및 슬랙 알림
+                self.slack_logger.send_log(
+                    level="ERROR",
+                    message="매수 미체결 잔여 수량 발생",
+                    context={
+                        "세션ID": session.get('id'),
+                        "종목 코드": ticker,
+                        "미체결 수량": remaining_quantity,
+                        "총 시도": buy_attempt
+                    }
+                )
+            
+            # 주문 결과가 있을 때만 update_session 호출
+            if aggregated_order_results:
+                try:
+                    self.update_session(session, aggregated_order_results)
+                except Exception as ue:
+                    print(f"[ERROR] update_session 호출 실패: {ue}")
+
+            return aggregated_order_results
 
         except Exception as e:
             # 예외 발생 시 로깅 및 세션 정리
@@ -462,13 +537,42 @@ class TradingUpper():
             print("Error in update_trading_session: ", e)
             db.close()
             
+    async def check_pending_session(self, session_id):
+        """
+        일정 시간 후 체결 정보가 반영됐는지 재확인하는 비동기 메서드
+        """
+        import asyncio
+        MAX_PENDING_RETRY = 10  # 최대 10회(약 10분까지) 재확인
+        PENDING_DELAY = 60      # 60초(1분)마다 재확인
+        retry = 0
+        while retry < MAX_PENDING_RETRY:
+            await asyncio.sleep(PENDING_DELAY)
+            pending = self.pending_sessions.get(session_id)
+            if not pending:
+                break  # 이미 성공적으로 반영된 경우
+            print(f"[체결 재확인] 세션ID={session_id}, {retry+1}/{MAX_PENDING_RETRY}")
+            self.update_session(pending['session'], pending['order_results'])
+            # update_session에서 성공적으로 반영되면 pending_sessions에서 제거해야 함
+            if session_id not in self.pending_sessions:
+                break
+            retry += 1
+        if session_id in self.pending_sessions:
+            print(f"[ERROR] 체결 정보 장기 미반영: 세션ID={session_id}")
+            self.slack_logger.send_log(
+                level="ERROR",
+                message="체결 정보 장기 미반영, 세션 수동 확인 필요",
+                context={"세션ID": session_id}
+            )
+            del self.pending_sessions[session_id]
+
     def update_session(self, session, order_results):
+        # update_session 본문 기존 코드 유지
+
         print("\n[DEBUG] ====== update_session 진입 ======")
         print(f"[DEBUG] 세션ID: {session.get('id')}, 주문 결과(order_results): {order_results}")
-
-        import time
-        MAX_RETRY = 3
-        RETRY_DELAY = 1  # 초
+        
+        MAX_RETRY = 15  # 체결 지연 대응을 위한 재시도 횟수 대폭 증가
+        RETRY_DELAY = 2  # 대기 시간도 2초로 증가 (총 최대 30초 이상 대기)
         try:
             with self.session_lock:
                 with DatabaseManager() as db:
@@ -694,8 +798,8 @@ class TradingUpper():
         print(f"\n[DEBUG] ====== validate_db_data 진입: 세션ID {session.get('id')} ======")
         
         import time
-        MAX_RETRY = 3
-        RETRY_DELAY = 1  # 초
+        MAX_RETRY = 15  # 체결 지연 대응을 위한 재시도 횟수 대폭 증가
+        RETRY_DELAY = 2  # 대기 시간도 2초로 증가 (총 최대 30초 이상 대기)
         price_tolerance = 1  # 평균가격 차이 허용 범위
         
         try:
