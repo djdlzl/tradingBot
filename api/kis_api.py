@@ -271,7 +271,7 @@ class KISApi:
         formatted_response = json.loads(json.dumps(response, default=unicode_to_korean_converter))
         print(json.dumps(formatted_response, ensure_ascii=False, indent=2))
 
-    def get_current_price(self, ticker):
+    def get_current_price(self, ticker: str) -> tuple[int, str]:
         """
         지정된 종목의 현재 주가 정보를 가져옵니다.
 
@@ -286,7 +286,7 @@ class KISApi:
             
             if not stock_price_info or 'output' not in stock_price_info:
                 print(f"주가 정보 조회 실패: {ticker}")
-                return None, None
+                return 0, "0"
             
             output = stock_price_info.get('output', {})
             price_str = output.get('stck_prpr')
@@ -299,14 +299,14 @@ class KISApi:
                     return price, trht_yn
                 except (ValueError, TypeError) as e:
                     print(f"가격 변환 실패: {price_str}, 에러: {e}")
-                    return None, None
+                    return 0, "0"
             else:
                 print(f"가격 정보 없음: {ticker}")
-                return None, None
+                return 0, "0"
                 
         except Exception as e:
             print(f"get_current_price 에러: {ticker}, {e}")
-            return None, None
+            return 0, "0"
 
     # def get_balance(self):
     #     """
@@ -342,41 +342,6 @@ class KISApi:
 ######################################################################################
 ################################    주문 메서드   ###################################
 ######################################################################################
-
-    # def place_order(self, ticker, quantity):
-    #     """
-    #     주식 주문을 실행합니다.
-
-    #     Args:
-    #         ticker (str): 종목 코드
-    #         order_type (str): 주문 유형
-    #         quantity (int): 주문 수량
-
-    #         Returns:
-    #         dict: 주문 실행 결과를 포함한 딕셔너리
-    #     """
-        
-        
-    #     self._set_headers(is_mock=True, tr_id="VTTC0802U")
-    #     url = "https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/order-cash"
-    #     data = {
-    #         "CANO": M_ACCOUNT_NUMBER,
-    #         "ACNT_PRDT_CD": "01",
-    #         "PDNO": ticker,
-    #         "ORD_DVSN": "01",
-    #         "ORD_QTY": str(quantity),
-    #         "ORD_UNPR": "0",
-    #     }
-    #     self.headers["hashkey"] = None
-
-    #     #test
-    #     print("파라미터 확인", ticker, quantity)
-        
-    #     response = requests.post(url=url, data=json.dumps(data), headers=self.headers, timeout=10)
-    #     json_response = response.json()
-
-    #     return json_response
-
 
     def place_order(self, ticker, quantity, order_type=None, price=None):
         """
@@ -531,7 +496,7 @@ class KISApi:
         return json_response
 
 
-    def revise_order(self, order_num):
+    def revise_order(self, order_num, order_price, quantity):
         """
         주문취소 API
         """
@@ -548,8 +513,8 @@ class KISApi:
             "ORGN_ODNO": order_num,
             "ORD_DVSN": "01",
             "RVSE_CNCL_DVSN_CD": "01", # 01:정정, 02:취소
-            "ORD_QTY": "0",
-            "ORD_UNPR": "0",
+            "ORD_QTY": quantity,
+            "ORD_UNPR": order_price,
             "QTY_ALL_ORD_YN": "Y",
             "ALGO_NO": ""
         }
