@@ -157,7 +157,7 @@ class MainProcess:
         loop = asyncio.new_event_loop()
         self.monitor_loop = loop
         # TradingUpper에서도 동일 루프를 참조할 수 있도록 공유
-        self.trading_upper.monitor_loop = loop
+        self.trading_upper._monitor_loop = loop
         asyncio.set_event_loop(loop)
         
         try:    
@@ -230,13 +230,25 @@ class MainProcess:
 
         if self.monitor_loop and self.monitor_loop.is_running():
             async def _shutdown(loop):
-                tasks = [t for t in asyncio.all_tasks(loop) if not t.done()]
-                for t in tasks:
-                    t.cancel()
-                await asyncio.gather(*tasks, return_exceptions=True)
-                loop.stop()               # <- gather 끝난 뒤 stop
+                # 현재 실행 중인 _shutdown 태스크는 제외하고 모든 태스크를 가져옴
+                current_task = asyncio.current_task()
+                tasks = [t for t in asyncio.all_tasks(loop) if t is not current_task and not t.done()]
 
-            asyncio.run_coroutine_threadsafe(_shutdown(self.monitor_loop),self.monitor_loop)
+                if not tasks:
+                    loop.stop()
+                    return
+
+                # 다른 모든 태스크를 취소
+                for task in tasks:
+                    task.cancel()
+
+                # 모든 태스크가 취소될 때까지 대기
+                await asyncio.gather(*tasks, return_exceptions=True)
+                
+                # 이벤트 루프 중지
+                loop.stop()
+
+            asyncio.run_coroutine_threadsafe(_shutdown(self.monitor_loop), self.monitor_loop)
 
     def graceful_shutdown(self, signum, frame):
         print("Ctrl-C 감지 → 종료 루틴 실행")

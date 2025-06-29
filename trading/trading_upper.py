@@ -2,13 +2,9 @@
 api와 db 모듈을 사용해서 상승 눌림목매매 로직 모듈을 개발
 """
 
-from nt import error
 import random
 import time
 import asyncio
-from tkinter import NONE
-from numpy import int32
-import pandas as pd
 from datetime import datetime, timedelta, date
 from database.db_manager_upper import DatabaseManager
 from utils.date_utils import DateUtils
@@ -18,7 +14,6 @@ from api.kis_api import KISApi
 from api.krx_api import KRXApi
 from api.kis_websocket import KISWebSocket
 from config.condition import DAYS_LATER_UPPER, BUY_PERCENT_UPPER, BUY_WAIT, SELL_WAIT, COUNT_UPPER, SLOT_UPPER, UPPER_DAY_AGO_CHECK, BUY_DAY_AGO_UPPER, PRICE_BUFFER
-from concurrent.futures import ThreadPoolExecutor
 import threading
 from typing import List, Dict, Optional, Union
 from threading import Lock
