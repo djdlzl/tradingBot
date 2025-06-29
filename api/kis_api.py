@@ -500,7 +500,7 @@ class KISApi:
         """
         주문취소 API
         """
-        print("revise_order:- ",order_num, type(order_num))
+        print("revise_order:- ",order_num, "주문정정 실행")
         
         # 주문번호는 8자리로 맞춰야 함
         order_num = str(order_num).zfill(8)
@@ -605,9 +605,10 @@ class KISApi:
         self.headers["hashkey"] = self.hashkey
         
         response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
-        json_response = response.json()        
-        
-        return json_response
+        response_json = response.json()        
+        # print(json.dumps(response_json, indent=2, ensure_ascii=False))
+
+        return response_json
 
 
 
@@ -631,29 +632,19 @@ class KISApi:
             "CTX_AREA_NK100": "",
         }
                 
-        # 재시도 로직 포함
-        for attempt in range(1, max_retries + 1):
-            try:
-                # 전역 락을 사용하여 동시 호출 방지
-                with KISApi._global_api_lock:
-                    self._get_hashkey(body, is_mock=True)
-                    self._set_headers(is_mock=True, tr_id="VTTC8434R")
-                    local_headers = self.headers.copy()
-                    local_headers["hashkey"] = self.hashkey
-                    response = requests.get(url=url, headers=local_headers, params=body, timeout=10)
-                json_response = response.json()
-                output1 = json_response.get("output1")
-                if output1:
-                    return output1
-                logging.warning("[balance_inquiry] 빈 응답 – 재시도 %s/%s", attempt, max_retries)
-            except RequestException as e:
-                logging.error("[balance_inquiry] 요청 예외 – 재시도 %s/%s: %s", attempt, max_retries, e)
-            except Exception as e:
-                logging.error("[balance_inquiry] 기타 예외 – 재시도 %s/%s: %s", attempt, max_retries, e)
-            if attempt < max_retries:
-                time.sleep(retry_delay)
-        # 모든 재시도 실패 시 None 반환
-        return None
+        # 전역 락을 사용하여 동시 호출 방지
+        with KISApi._global_api_lock:
+            self._get_hashkey(body, is_mock=True)
+            self._set_headers(is_mock=True, tr_id="VTTC8434R")
+            local_headers = self.headers.copy()
+            local_headers["hashkey"] = self.hashkey
+            response = requests.get(url=url, headers=local_headers, params=body, timeout=10)
+        json_response = response.json()
+        output1 = json_response.get("output1")
+
+        # List[Dict] -> Dict 반환
+        return output1
+
     
 
 ######################################################################################

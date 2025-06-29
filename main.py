@@ -17,6 +17,7 @@ import threading
 import time
 import atexit
 import asyncio
+import signal, sys
 from datetime import datetime
 from trading.trading_upper import TradingUpper
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -32,6 +33,9 @@ class MainProcess:
         self.db_lock = threading.Lock()
         self.threads = {}
         self.scheduler = BackgroundScheduler(timezone='Asia/Seoul')
+        self.trading_upper = TradingUpper()            
+        self.monitor_loop = None
+
         # 스케줄러 설정
         executors = {
             'default': ThreadPoolExecutor(20)
@@ -55,9 +59,6 @@ class MainProcess:
         """스케줄 작업을 관리하는 메서드"""
         
         try:
-            # trading = TradingLogic()
-            trading_upper = TradingUpper()
-
             # 스케줄러 설정
             executors = {
                 'default': ThreadPoolExecutor(20)
@@ -70,14 +71,14 @@ class MainProcess:
 
             # 작업 추가
             self.scheduler.add_job(
-                self.save_upper_stocks,
+                self.fetch_and_save_previous_upper_stocks,
                 CronTrigger(hour=GET_ULS_HOUR, minute=GET_ULS_MINUTE),
                 id='fetch_stocks',
                 replace_existing=True
             )
 
             self.scheduler.add_job(
-                trading_upper.select_stocks_to_buy,
+                self.select_stocks_to_buy,
                 CronTrigger(hour=GET_SELECT_HOUR, minute=GET_SELECT_MINUTE),
                 id='select_stocks',
                 replace_existing=True
@@ -118,11 +119,16 @@ class MainProcess:
                 self.scheduler.shutdown(wait=False)
 
     @business_day_only()
-    def save_upper_stocks(self):
-        try:
-            trading_upper = TradingUpper()            
+    def fetch_and_save_previous_upper_stocks(self):
+        try:            
+            self.trading_upper.fetch_and_save_previous_upper_stocks()
+        except Exception as e:
+            print('오류가 발생했습니다. error: ', e)
 
-            trading_upper.fetch_and_save_previous_upper_stocks()
+    @business_day_only()
+    def select_stocks_to_buy(self):
+        try:            
+            self.trading_upper.select_stocks_to_buy()
         except Exception as e:
             print('오류가 발생했습니다. error: ', e)
 
@@ -131,14 +137,13 @@ class MainProcess:
         """매수 태스크 실행"""
         try:
             # trading = TradingLogic()
-            trading_upper = TradingUpper()
             # 선별 종목 매수
             with self.db_lock:
-                order_list = trading_upper.start_trading_session()
+                order_list = self.trading_upper.start_trading_session()
 
             # 매수 정보 세션에 저장
             with self.db_lock:
-                trading_upper.load_and_update_trading_session(order_list)
+                self.trading_upper.load_and_update_trading_session(order_list)
         except Exception as e:
             print(f"매수 태스크 실행 에러: {str(e)}")
 
@@ -150,24 +155,27 @@ class MainProcess:
     def run_monitoring(self):
         """새로운 이벤트 루프를 생성하여 모니터링 실행"""
         loop = asyncio.new_event_loop()
+        self.monitor_loop = loop
+        # TradingUpper에서도 동일 루프를 참조할 수 있도록 공유
+        self.trading_upper.monitor_loop = loop
         asyncio.set_event_loop(loop)
         
         try:    
             # trading = TradingLogic()
-            trading_upper = TradingUpper()
-            kis_websocket = KISWebSocket(trading_upper.sell_order)
-            trading_upper.kis_websocket = kis_websocket  # KISWebSocket 인스턴스 설정
-            
-            
-            sessions_info = trading_upper.get_session_info_upper()
+            kis_websocket = KISWebSocket(self.trading_upper.sell_order)
+            self.trading_upper.kis_websocket = kis_websocket  # KISWebSocket 인스턴스 설정
+            sessions_info = self.trading_upper.get_session_info_upper()
             
             # 이벤트 루프에서 코루틴 실행
-            loop.run_until_complete(trading_upper.monitor_for_selling_upper(sessions_info))
+            # 초기 세션 구독 코루틴을 등록하고 루프를 지속 실행
+            loop.create_task(self.trading_upper.monitor_for_selling_upper(sessions_info))
+            loop.run_forever()
             
         except Exception as e:
             print(f"모니터링 실행 오류: {e}")
         finally:
             try:
+
                 # 실행 중인 모든 태스크 가져오기
                 pending = asyncio.all_tasks(loop)
                 
@@ -175,21 +183,10 @@ class MainProcess:
                 current = asyncio.current_task(loop)
                 if current and current in pending:
                     pending.remove(current)
-                
-                # 남은 태스크들 취소
-                if pending:
-                    # 모든 태스크 취소
-                    for task in pending:
-                        task.cancel()
-                    
-                    # 태스크들이 정리될 때까지 대기
-                    loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
-                
-                # 루프 종료
-                loop.close()
-
-                # 루프 종료
-                loop.close()
+                               
+                if not loop.is_closed():
+                    # 여기서는 close만, run_until_complete 호출 X
+                    loop.close()
             except Exception as e:
                 print(f"이벤트 루프 정리 중 오류: {e}")
 
@@ -227,20 +224,34 @@ class MainProcess:
             print(f"스레드 시작 중 오류 발생: {e}")
             self.cleanup()
           
-          
+            
     def stop_all(self):
-        """모든 스레드 종료"""
         self.stop_event.set()
-        for name, thread in self.threads.items():
-            thread.join()
-            print(f"{name} 스레드 종료됨")
 
+        if self.monitor_loop and self.monitor_loop.is_running():
+            async def _shutdown(loop):
+                tasks = [t for t in asyncio.all_tasks(loop) if not t.done()]
+                for t in tasks:
+                    t.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
+                loop.stop()               # <- gather 끝난 뒤 stop
+
+            asyncio.run_coroutine_threadsafe(_shutdown(self.monitor_loop),self.monitor_loop)
+
+    def graceful_shutdown(self, signum, frame):
+        print("Ctrl-C 감지 → 종료 루틴 실행")
+        self.stop_event.set()   # 루프 중단 신호
+        self.stop_all()
+        self.cleanup()
+        sys.exit(0)
+    
 ##################################  이까지 클래스  ####################################
 
 if __name__ == "__main__":
     main_process = None
     try:
         main_process = MainProcess()
+        signal.signal(signal.SIGINT, main_process.graceful_shutdown)
         main_process.start_all()
         
         start_time = datetime.now().strftime('%y%m%d - %X')
@@ -250,10 +261,8 @@ if __name__ == "__main__":
         while True:
             time.sleep(1)
 
-    except (KeyboardInterrupt, SystemExit):
-        print("\n프로그램 종료 요청됨")
-        if main_process:
-            main_process.stop_event.set()
+    except Exception as e:
+        print("예상치 못한 예외:", e)
     finally:
         if main_process:
             main_process.stop_all()

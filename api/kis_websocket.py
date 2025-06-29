@@ -29,12 +29,7 @@ class KISWebSocket:
         self.hashkey = None
         self.upper_limit_stocks = {}
         # sell_order 콜백 (필수)
-        if callback is None:
-            def _invalid_callback(*args, **kwargs):
-                raise RuntimeError("sell callback not set")
-            self.callback = _invalid_callback
-        else:
-            self.callback = callback
+        self._sell_order = callback
         self.websocket = None
         self.subscribed_tickers = set()
         self.ticker_queues = {}
@@ -70,120 +65,86 @@ class KISWebSocket:
     ######################################################################################
 
     async def sell_condition(
-        self, recvvalue, session_id, ticker, name, quantity, avr_price, target_date
+        self, recvvalue, session_id, ticker, name, quantity, avg_price, target_date
     ):
-        sell_completed = False
+        is_sell_completed = False
         lock_start_time = None
+
         if len(recvvalue) == 1 and "SUBSCRIBE SUCCESS" in recvvalue[0]:
             return False
 
         ### 매도 전 전처리 ###
         # 현재 호가(매도 1호가)를 2틱 낮춰 안전가 계산
         try:
-            raw_price = int(recvvalue[15])
-        except Exception as e:
+            current_price = int(recvvalue[15])
+        except ValueError as e:
             print("sell_condition - recvvalue[15]: ", e)
             return False
 
-        # 한국거래소 호가단위에 맞춰 2틱 아래 가격 계산
-        def _get_tick(p: int) -> int:
-            """가격대별 호가단위를 반환 (코스닥·코스피 동일 기준)."""
-            if p < 1000:
+        def get_tick(price: int) -> int:
+            if price < 1000:
                 return 1
-            elif p < 5000:
+            elif price < 5000:
                 return 5
-            elif p < 10000:
+            elif price < 10000:
                 return 10
-            elif p < 50000:
+            elif price < 50000:
                 return 50
-            elif p < 100000:
+            elif price < 100000:
                 return 100
             else:
                 return 1000
-
-        tick = _get_tick(raw_price)
-        target_price = max(
-            raw_price - tick * 2, tick
-        )  # 2틱 아래, 음수가 되지 않도록 보정
-
         # 종목 락 설정 (동일 종목 동시 매도 로직을 방지하기 위한 락)
+        tick_interval = get_tick(current_price)
+        target_price = max(current_price - tick_interval * 2, tick_interval)
+
         if ticker not in self.locks:
             self.locks[ticker] = asyncio.Lock()
 
-        # 이미 다른 코루틴이 해당 종목에 대해 매도 로직을 수행 중이라면
-        # LOCK_TIMEOUT 만큼 대기하지 않고 바로 반환하여 불필요한 경고를 줄입니다.
         if self.locks[ticker].locked():
             return False
 
-        # 현재 날짜와 시간 가져오기
         now = datetime.now()
-        today = now.date()
+        current_date = now.date()
         current_time = now.time()
-
         # 매도 시간 범위 설정 (한국거래소 기준)
-        trading_start_time = KRX_TRADING_START
-        trading_end_time = KRX_TRADING_END
-
-        # 매도 가능 시간(9시-20시)이 아니면 바로 종료
-        # 불필요한 매도 시도 반복을 방지하기 위해 15분 간격으로만 로깅
-        if current_time < trading_start_time or current_time > trading_end_time:
-            # 10분 단위일 때만 로그 기록 (예: 8:00, 8:10, 8:20...)
+        if current_time < KRX_TRADING_START or current_time > KRX_TRADING_END:
             if current_time.minute % 10 == 0 and current_time.second < 10:
                 print(
-                    f"[{now.strftime('%H:%M:%S')}] 거래 시간 외 ({trading_start_time}-{trading_end_time}) - 매도 모니터링만 진행"
+                    f"[{now.strftime('%H:%M:%S')}] 거래 시간 외 ({KRX_TRADING_START}-{KRX_TRADING_END}) - 매도 모니터링만 진행"
                 )
             return False
 
-        # 매도 시간 설정 (15시 10분)
-        sell_time = time(15, 10)
-
-        # 매도 사유와 조건을 먼저 확인
+        sell_time_threshold = time(15, 10)
         sell_reason = None
-        # target_date가 boolean인지 확인하고 처리
-        if isinstance(target_date, bool):
-            # 타겟데이트가 boolean이면, 우선 매도 조건2, 3으로만 진행하고 조건1은 무시
-            print(
-                f"[경고] {ticker} 타겟데이트가 boolean({target_date})입니다. 기간만료 체크를 건너뜁니다."
-            )
-            # 로그 남기기
-            self.slack_logger.send_log(
-                level="WARNING",
-                message="타겟데이트 형식 오류",
-                context={
-                    "종목코드": ticker,
-                    "타겟데이트타입": str(type(target_date)),
-                    "값": str(target_date),
-                },
-            )
-        else:
-            # 조건1: 보유기간 만료로 매도
-            try:
-                if today > target_date and current_time >= sell_time:
-                    sell_reason = {
-                        "매도사유": "기간만료",
-                        "매도목표일": target_date.strftime("%Y-%m-%d")
-                        if hasattr(target_date, "strftime")
-                        else str(target_date),
-                    }
-            except TypeError as e:
-                print(
-                    f"[오류] 날짜 비교 실패: {e}, 타겟데이트: {type(target_date)}, 값: {target_date}"
-                )
 
+
+        # 조건1: 보유기간 만료로 매도
+        try:
+            if current_date > target_date and current_time >= sell_time_threshold:
+                sell_reason = {
+                    "매도사유": "기간만료",
+                    "매도목표일": target_date.strftime("%Y-%m-%d")
+                    if hasattr(target_date, "strftime")
+                    else str(target_date),
+                }
+        except TypeError as e:
+            print(
+                f"[오류] 날짜 비교 실패: {e}, 타겟데이트: {type(target_date)}, 값: {target_date}"
+            )
         # 조건2: 주가 상승으로 익절
-        if target_price > (avr_price * SELLING_POINT_UPPER):
+        if target_price > (avg_price * SELLING_POINT_UPPER):
             sell_reason = {
                 "매도사유": "주가 상승: 목표가 도달",
                 "매도가": target_price,
-                "매도조건가": avr_price * SELLING_POINT_UPPER,
+                "매도조건가": avg_price * SELLING_POINT_UPPER,
             }
-
         # 조건3: 리스크 관리차 매도
-        elif target_price < (avr_price * RISK_MGMT_UPPER):
+        elif target_price < (avg_price * RISK_MGMT_UPPER):
             sell_reason = {
                 "매도사유": "주가 하락: 리스크 관리차 매도",
                 "매도가": target_price,
-                "매도조건가": avr_price * RISK_MGMT_UPPER,
+                "매도조건가": avg_price * RISK_MGMT_UPPER,
             }
 
         if sell_reason:
@@ -193,199 +154,88 @@ class KISWebSocket:
                 "매도이유": sell_reason,
                 "시작시간": lock_start_time.strftime("%H:%M:%S.%f")[:-3]
             }
-            
-            # 락 획득 시도 직전 로깅
-            self.slack_logger.send_log(
-                level="INFO",
-                message=f"{ticker} 락 획득 시도 시작",
-                context=log_context
-            )
-            
-            try:
-                # 타임아웃과 함께 락 획득 시도
-                async with asyncio.timeout(self.LOCK_TIMEOUT):
-                    # 락 획득 직전 현재 시간 기록
-                    lock_acquire_start = datetime.now()
-                    
-                    async with self.locks[ticker]:
-                        # 락 획득 직후 로깅
-                        lock_acquire_time = datetime.now()
-                        acquire_ms = (lock_acquire_time - lock_acquire_start).total_seconds() * 1000
-                        
-                        self.slack_logger.send_log(
-                            level="INFO",
-                            message=f"{ticker} 락 획득 완료",
-                            context={
-                                **log_context,
-                                "락획득시간": lock_acquire_time.strftime("%H:%M:%S.%f")[:-3],
-                                "획득소요ms": f"{acquire_ms:.1f}ms"
-                            }
-                        )
-                        
-                        # === 단계별 작업 시간 측정 ===
-                        
-                        # 1. 잔고 확인 시작
-                        balance_start = datetime.now()
-                        try:
-                            # 매도 실행 전 잔고 확인 (최대 3회 재시도)
-                            max_retry = 3
-                            balance_result = None
-                            for attempt in range(max_retry):
-                                balance_result = await self.check_balance_async(ticker)
-                                if balance_result:
-                                    break
-                                await asyncio.sleep(0.5)
-                                
-                            balance_end = datetime.now()
-                            balance_ms = (balance_end - balance_start).total_seconds() * 1000
-                            
-                            self.slack_logger.send_log(
-                                level="INFO",
-                                message=f"{ticker} 잔고 확인 완료",
-                                context={
-                                    **log_context,
-                                    "잔고확인소요ms": f"{balance_ms:.1f}ms",
-                                    "잔고결과": "성공" if balance_result else "실패"
-                                }
-                            )
-                            
-                            # 2. 매도 실행 단계 시간 측정
-                            if balance_result:  # 잔고가 있는 경우에만 매도
-                                # 실제 보유 수량 확인
-                                real_quantity = int(balance_result.get('hldg_qty', 0))
-                                if real_quantity <= 0:
-                                    self.slack_logger.send_log(
-                                        level="WARNING",
-                                        message=f"{ticker} 실제 보유량 없음, 모니터링 중단",
-                                        context={**log_context}
-                                    )
-                                    # 중요: 모니터링 완전히 중단하고 구독 해제
-                                    await self._stop_monitoring_internal(ticker)
-                                    # 구독과 모니터링이 중단되었으므로 세션 데이터도 구독 취소 표시해야 함
-                                    sell_completed = True  # 매도 완료로 처리하여 세션 정리되게 함
-                                    return sell_completed
-                                    
-                                sell_start = datetime.now()
-                                # 매도 실행 - TradingUpper의 sell_order 메서드 사용 (비동기 실행, 타임아웃 추가)
-                                try:
-                                    loop = asyncio.get_event_loop()
-                                    # 매도 실행 콜백 함수
-                                    sell_func = self.callback
-                                    sell_results = await asyncio.wait_for(
-                                        loop.run_in_executor(
-                                            None,
-                                            sell_func,
-                                            session_id, ticker, real_quantity, target_price
-                                        ),
-                                        timeout=30.0  # 30초 타임아웃
-                                    )
-                                except asyncio.TimeoutError:
-                                    self.slack_logger.send_log(
-                                        level="ERROR",
-                                        message=f"{ticker} 매도 주문 타임아웃 (30초)",
-                                        context={**log_context}
-                                    )
-                                    return False
-                                
-                                sell_end = datetime.now()
-                                sell_ms = (sell_end - sell_start).total_seconds() * 1000
 
-                                # None 또는 iterable이 아닐 경우 빈 리스트로 대체
-                                if not sell_results or not hasattr(sell_results, '__iter__'):
-                                    sell_results = []
-                                # 매도 결과 확인
-                                sell_completed = len(sell_results) > 0 and any(
-                                    result.get('success', False) for result in sell_results
+
+
+            try:
+                async with asyncio.timeout(self.LOCK_TIMEOUT):
+                    async with self.locks[ticker]:
+                        balance_result = None
+                        balance_result = await self.check_balance_async(ticker)
+
+                        if balance_result:
+                            real_quantity = int(balance_result.get('hldg_qty', 0))
+                            if real_quantity <= 0:
+
+                                await self._stop_monitoring_internal(ticker)
+                                is_sell_completed = True
+                                return is_sell_completed
+
+                            sell_start = datetime.now()
+                                # 매도 실행 - TradingUpper의 sell_order 메서드 사용 (비동기 실행, 타임아웃 추가)
+                            try:
+                                loop = asyncio.get_event_loop()
+                                    # 매도 실행 콜백 함수
+                                sell_func = self._sell_order
+                                sell_results = await asyncio.wait_for(
+                                    loop.run_in_executor(
+                                        None,
+                                        sell_func,
+                                        session_id, ticker, real_quantity, target_price
+                                    ),
+                                    timeout=30.0
                                 )
-                                
+                            except asyncio.TimeoutError:
                                 self.slack_logger.send_log(
-                                    level="INFO",
-                                    message=f"{ticker} 매도 처리 완료",
-                                    context={
-                                        **log_context,
-                                        "매도소요ms": f"{sell_ms:.1f}ms",
-                                        "매도결과": "성공" if sell_completed else "실패"
-                                    }
-                                )
-                            else:
-                                # 잔고 확인 실패 시 로그
-                                self.slack_logger.send_log(
-                                    level="WARNING",
-                                    message=f"{ticker} 잔고 조회 실패",
+                                    level="ERROR",
+                                    message=f"{ticker} 매도 주문 타임아웃 (30초)",
                                     context={**log_context}
                                 )
-                                
-                        except Exception as e:
+                                return False
+
+                            sell_end = datetime.now()
+                            sell_duration_ms = (sell_end - sell_start).total_seconds() * 1000
+
+                            if not sell_results or not hasattr(sell_results, '__iter__'):
+                                sell_results = []
+
+                            is_sell_completed = len(sell_results) > 0 and any(
+                                result.get('success', False) for result in sell_results
+                            )
+
                             self.slack_logger.send_log(
-                                level="ERROR",
-                                message=f"{ticker} 락 내부 처리 중 오류",
+                                level="INFO",
+                                message=f"{ticker} 매도 처리 완료",
                                 context={
                                     **log_context,
-                                    "에러": str(e),
-                                    "에러위치": "잔고조회" if 'balance_end' not in locals() else "매도처리"
+                                    "매도소요ms": f"{sell_duration_ms:.1f}ms",
+                                    "매도결과": "성공" if is_sell_completed else "실패"
                                 }
                             )
-                            raise  # 예외 재발생하여 finally 블록 실행 보장
-                            
-                        # 락 종료 직전 로깅
-                        lock_end_time = datetime.now()
-                        lock_held_ms = (lock_end_time - lock_acquire_time).total_seconds() * 1000
-                        
-                        self.slack_logger.send_log(
-                            level="INFO",
-                            message=f"{ticker} 락 해제 준비",
-                            context={
-                                **log_context,
-                                "락점유시간ms": f"{lock_held_ms:.1f}ms"
-                            }
-                        )
-                        
-                    # 락 해제 후 로깅
-                    lock_release_time = datetime.now()
-                    total_ms = (lock_release_time - lock_start_time).total_seconds() * 1000
-                    
-                    self.slack_logger.send_log(
-                        level="INFO",
-                        message=f"{ticker} 락 해제 완료",
-                        context={
-                            **log_context,
-                            "전체소요ms": f"{total_ms:.1f}ms"
-                        }
-                    )
-                    
-                    return sell_completed if 'sell_completed' in locals() else False
-                    
-            except TimeoutError:
-                timeout_time = datetime.now()
-                total_wait_ms = (timeout_time - lock_start_time).total_seconds() * 1000
-                
-                self.slack_logger.send_log(
-                    level="WARNING",
-                    message=f"{ticker} 락 획득 타임아웃",
-                    context={
-                        **log_context,
-                        "대기시간ms": f"{total_wait_ms:.1f}ms"
-                    }
-                )
-                return False
-                
+                        else:
+                            # 잔고 확인 실패 시 로그
+                            self.slack_logger.send_log(
+                                level="WARNING",
+                                message=f"{ticker} 잔고 조회 실패",
+                                context={**log_context}
+                            )
+
             except Exception as e:
                 self.slack_logger.send_log(
-                    level="ERROR", 
-                    message=f"{ticker} 예외 발생",
+                    level="ERROR",
+                    message=f"{ticker} 락 내부 처리 중 오류",
                     context={
                         **log_context,
-                        "에러": str(e)
+                        "에러": str(e),
+                        "에러위치": "잔고조회" if 'balance_end' not in locals() else "매도처리"
                     }
                 )
-                return False
-                
+                raise
+
             finally:
-                # 락 정리
                 try:
                     if ticker in self.locks:
-                        lock_is_locked = self.locks[ticker].locked()
-                        if not lock_is_locked:
+                        if not self.locks[ticker].locked():
                             del self.locks[ticker]
                             self.slack_logger.send_log(
                                 level="INFO",
@@ -407,6 +257,20 @@ class KISWebSocket:
                             "정리오류": str(cleanup_error)
                         }
                     )
+
+            lock_release_time = datetime.now()
+            total_duration_ms = (lock_release_time - lock_start_time).total_seconds() * 1000
+
+            self.slack_logger.send_log(
+                level="INFO",
+                message=f"{ticker} 락 해제 완료",
+                context={
+                    **log_context,
+                    "전체소요ms": f"{total_duration_ms:.1f}ms"
+                }
+            )
+
+            return is_sell_completed if 'is_sell_completed' in locals() else False
 
     ######################################################################################
     ##############################    인증 관련 메서드   #####################################
