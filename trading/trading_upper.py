@@ -41,7 +41,7 @@ class TradingUpper():
         self.session_lock = Lock()  # 세션 업데이트용 락
         self.api_lock = Lock()  # API 호출용 락
         # 모니터링 루프 참조 (MainProcess에서 주입)
-        self.monitor_loop: Optional[asyncio.AbstractEventLoop] = None
+        self._monitor_loop: Optional[asyncio.AbstractEventLoop] = None
 
 ######################################################################################
 #########################    상승 종목 받아오기 / 저장   ###################################
@@ -687,7 +687,7 @@ class TradingUpper():
                         # 모니터링 시작
                         if actual_quantity > 0:
                             try:
-                                loop = getattr(self, "monitor_loop", None)
+                                loop = getattr(self, "_monitor_loop", None)
                                 if loop and not loop.is_closed():
                                     asyncio.run_coroutine_threadsafe(
                                         self.monitor_for_selling_upper([session]),
@@ -720,7 +720,7 @@ class TradingUpper():
                         # 모니터링 시작
                         if total_quantity > 0:
                             try:
-                                loop = getattr(self, "monitor_loop", None)
+                                loop = getattr(self, "_monitor_loop", None)
                                 if loop and not loop.is_closed():
                                     asyncio.run_coroutine_threadsafe(
                                         self.monitor_for_selling_upper([session]),
@@ -1332,14 +1332,13 @@ class TradingUpper():
             return order_result
 
 
-    def sell_order(self, session_id: int, ticker: str, quantity: int, price: Optional[int] = None) -> Optional[Dict]:            
+    def sell_order(self, session_id: int, ticker: str, price: Optional[int] = None) -> Optional[Dict]:            
             """
             주식 매도 주문을 실행하고, 미체결 주문이 있으면 주문 수정을 통해 체결 시도.
 
             Args:
                 session_id (int): 세션 ID
                 ticker (str): 종목 코드
-                quantity (int): 매도 수량
                 price (Optional[int], optional): 매도 호가. 미입력 시 시장가
 
             Returns:
@@ -1348,7 +1347,7 @@ class TradingUpper():
             order_result = None  # 예외 발생 시에도 참조 가능하도록 사전 초기화
             try:
                 # 로그 기록: 매도 주문 시작
-                self.logger.log_order("매도", ticker, quantity, price, context={
+                self.logger.log_order("매도", ticker, price, context={
                     "세션ID": session_id,
                     "주문타입": "지정가" if price is not None else "시장가"
                 })
@@ -1390,30 +1389,17 @@ class TradingUpper():
                         context={
                             "세션ID": session_id,
                             "종목코드": ticker,
-                            "요청수량": quantity
                         }
                     )
                     return 
                 
                 # 실제 보유 수량 확인
-                actual_quantity = hold_qty
+                quantity = hold_qty
                 self.logger.info("매도 수량 확인", {
                     "세션ID": session_id,
                     "종목코드": ticker,
-                    "요청수량": quantity,
-                    "실제보유": actual_quantity
+                    "실제보유": quantity
                 })
-                
-                if actual_quantity < quantity:                  
-                    # 수량 조정 로깅
-                    self.logger.warning("매도 수량 자동 조정", {
-                        "세션ID": session_id,
-                        "종목코드": ticker,
-                        "요청수량": quantity,
-                        "실제보유": hold_qty, 
-                        "조정 후 수량": actual_quantity
-                    })
-                    quantity = actual_quantity  # 실제 보유 수량으로 조정
 
                 # 주문 실행
                 with self.api_lock:
@@ -1457,7 +1443,7 @@ class TradingUpper():
                 
                 # 주문 완료 후 대기
                 time.sleep(SELL_WAIT)
-                
+
                 # 주문 완료 체크
                 unfilled_qty = self.order_complete_check(order_result)
                 self.logger.info(f"매도 주문 미체결 수량 확인", {"세션ID": session_id, "ticker": ticker, "unfilled": unfilled_qty})
@@ -1479,10 +1465,9 @@ class TradingUpper():
                     
                     # 주문 수정 실행
                     revised_result = self.kis_api.revise_order(order_result.get('output', {}).get('ODNO'), unfilled_qty, revised_price)
-
+                    self.logger.info('revised_result: ',revised_result)
                     # 수정된 금액으로도 미체결 시 재수정을 위한 준비
-                    unfilled_qty = self.order_complete_check(revised_result)
-                    order_result['output']['ODNO'] = revised_result.get('output', {}).get('ODNO')
+                    unfilled_qty = self.order_complete_check(order_result)
                     TRY_COUNT += 1
                     time.sleep(SELL_WAIT)
 
@@ -1511,17 +1496,7 @@ class TradingUpper():
                     if remaining_qty == 0:
                         # 전체 매도 완료 → 세션 삭제
                         self.delete_finished_session(session_id)
-                        self.slack_logger.send_log(
-                            level="INFO",
-                            message="매도 주문 완료 및 세션 삭제",
-                            context={
-                                "세션ID": session_id,
-                                "종목코드": ticker,
-                                "주문수량": quantity,
-                                "재시도": retry,
-                                "상태": "성공"
-                            }
-                        )
+                        self.logger.info("매도 주문 완료 및 세션 삭제",{"세션ID": session_id,"종목코드": ticker,"주문수량": quantity,"재시도": retry,"상태": "성공"})
                         break
                     else:
                         # 잔고가 남아있음 – 잔고 반영 지연 가능성 고려
@@ -1583,37 +1558,14 @@ class TradingUpper():
                     
                     break
 
-                # === [보강] 매도 주문 후 잔고 재확인 및 세션 row 삭제 로직 ===
-                try:
-                    with self.api_lock:
-                        final_balance_result = self.kis_api.balance_inquiry()
-                    final_balance_data = next((item for item in final_balance_result if item.get('pdno') == ticker), None)
-                    if not final_balance_data or int(final_balance_data.get('hldg_qty', 0)) == 0:
-                        self.delete_finished_session(session_id)
-                        self.logger.info("[보강] 매도 후 잔고 0 - 세션 row 삭제", {"세션ID": session_id, "종목코드": ticker})
-                        self.slack_logger.send_log(
-                            level="INFO",
-                            message="[보강] 매도 후 잔고 0으로 세션 row 삭제",
-                            context={"세션ID": session_id, "종목코드": ticker}
-                        )
-                except Exception as e:
-                    self.logger.error(f"[보강] 매도 후 잔고 확인/세션 삭제 중 예외: {e}", {"세션ID": session_id, "종목코드": ticker})
-                    self.slack_logger.send_log(
-                        level="ERROR",
-                        message="[보강] 매도 후 잔고 확인/세션 삭제 중 예외",
-                        context={"세션ID": session_id, "종목코드": ticker, "에러": str(e)})
-
-                return order_result
-
             except Exception as e:
                 # 로그 기록: 매도 주문 중 예외 발생
                 self.logger.error(f"매도 주문 예외 발생: {e}", {
                     "세션ID": session_id,
                     "종목코드": ticker,
-                    "수량": quantity,
                     "가격": price
                 })
-                return order_result  # 생성된 주문 정보 반환 또는 None 반환
+                return None  # 생성된 주문 정보 반환 또는 None 반환
 
 
     def delete_finished_session(self, session_id):
@@ -1662,75 +1614,75 @@ class TradingUpper():
         return sessions_info
         
     
-    
-    async def start_monitoring_for_session(self, session):
-        ticker = session.get('ticker')
-        name = session.get('name')
-        quantity = session.get('quantity')
-        avr_price = session.get('avr_price')
-        start_date = session.get('start_date')
-        target_date = self.date_utils.get_target_date(start_date, DAYS_LATER_UPPER)
+    ###### 삭제 예정 ######
+    # async def start_monitoring_for_session(self, session):
+    #     ticker = session.get('ticker')
+    #     name = session.get('name')
+    #     quantity = session.get('quantity')
+    #     avr_price = session.get('avr_price')
+    #     start_date = session.get('start_date')
+    #     target_date = self.date_utils.get_target_date(start_date, DAYS_LATER_UPPER)
         
-        session_info = [(session.get('id'), ticker, name, quantity, avr_price, start_date, target_date)]
+    #     session_info = [(session.get('id'), ticker, name, quantity, avr_price, start_date, target_date)]
         
-        if self.kis_websocket is None:
-            self.kis_websocket = KISWebSocket(self.sell_order)
-        await self.kis_websocket.real_time_monitoring(session_info)
+    #     if self.kis_websocket is None:
+    #         self.kis_websocket = KISWebSocket(self.sell_order)
+    #     await self.kis_websocket.real_time_monitoring(session_info)
         
 
-    def _run_monitoring_for_session(self, session):
-        # 이미 모니터링 중인 세션인지 확인
-        ticker = session.get('ticker')
-        if ticker in getattr(self, '_monitoring_tickers', set()):
-            print(f"[경고] {ticker} 이미 모니터링 중임")
-            return
+    # def _run_monitoring_for_session(self, session):
+    #     # 이미 모니터링 중인 세션인지 확인
+    #     ticker = session.get('ticker')
+    #     if ticker in getattr(self, '_monitoring_tickers', set()):
+    #         print(f"[경고] {ticker} 이미 모니터링 중임")
+    #         return
         
-        # 모니터링 중인 종목 추적
-        if not hasattr(self, '_monitoring_tickers'):
-            self._monitoring_tickers = set()
-        self._monitoring_tickers.add(ticker)
+    #     # 모니터링 중인 종목 추적
+    #     if not hasattr(self, '_monitoring_tickers'):
+    #         self._monitoring_tickers = set()
+    #     self._monitoring_tickers.add(ticker)
         
-        # 새로운 이벤트 루프 생성
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+    #     # 새로운 이벤트 루프 생성
+    #     loop = asyncio.new_event_loop()
+    #     asyncio.set_event_loop(loop)
         
-        try:
-            print(f"[디버그] {ticker} 모니터링 시작")
-            loop.run_until_complete(self.start_monitoring_for_session(session))
-        except Exception as e:
-            print(f"[오류] {ticker} 모니터링 중 오류 발생: {e}")
-        finally:
-            try:
-                # 실행 중인 태스크를 정리
-                pending = asyncio.all_tasks(loop)
-                if pending:
-                    print(f"[디버그] {ticker} 모니터링 태스크 정리 중: {len(pending)} 태스크")
-                    for task in pending:
-                        task.cancel()
+    #     try:
+    #         print(f"[디버그] {ticker} 모니터링 시작")
+    #         loop.run_until_complete(self.start_monitoring_for_session(session))
+    #     except Exception as e:
+    #         print(f"[오류] {ticker} 모니터링 중 오류 발생: {e}")
+    #     finally:
+    #         try:
+    #             # 실행 중인 태스크를 정리
+    #             pending = asyncio.all_tasks(loop)
+    #             if pending:
+    #                 print(f"[디버그] {ticker} 모니터링 태스크 정리 중: {len(pending)} 태스크")
+    #                 for task in pending:
+    #                     task.cancel()
                     
-                    # 취소된 태스크 정리 대기
-                    loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+    #                 # 취소된 태스크 정리 대기
+    #                 loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
                 
-                # 웹소켓 연결 정리 시도
-                if self.kis_websocket:
-                    try:
-                        loop.run_until_complete(self.kis_websocket.close())
-                        print(f"[디버그] {ticker} 웹소켓 안전 종료 완료")
-                    except Exception as e:
-                        print(f"[오류] 웹소켓 종료 중 오류: {e}")
-            except Exception as e:
-                print(f"[오류] 이벤트 루프 정리 중 오류: {e}")
-            finally:
-                # 루프 종료
-                try:
-                    loop.close()
-                except Exception as e:
-                    print(f"[오류] 이벤트 루프 닫기 실패: {e}")
+    #             # 웹소켓 연결 정리 시도
+    #             if self.kis_websocket:
+    #                 try:
+    #                     loop.run_until_complete(self.kis_websocket.close())
+    #                     print(f"[디버그] {ticker} 웹소켓 안전 종료 완료")
+    #                 except Exception as e:
+    #                     print(f"[오류] 웹소켓 종료 중 오류: {e}")
+    #         except Exception as e:
+    #             print(f"[오류] 이벤트 루프 정리 중 오류: {e}")
+    #         finally:
+    #             # 루프 종료
+    #             try:
+    #                 loop.close()
+    #             except Exception as e:
+    #                 print(f"[오류] 이벤트 루프 닫기 실패: {e}")
                 
-                # 모니터링 종목 정보에서 제거
-                if ticker in self._monitoring_tickers:
-                    self._monitoring_tickers.remove(ticker)
-                print(f"[디버그] {ticker} 모니터링 종료")
+    #             # 모니터링 종목 정보에서 제거
+    #             if ticker in self._monitoring_tickers:
+    #                 self._monitoring_tickers.remove(ticker)
+    #             print(f"[디버그] {ticker} 모니터링 종료")
 
 
 

@@ -13,10 +13,12 @@ from config.condition import (
     KRX_TRADING_START,
     KRX_TRADING_END,
 )
+from utils.trading_logger import TradingLogger
 from utils.slack_logger import SlackLogger
 from datetime import datetime, timedelta, time
 from database.db_manager_upper import DatabaseManager
 from api.kis_api import KISApi
+
 
 
 class KISWebSocket:
@@ -35,9 +37,9 @@ class KISWebSocket:
         self.ticker_queues = {}
         # 현재 루프 저장 (생성 시점 루프)
         try:
-            self._loop = asyncio.get_running_loop()
+            self._monitor_loop = asyncio.get_running_loop()
         except RuntimeError:
-            self._loop = asyncio.get_event_loop()
+            self._monitor_loop = asyncio.get_event_loop()
         self.message_queue = asyncio.Queue()
         self.is_connected = False
         self.approval_key = None
@@ -58,6 +60,7 @@ class KISWebSocket:
         # 매수 중인 종목 추적 (key: 종목코드, value: 매수 중 상태)
         self.buying_in_progress = {}
         self.buy_status_lock = asyncio.Lock()
+        self.logger = TradingLogger()
 
 
     ######################################################################################
@@ -160,16 +163,16 @@ class KISWebSocket:
             try:
                 async with asyncio.timeout(self.LOCK_TIMEOUT):
                     async with self.locks[ticker]:
-                        balance_result = None
-                        balance_result = await self.check_balance_async(ticker)
+                        # balance_result = None
+                        # balance_result = await self.check_balance_async(ticker)
 
-                        if balance_result:
-                            real_quantity = int(balance_result.get('hldg_qty', 0))
-                            if real_quantity <= 0:
+                        # if balance_result:
+                        #     real_quantity = int(balance_result.get('hldg_qty', 0))
+                        #     if real_quantity <= 0:
 
-                                await self._stop_monitoring_internal(ticker)
-                                is_sell_completed = True
-                                return is_sell_completed
+                        #         await self._stop_monitoring_internal(ticker)
+                        #         is_sell_completed = True
+                        #         return is_sell_completed
 
                             sell_start = datetime.now()
                                 # 매도 실행 - TradingUpper의 sell_order 메서드 사용 (비동기 실행, 타임아웃 추가)
@@ -181,12 +184,12 @@ class KISWebSocket:
                                     loop.run_in_executor(
                                         None,
                                         sell_func,
-                                        session_id, ticker, real_quantity, target_price
+                                        session_id, ticker, target_price
                                     ),
                                     timeout=30.0
                                 )
                             except asyncio.TimeoutError:
-                                self.slack_logger.send_log(
+                                self.logger.error(
                                     level="ERROR",
                                     message=f"{ticker} 매도 주문 타임아웃 (30초)",
                                     context={**log_context}
@@ -197,28 +200,26 @@ class KISWebSocket:
                             sell_duration_ms = (sell_end - sell_start).total_seconds() * 1000
 
                             if not sell_results or not hasattr(sell_results, '__iter__'):
-                                sell_results = []
+                                sell_results = {}
 
-                            is_sell_completed = len(sell_results) > 0 and any(
-                                result.get('success', False) for result in sell_results
+                            # sell_order의 결과(dict)가 None이 아니고, 'rt_cd'가 '0'인지 확인
+                            is_sell_completed = (
+                                sell_results is not None and
+                                sell_results.get('rt_cd') == '0'
                             )
 
-                            self.slack_logger.send_log(
-                                level="INFO",
-                                message=f"{ticker} 매도 처리 완료",
-                                context={
-                                    **log_context,
-                                    "매도소요ms": f"{sell_duration_ms:.1f}ms",
-                                    "매도결과": "성공" if is_sell_completed else "실패"
-                                }
-                            )
-                        else:
-                            # 잔고 확인 실패 시 로그
-                            self.slack_logger.send_log(
-                                level="WARNING",
-                                message=f"{ticker} 잔고 조회 실패",
-                                context={**log_context}
-                            )
+                            self.logger.info(f"{ticker} 매도 처리 완료", {
+                                **log_context,
+                                "매도소요ms": f"{sell_duration_ms:.1f}ms",
+                                "매도결과": "성공" if is_sell_completed else "실패"
+                            })
+                        # else:
+                        #     # 잔고 확인 실패 시 로그
+                        #     self.slack_logger.send_log(
+                        #         level="WARNING",
+                        #         message=f"{ticker} 잔고 조회 실패",
+                        #         context={**log_context}
+                        #     )
 
             except Exception as e:
                 self.slack_logger.send_log(
@@ -405,18 +406,8 @@ class KISWebSocket:
             self.background_tasks = set()
 
             # 종목 구독
-            for (
-                session_id,
-                ticker,
-                name,
-                qty,
-                price,
-                start_date,
-                target_date,
-            ) in sessions_info:
-                await self.add_new_stock_to_monitoring(
-                    session_id, ticker, name, qty, price, start_date, target_date
-                )
+            for (session_id,ticker,name,qty,price,start_date,target_date,) in sessions_info:
+                await self.add_new_stock_to_monitoring(session_id, ticker, name, qty, price, start_date, target_date)
 
             # 단일 웹소켓 수신 처리 시작 (중복 생성 방지)
             if self.receiver_task is None or self.receiver_task.done():
@@ -448,10 +439,10 @@ class KISWebSocket:
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
-            loop = self._loop
-        if loop != self._loop:
+            loop = self._monitor_loop
+        if loop != self._monitor_loop:
             fut = asyncio.run_coroutine_threadsafe(
-                self._stop_monitoring_internal(ticker), self._loop
+                self._stop_monitoring_internal(ticker), self._monitor_loop
             )
             fut.result()
             return
@@ -483,7 +474,7 @@ class KISWebSocket:
                     # Python 3.7+에서 Task 루프 확인
                     task_loop = task.get_loop()
                 except AttributeError:
-                    task_loop = self._loop  # Fallback
+                    task_loop = self._monitor_loop  # Fallback
                 
                 # 현재 실행 중인 루프 확인
                 try:
@@ -709,9 +700,6 @@ class KISWebSocket:
                 "tr_type": "1",
                 "content-type": "utf-8",
             }
-            print(f"웹소켓 헤더 준비됨: {self.connect_headers}")
-            self._loop = asyncio.get_running_loop()  # 현재 이벤트 루프 저장
-            print("이벤트 루프 저장됨")
 
             # 타임아웃 설정하여 연결 시도
             print("웹소켓 연결 시도 중...")
@@ -744,10 +732,10 @@ class KISWebSocket:
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
-            loop = self._loop
-        if loop != self._loop:
+            loop = self._monitor_loop
+        if loop != self._monitor_loop:
             # 다른 루프에서 호출 시 안전하게 run_coroutine_threadsafe 사용
-            fut = asyncio.run_coroutine_threadsafe(self._close_internal(), self._loop)
+            fut = asyncio.run_coroutine_threadsafe(self._close_internal(), self._monitor_loop)
             fut.result()  # 동기화 보장(필요시)
             return
         await self._close_internal()
@@ -884,9 +872,7 @@ class KISWebSocket:
             # 오류 발생 시에도 구독 목록에서 제거
             self.subscribed_tickers.discard(ticker)
 
-    async def add_new_stock_to_monitoring(
-        self, session_id, ticker, name, qty, price, start_date, target_date
-    ):
+    async def add_new_stock_to_monitoring(self, session_id, ticker, name, qty, price, start_date, target_date):
         # 기존 모니터링이 있으면 우선 중단해 중복 태스크 방지
         if ticker in self.active_tasks:
             await self.stop_monitoring(ticker)
@@ -919,8 +905,7 @@ class KISWebSocket:
         # 큐가 없거나 다른 루프에 바인딩되어 있으면 새로 생성
         if (
             ticker not in self.ticker_queues
-            or getattr(self.ticker_queues[ticker], "_loop", None)
-            is not asyncio.get_running_loop()
+            or getattr(self.ticker_queues[ticker], "_loop", None) is not asyncio.get_running_loop()
         ):
             self.ticker_queues[ticker] = asyncio.Queue()
 

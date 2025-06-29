@@ -425,44 +425,44 @@ class KISApi:
                 return {"rt_cd": "1", "msg_cd": "50000000", "msg1": f"API 호출 실패: {e}"}
 
 
-    def sell_order(self, ticker, quantity, price=None):
-        """
-        주식 매도 주문을 실행합니다.
+    # def sell_order(self, ticker, quantity, price=None):
+    #     """
+    #     주식 매도 주문을 실행합니다.
 
-        Args:
-            ticker (str): 종목 코드
-            quantity (int): 매도 수량
-            price (float, optional): 매도 희망 가격. None이면 시장가 주문
+    #     Args:
+    #         ticker (str): 종목 코드
+    #         quantity (int): 매도 수량
+    #         price (float, optional): 매도 희망 가격. None이면 시장가 주문
 
-        Returns:
-            dict: 주문 실행 결과를 포함한 딕셔너리
-        """
-        data = {
-            "CANO": M_ACCOUNT_NUMBER,
-            "ACNT_PRDT_CD": "01",
-            "PDNO": ticker,
-            "ORD_DVSN": "01" if price is None else "00",  # 01: 시장가, 00: 지정가
-            "ORD_QTY": str(quantity),
-            "ORD_UNPR": "0" if price is None else str(price),
-        }
-        # hashkey 생성 및 헤더 설정
-        self._get_hashkey(data, is_mock=True)
-        self._set_headers(is_mock=True, tr_id="VTTC0801U")  # 매도 거래 ID
-        self.headers["hashkey"] = self.hashkey
-        url = "https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/order-cash"
+    #     Returns:
+    #         dict: 주문 실행 결과를 포함한 딕셔너리
+    #     """
+    #     data = {
+    #         "CANO": M_ACCOUNT_NUMBER,
+    #         "ACNT_PRDT_CD": "01",
+    #         "PDNO": ticker,
+    #         "ORD_DVSN": "01" if price is None else "00",  # 01: 시장가, 00: 지정가
+    #         "ORD_QTY": str(quantity),
+    #         "ORD_UNPR": "0" if price is None else str(price),
+    #     }
+    #     # hashkey 생성 및 헤더 설정
+    #     self._get_hashkey(data, is_mock=True)
+    #     self._set_headers(is_mock=True, tr_id="VTTC0801U")  # 매도 거래 ID
+    #     self.headers["hashkey"] = self.hashkey
+    #     url = "https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/order-cash"
 
-        for attempt in range(1, 4):
-            try:
-                with KISApi._global_api_lock:
-                    response = requests.post(url=url, data=json.dumps(data), headers=self.headers, timeout=10)
-                response.raise_for_status()
-                return response.json()
-            except RequestException as e:
-                logging.error("[sell_order] API 호출 실패(%s/3): %s", attempt, e)
-                if attempt < 3:
-                    time.sleep(1)
-                    continue
-                return {"rt_cd": "1", "msg_cd": "50000000", "msg1": f"API 호출 실패: {e}"}
+    #     for attempt in range(1, 4):
+    #         try:
+    #             with KISApi._global_api_lock:
+    #                 response = requests.post(url=url, data=json.dumps(data), headers=self.headers, timeout=10)
+    #             response.raise_for_status()
+    #             return response.json()
+    #         except RequestException as e:
+    #             logging.error("[sell_order] API 호출 실패(%s/3): %s", attempt, e)
+    #             if attempt < 3:
+    #                 time.sleep(1)
+    #                 continue
+    #             return {"rt_cd": "1", "msg_cd": "50000000", "msg1": f"API 호출 실패: {e}"}
 
 
     def cancel_order(self, order_num):
