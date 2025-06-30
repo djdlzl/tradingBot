@@ -244,6 +244,8 @@ class KISWebSocket:
                                 context={**log_context}
                             )
                         else:
+                            del self.locks[ticker]
+                            self.locks[ticker] = asyncio.Lock()
                             self.slack_logger.send_log(
                                 level="WARNING",
                                 message=f"{ticker} 여전히 락 상태",
