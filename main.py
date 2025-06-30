@@ -26,6 +26,7 @@ from apscheduler.executors.pool import ThreadPoolExecutor
 from config.condition import GET_ULS_HOUR, GET_ULS_MINUTE, GET_SELECT_HOUR, GET_SELECT_MINUTE, ORDER_HOUR_1, ORDER_HOUR_2, ORDER_MINUTE_1, ORDER_MINUTE_2
 from api.kis_websocket import KISWebSocket
 from utils.decorators import business_day_only
+from utils.slack_logger import SlackLogger
 
 class MainProcess:
     def __init__(self):
@@ -35,6 +36,7 @@ class MainProcess:
         self.scheduler = BackgroundScheduler(timezone='Asia/Seoul')
         self.trading_upper = TradingUpper()            
         self.monitor_loop = None
+        self.slack_logger = SlackLogger()
 
         # 스케줄러 설정
         executors = {
@@ -165,6 +167,46 @@ class MainProcess:
             kis_websocket = KISWebSocket(self.trading_upper.sell_order)
             self.trading_upper.kis_websocket = kis_websocket  # KISWebSocket 인스턴스 설정
             sessions_info = self.trading_upper.get_session_info_upper()
+            
+            # 각 세션별로 모니터링 시작 알림 전송
+            if sessions_info:
+                for session in sessions_info:
+                    # 종목명과 종목코드 정보 가져오기
+                    stock_code = session.get('stock_code', '')
+                    stock_name = session.get('stock_name', '')
+                    entry_price = session.get('entry_price', '')
+                    quantity = session.get('quantity', '')
+                    
+                    message = f"모니터링 시작: {stock_name}({stock_code}) - 매수가: {entry_price}원, 수량: {quantity}주"
+                    self.slack_logger.send_log(
+                        level="INFO",
+                        message=message,
+                        context={
+                            "모니터링 유형": "상한가 모니터링",
+                            "시작 시간": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        }
+                    )
+                
+                # 전체 모니터링 시작 메시지 전송
+                total_count = len(sessions_info)
+                self.slack_logger.send_log(
+                    level="INFO",
+                    message=f"총 {total_count}개 종목 모니터링 시작",
+                    context={
+                        "모니터링 유형": "상한가 모니터링",
+                        "시작 시간": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    }
+                )
+            else:
+                # 모니터링할 세션이 없을 경우
+                self.slack_logger.send_log(
+                    level="WARNING",
+                    message="모니터링할 세션이 없습니다.",
+                    context={
+                        "모니터링 유형": "상한가 모니터링",
+                        "시작 시간": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    }
+                )
             
             # 이벤트 루프에서 코루틴 실행
             # 초기 세션 구독 코루틴을 등록하고 루프를 지속 실행
