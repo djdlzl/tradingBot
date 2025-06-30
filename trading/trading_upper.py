@@ -228,9 +228,10 @@ class TradingUpper():
         거래 시작
         """
 
-        # DB 트레이딩 세션 추가가
+        # DB 트레이딩 세션 추가
         session_info = self.add_new_trading_session()
-        
+        if session_info is None:
+            return
         try:
             #SLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACK
             # 세션 시작 로그
@@ -547,7 +548,7 @@ class TradingUpper():
                             }
                         )
                         return
-
+                    
                     # 주문 실패 체크
                     if order_result.get('rt_cd') != '0':
                         error_msg = f"주문 실패: {order_result.get('msg1', '알 수 없는 주문 오류')}"
@@ -686,8 +687,18 @@ class TradingUpper():
                             try:
                                 loop = getattr(self, "_monitor_loop", None)
                                 if loop and not loop.is_closed():
+                                    # 딕셔너리를 튜플로 변환 (main.py와 동일한 형식)
+                                    session_tuple = (
+                                        session.get('id'),
+                                        session.get('ticker'),
+                                        session.get('name'),
+                                        actual_quantity,  # 수량
+                                        actual_avg_price,  # 가격
+                                        session.get('start_date'),
+                                        session.get('start_date')  # target_date 값은 임시로 start_date 사용
+                                    )
                                     asyncio.run_coroutine_threadsafe(
-                                        self.monitor_for_selling_upper([session]),
+                                        self.monitor_for_selling_upper([session_tuple]),
                                         loop
                                     )
                                     print(f"[DEBUG] 모니터링 시작: 세션ID={session.get('id')}, 종목코드={session.get('ticker')}")
@@ -719,8 +730,18 @@ class TradingUpper():
                             try:
                                 loop = getattr(self, "_monitor_loop", None)
                                 if loop and not loop.is_closed():
+                                    # 딕셔너리를 튜플로 변환 (main.py와 동일한 형식)
+                                    session_tuple = (
+                                        session.get('id'),
+                                        session.get('ticker'),
+                                        session.get('name'),
+                                        total_quantity,  # 수량
+                                        session.get('avr_price', 0),  # 가격
+                                        session.get('start_date'),
+                                        session.get('start_date')  # target_date 값은 임시로 start_date 사용
+                                    )
                                     asyncio.run_coroutine_threadsafe(
-                                        self.monitor_for_selling_upper([session]),
+                                        self.monitor_for_selling_upper([session_tuple]),
                                         loop
                                     )
                                     print(f"[DEBUG] 모니터링 시작: 세션ID={session.get('id')}, 종목코드={session.get('ticker')}")
@@ -1284,6 +1305,8 @@ class TradingUpper():
                     self.logger.info('revised_result: ',revised_result)
                     ### 수정된 금액으로도 미체결 시 재수정을 위한 준비
                     unfilled_qty = self.order_complete_check(order_result)
+                    self.logger.info('revised_result: ',order_result)
+
                     TRY_COUNT += 1
                     time.sleep(BUY_WAIT)
 
@@ -1581,7 +1604,6 @@ class TradingUpper():
             if self.kis_websocket is None:
                 self.kis_websocket = KISWebSocket(self.sell_order)
             complete = await self.kis_websocket.real_time_monitoring(sessions_info)
-            print("콜백함수 실행함.")
             if complete:
                 print("모니터링이 정상적으로 종료되었습니다.")
         except Exception as e:
@@ -1608,6 +1630,7 @@ class TradingUpper():
             info_list = session.get('id'), session.get('ticker'), session.get('name'), session.get('quantity'), session.get('avr_price'), session.get('start_date'), target_date
             sessions_info.append(info_list)
             
+        print("sessions_info 값: ",sessions_info)
         return sessions_info
         
     
