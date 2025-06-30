@@ -510,11 +510,11 @@ class KISApi:
             "CANO": M_ACCOUNT_NUMBER,
             "ACNT_PRDT_CD": "01",
             "KRX_FWDG_ORD_ORGNO": "00950",
-            "ORGN_ODNO": order_num,
+            "ORGN_ODNO": str(order_num),
             "ORD_DVSN": "01",
             "RVSE_CNCL_DVSN_CD": "01", # 01:정정, 02:취소
-            "ORD_QTY": quantity,
-            "ORD_UNPR": order_price,
+            "ORD_QTY": str(quantity),
+            "ORD_UNPR": str(order_price),
             "QTY_ALL_ORD_YN": "Y",
             "ALGO_NO": ""
         }
