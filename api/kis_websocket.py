@@ -426,15 +426,12 @@ class KISWebSocket:
                     except Exception as e:
                         print(f"태스크에러: {e}")
 
-            # 모든 모니터링 태스크 완료 대기
-            results = await asyncio.gather(
-                *self.background_tasks, return_exceptions=True
-            )
-            print("real_time_monitoring 반환값:", results)
-            return results
+            # 모든 태스크가 완료되면 그냥 리턴
+            return True
 
         except Exception as e:
             print(f"모니터링 중 오류 발생: {e}")
+            return False
 
     async def stop_monitoring(self, ticker):
         """특정 종목의 모니터링만 중단 (루프 일치 보장)"""
@@ -919,6 +916,7 @@ class KISWebSocket:
             message="모니터링 시작",
             context={
                 "종목코드": ticker,
+                "종목이름": name,
                 "평균단가": avr_price,
                 "목표일": target_date,
                 "보유수량": quantity,
@@ -942,7 +940,6 @@ class KISWebSocket:
                 break
             try:
                 try:
-                    print('타임아웃 대기 시작')
                     # 타임아웃을 설정하여 데이터 대기
                     recvvalue = await asyncio.wait_for(
                         self.ticker_queues[ticker].get(), timeout=5.0
@@ -956,7 +953,6 @@ class KISWebSocket:
                         continue
                         
                     # 매도 조건 확인
-                    print('데이터 수신 성공:', ticker)
                     sell_completed = await self.sell_condition(
                         recvvalue,
                         session_id,
