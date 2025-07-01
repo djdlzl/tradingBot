@@ -145,12 +145,15 @@ class KISWebSocket:
             # 세션 확인
             session = self.db_manager.get_session_by_id(session_id)
             if not session:
-                self.slack_logger.send_log(
-                    level="WARNING",
-                    message=f"{ticker} 매도 처리 시작 전 세션이 이미 삭제됨",
-                    context=log_context
-                )
-                return False
+                # 세션이 없으면 모니터링 중단 처리
+                try:
+                    await self._stop_monitoring_internal(ticker)
+                except asyncio.CancelledError:
+                    # 정상적인 취소 흐름
+                    pass
+                except Exception as e:
+                    self.logger.error(f"{ticker} - 세션 없음 - 모니터링 중단 중 오류: {str(e)}")
+                return True  # True 반환하여 모니터링 루프가 종료되도록 함
 
             # 매도 실행
             try:
@@ -878,22 +881,41 @@ class KISWebSocket:
                 "보유수량": quantity,
             },
         )
+        # 세션 확인 카운터 초기화
+        session_check_counter = 0
+        
         # 모니터링 프로세스 시작
         while True:
             # 거래시간 체크: 거래시간 외면 모니터링 중단
             if not self._is_market_open():
-                print(
-                    f"[{datetime.now().strftime('%H:%M:%S')}] 거래시간 외 - {ticker} 모니터링 중단"
-                )
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] 거래시간 외 - {ticker} 모니터링 중단")
                 self.slack_logger.send_log(
                     level="INFO",
                     message="거래시간 외 모니터링 중단",
                     context={"종목코드": ticker},
                 )
                 break
-            # 구독이 해제되면 모니터링 종료
+                
+            # 구독 상태 확인
             if ticker not in self.subscribed_tickers:
+                self.slack_logger.send_log(level="INFO", message=f"{ticker} 구독 취소됨 - 모니터링 종료", context={"종목코드": ticker})
                 break
+                
+            # 주기적으로 세션 존재 여부 확인 (약 1분마다)
+            session_check_counter += 1
+            if session_check_counter >= 12:  # 5초 타임아웃 * 12 = 약 60초
+                session = self.db_manager.get_session_by_id(session_id)
+                if not session:
+                    self.slack_logger.send_log(
+                        level="INFO", 
+                        message=f"{ticker} 세션이 존재하지 않음 - 모니터링 종료", 
+                        context={"종목코드": ticker, "세션ID": session_id}
+                    )
+                    if ticker in self.subscribed_tickers:
+                        await self.unsubscribe_ticker(ticker)
+                    return True
+                session_check_counter = 0
+                
             try:
                 try:
                     # 타임아웃을 설정하여 데이터 대기
