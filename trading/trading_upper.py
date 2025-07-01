@@ -1366,12 +1366,7 @@ class TradingUpper():
             """
             order_result = None  # 예외 발생 시에도 참조 가능하도록 사전 초기화
             try:
-                # 로그 기록: 매도 주문 시작
-                self.logger.log_order("매도", ticker, price, context={
-                    "세션ID": session_id,
-                    "주문타입": "지정가" if price is not None else "시장가"
-                })
-                
+
                 # 매도 주문 전 잔고 확인
                 balance_result = None
                 with self.api_lock:
@@ -1394,9 +1389,9 @@ class TradingUpper():
                 
                 # 잔고가 없으면 세션 삭제하고 종료
                 if hold_qty <= 0:
-                    # 로그 기록: 잔고 없음으로 세션 삭제               
                     self.delete_finished_session(session_id)
 
+                    # 로그 기록: 잔고 없음으로 세션 삭제               
                     self.logger.info("잔고 없음 - 세션 삭제 완료", {
                         "세션ID": session_id,
                         "종목이름": balance_data.get('prdt_name'),
@@ -1502,15 +1497,25 @@ class TradingUpper():
                 remaining_qty = None
                 for retry in range(1, MAX_RETRY + 1):
                     balance_result = self.kis_api.balance_inquiry()
+                    balance_data = {}
+
                     if not balance_result:
+                        # 조회 실패 시 재시도
                         self.logger.warning("잔고 조회 결과 없음(재시도 단계)", {
                             "세션ID": session_id,
                             "종목코드": ticker,
                             "retry": retry
                         })
-                        balance_result = []
-                    
-                    balance_data = next((item for item in balance_result if item.get('pdno') == ticker), None)
+                    else:    
+                        # 보유 종목 확인
+                        for stock in balance_result:
+                            if stock.get('pdno') == ticker:
+                                balance_data = stock
+
+                    # 잔고 조회 실패 시 None 반환
+                    if balance_result is None:
+                        return None
+
                     remaining_qty = int(balance_data.get('hldg_qty', 0)) if balance_data else 0
 
                     if remaining_qty == 0:
@@ -1588,7 +1593,7 @@ class TradingUpper():
                 return None  # 생성된 주문 정보 반환 또는 None 반환
 
 
-    def delete_finished_session(self, session_id):
+    def delete_finished_session(self, session_id):        
         with DatabaseManager() as db:
             db.delete_session_one_row(session_id)
         print(session_id, " 세션을 삭제했습니다.")
