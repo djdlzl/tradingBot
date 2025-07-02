@@ -157,15 +157,15 @@ class TradingUpper():
             result_short_over = stock_info.get('output', {}).get('short_over_yn', 'N')
             
             print(stock.get('name'))
-            # print('조건1: result_high_price:',result_high_price)
-            # print('조건2: result_decline:',result_decline)
-            # print('조건3: result_volume:',result_volume)
-            # print('조건4: result_lstg:',result_lstg)
-            # print('조건5: result_lstg:',result_lstg)
-            print('매매 확인을 위해 임시로 모든 조건 통과')
+            print('조건1: result_high_price:',result_high_price)
+            print('조건2: result_decline:',result_decline)
+            print('조건3: result_volume:',result_volume)
+            print('조건4: result_lstg:',result_lstg)
+            print('조건5: result_short_over:',result_short_over)
+            # print('매매 확인을 위해 임시로 모든 조건 통과')
 
-            # if result_high_price and result_decline and result_volume and result_lstg and (result_short_over=='N'):
-            if True:
+            # if True:
+            if result_high_price and result_decline and result_volume and result_lstg and (result_short_over=='N'):
                 print(f"################ 매수 후보 종목: {stock.get('ticker')}, 종목명: {stock.get('name')} (현재가: {current_price}, 상한가 당시 가격: {stock.get('closing_price')})")
                 selected_stocks.append(stock)
       
@@ -1544,6 +1544,7 @@ class TradingUpper():
 
                     remaining_qty = int(balance_data.get('hldg_qty', 0)) if balance_data else 0
 
+                    # 위에서 삭제함
                     # if remaining_qty == 0:
                     #     # 전체 매도 완료 → 세션 삭제
                     #     self.delete_finished_session(session_id)
