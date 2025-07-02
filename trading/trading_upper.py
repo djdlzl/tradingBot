@@ -519,7 +519,7 @@ class TradingUpper():
         print(f"[DEBUG] 세션: {session}")
         
         MAX_RETRY = 15  # 체결 지연 대응을 위한 재시도 횟수 대폭 증가
-        RETRY_DELAY = 2  # 대기 시간도 2초로 증가 (총 최대 30초 이상 대기)
+        RETRY_DELAY = 5  # 대기 시간도 2초로 증가 (총 최대 30초 이상 대기)
         try:
             with self.session_lock:
                 with DatabaseManager() as db:
@@ -569,7 +569,9 @@ class TradingUpper():
                     current_date = datetime.now()
                     updated = False
 
-                    # 단일 주문 결과 처리
+                    # ---------------------------------------------
+                    # 1) 주문 체결 여부 확인 (완전 체결될 때까지 대기)
+                    # ---------------------------------------------
                     odno = order_result.get('output', {}).get('ODNO')
                     print(f"[DEBUG] 주문번호: {odno}")
 
@@ -577,8 +579,7 @@ class TradingUpper():
                         print(f"주문 번호 누락: {order_result.get('msg1')}")
                         return
 
-                        # 체결 정보 재시도 루프
-                    for retry in range(1, MAX_RETRY+1):
+                    for retry in range(1, MAX_RETRY + 1):
                         try:
                             result = self.kis_api.daily_order_execution_inquiry(odno)
                             if not result or 'output2' not in result or not result['output2']:
@@ -589,28 +590,41 @@ class TradingUpper():
                                 else:
                                     break
 
-                            real_spent_fund = int(result['output2']['tot_ccld_amt'])
-                            real_quantity = int(result['output2']['tot_ccld_qty'])
-                            
-                            if real_quantity <= 0 or real_spent_fund <= 0:
-                                print(f"유효하지 않은 체결 수량 또는 금액: 수량={real_quantity}, 금액={real_spent_fund} (재시도 {retry}/{MAX_RETRY})")
+                            # 남은 미체결 수량 확인
+                            try:
+                                rmn_qty = int(result['output1'][0].get('rmn_qty', 0))
+                            except (ValueError, TypeError, IndexError):
+                                rmn_qty = 0
+
+                            if rmn_qty > 0:
+                                print(f"미체결 수량 {rmn_qty}주 남아있음 (재시도 {retry}/{MAX_RETRY})")
                                 if retry < MAX_RETRY:
                                     time.sleep(RETRY_DELAY)
                                     continue
                                 else:
                                     break
 
+                            # 체결 완료 ▶︎ 총 체결 금액·수량 계산
+                            if 'output2' in result and result['output2']:
+                                real_spent_fund = int(result['output2']['tot_ccld_amt'])
+                                real_quantity = int(result['output2']['tot_ccld_qty'])
+                            else:
+                                # Fallback: output1 사용
+                                real_spent_fund = int(result['output1'][0].get('tot_ccld_amt', 0))
+                                real_quantity = int(result['output1'][0].get('tot_ccld_qty', 0))
+
                             total_spent_fund += real_spent_fund
                             total_quantity += real_quantity
                             updated = True
-                            break  # 성공 시 루프 탈출
+                            break  # 체결 정보 확보 → 루프 탈출
+
                         except Exception as e:
-                                    print(f"주문 체결 조회 중 오류: {e} (재시도 {retry}/{MAX_RETRY})")
-                                    if retry < MAX_RETRY:
-                                        time.sleep(RETRY_DELAY)
-                                        continue
-                                    else:
-                                        break
+                            print(f"주문 체결 조회 중 오류: {e} (재시도 {retry}/{MAX_RETRY})")
+                            if retry < MAX_RETRY:
+                                time.sleep(RETRY_DELAY)
+                                continue
+                            else:
+                                break
 
                     if not updated:
                         print("유효한 주문 체결 정보가 없습니다. (최대 재시도 후에도 실패)")
@@ -1387,7 +1401,7 @@ class TradingUpper():
                     except (ValueError, TypeError):
                         hold_qty = 0
                 
-                # 잔고가 없으면 세션 삭제하고 종료
+                # 잔고가 없으면 세션 삭제하고 sell_completed 상태로 반환
                 if hold_qty <= 0:
                     self.delete_finished_session(session_id)
 
@@ -1406,7 +1420,8 @@ class TradingUpper():
                             "종목코드": ticker,
                         }
                     )
-                    return 
+                    # sell_condition에서 모니터링을 중단할 수 있도록 성공 상태(dict) 반환
+                    return {"rt_cd": "0", "msg1": "잔고 없음 세션 삭제"}
                 
                 # 실제 보유 수량 확인
                 quantity = hold_qty
@@ -1466,6 +1481,17 @@ class TradingUpper():
                 ## 매도 성공. 매도 로직 종료
                 if unfilled_qty == 0:
                     self.logger.info(f"매도 주문 전체 체결 완료", {"세션ID": session_id, "ticker": ticker})
+                    # 주문이 모두 체결되었으므로 세션을 DB에서 삭제
+                    self.delete_finished_session(session_id)
+                    # 슬랙 알림 전송
+                    self.slack_logger.send_log(
+                        level="INFO",
+                        message="매도 주문 전체 체결 및 세션 삭제",
+                        context={
+                            "세션ID": session_id,
+                            "종목코드": ticker
+                        }
+                    )
                     return order_result
 
                 ## 미체결 시 주문 수정
@@ -1518,68 +1544,68 @@ class TradingUpper():
 
                     remaining_qty = int(balance_data.get('hldg_qty', 0)) if balance_data else 0
 
-                    if remaining_qty == 0:
-                        # 전체 매도 완료 → 세션 삭제
-                        self.delete_finished_session(session_id)
-                        self.logger.info("매도 주문 완료 및 세션 삭제",{"세션ID": session_id,"종목코드": ticker,"주문수량": quantity,"재시도": retry,"상태": "성공"})
-                        break
-                    else:
-                        # 잔고가 남아있음 – 잔고 반영 지연 가능성 고려
-                        if retry < MAX_RETRY:
-                            time.sleep(RETRY_DELAY)
-                            continue
+                    # if remaining_qty == 0:
+                    #     # 전체 매도 완료 → 세션 삭제
+                    #     self.delete_finished_session(session_id)
+                    #     self.logger.info("매도 주문 완료 및 세션 삭제",{"세션ID": session_id,"종목코드": ticker,"주문수량": quantity,"재시도": retry,"상태": "성공"})
+                    #     break
+                    # else:
+                    #     # 잔고가 남아있음 – 잔고 반영 지연 가능성 고려
+                    #     if retry < MAX_RETRY:
+                    #         time.sleep(RETRY_DELAY)
+                    #         continue
 
-                        # 최대 재시도 후에도 잔고가 남아있으면 부분 매도로 간주하고 세션 업데이트
-                        try:
-                            with DatabaseManager() as db:
-                                session_info = db.get_session_by_id(session_id)
-                                if session_info:
-                                    # 값 보정: 음수/이상치 방지
-                                    original_qty = max(0, int(session_info.get('quantity', 0)))
-                                    remaining_qty = max(0, remaining_qty)
-                                    avr_price = max(0, int(float(balance_data.get('pchs_avg_pric', 0))))
-                                    new_spent_fund = max(0, remaining_qty * avr_price)
+                    # 최대 재시도 후에도 잔고가 남아있으면 부분 매도로 간주하고 세션 업데이트
+                    try:
+                        with DatabaseManager() as db:
+                            session_info = db.get_session_by_id(session_id)
+                            if session_info:
+                                # 값 보정: 음수/이상치 방지
+                                original_qty = max(0, int(session_info.get('quantity', 0)))
+                                remaining_qty = max(0, remaining_qty)
+                                avr_price = max(0, int(float(balance_data.get('pchs_avg_pric', 0))))
+                                new_spent_fund = max(0, remaining_qty * avr_price)
 
-                                    # DB와 실제 잔고 불일치 시 동기화
-                                    db.save_trading_session_upper(
-                                        session_id,
-                                        session_info.get('start_date'),
-                                        datetime.now(),
-                                        session_info.get('ticker'),
-                                        session_info.get('name'),
-                                        session_info.get('high_price'),
-                                        session_info.get('fund'),
-                                        new_spent_fund,
-                                        remaining_qty,
-                                        avr_price,
-                                        session_info.get('count', 0)
-                                    )
-                                    self.slack_logger.send_log(
-                                        level="WARNING",
-                                        message="매도 후 세션 DB-실잔고 불일치 → 동기화",
-                                        context={
-                                            "세션ID": session_id,
-                                            "종목코드": ticker,
-                                            "DB수량": original_qty,
-                                            "실제잔고": remaining_qty,
-                                            "DB평균단가": session_info.get('avr_price', 0),
-                                            "실제평균단가": avr_price,
-                                            "DB투자금액": session_info.get('spent_fund', 0),
-                                            "실제투자금액": new_spent_fund
-                                        }
-                                    )
+                                # DB와 실제 잔고 불일치 시 동기화
+                                db.save_trading_session_upper(
+                                    session_id,
+                                    session_info.get('start_date'),
+                                    datetime.now(),
+                                    session_info.get('ticker'),
+                                    session_info.get('name'),
+                                    session_info.get('high_price'),
+                                    session_info.get('fund'),
+                                    new_spent_fund,
+                                    remaining_qty,
+                                    avr_price,
+                                    session_info.get('count', 0)
+                                )
+                                self.slack_logger.send_log(
+                                    level="WARNING",
+                                    message="매도 후 세션 DB-실잔고 불일치 → 동기화",
+                                    context={
+                                        "세션ID": session_id,
+                                        "종목코드": ticker,
+                                        "DB수량": original_qty,
+                                        "실제잔고": remaining_qty,
+                                        "DB평균단가": session_info.get('avr_price', 0),
+                                        "실제평균단가": avr_price,
+                                        "DB투자금액": session_info.get('spent_fund', 0),
+                                        "실제투자금액": new_spent_fund
+                                    }
+                                )
 
-                        except Exception as e:
-                            print(f"[ERROR] update_session 예외: {e}")
-                            self.slack_logger.send_log(
-                                level="ERROR",
-                                message="매도 후 세션 업데이트 실패",
-                                context={
-                                    "세션ID": session_id,
-                                    "종목코드": ticker,
-                                    "에러": str(e)
-                                }
-                            )
+                    except Exception as e:
+                        print(f"[ERROR] update_session 예외: {e}")
+                        self.slack_logger.send_log(
+                            level="ERROR",
+                            message="매도 후 세션 업데이트 실패",
+                            context={
+                                "세션ID": session_id,
+                                "종목코드": ticker,
+                                "에러": str(e)
+                            }
+                        )
                     
                     break
 

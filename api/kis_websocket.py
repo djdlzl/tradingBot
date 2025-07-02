@@ -62,6 +62,7 @@ class KISWebSocket:
         self.buying_in_progress = {}
         self.buy_status_lock = asyncio.Lock()
         self.logger = TradingLogger()
+        self.pending_sell = {}
 
 
     ######################################################################################
@@ -415,19 +416,11 @@ class KISWebSocket:
             # 먼저 구독 해제 확인
             if ticker not in self.subscribed_tickers:
                 # 이미 구독 해제된 경우 로그만 남기고 진행
-                self.slack_logger.send_log(
-                    level="INFO",
-                    message=f"{ticker} 이미 구독 해제됨",
-                    context={"종목코드": ticker},
-                )
+                self.logger.info(f"{ticker} 이미 구독 해제됨")
             else:
                 # 1. 구독 해제
                 await self.unsubscribe_ticker(ticker)
-                self.slack_logger.send_log(
-                    level="INFO",
-                    message=f"{ticker} 구독 해제 완료",
-                    context={"종목코드": ticker},
-                )
+                self.logger.info(f"{ticker} 구독 해제 완료")
             
             # 2. 태스크 취소
             if ticker in self.active_tasks:
@@ -468,7 +461,7 @@ class KISWebSocket:
                         except (asyncio.CancelledError, asyncio.TimeoutError, Exception) as e:
                             print(f"태스크 취소 처리 중: {type(e).__name__}")
                 
-                # 타스크 삭제
+                # 태스크 삭제
                 del self.active_tasks[ticker]
                 self.slack_logger.send_log(
                     level="INFO",
@@ -612,6 +605,8 @@ class KISWebSocket:
                         ticker_str = ticker.decode('utf-8') if isinstance(ticker, bytes) else ticker
                         
                         if ticker_str in self.subscribed_tickers:
+                            # print(ticker, type(ticker))
+                            # print(ticker_str, type(ticker_str))
                             await self.ticker_queues[ticker_str].put((recvvalue))
                         
                         # if ticker in self.subscribed_tickers:
@@ -874,13 +869,29 @@ class KISWebSocket:
             level="INFO",
             message="모니터링 시작",
             context={
-                "종목코드": ticker,
-                "종목이름": name,
-                "평균단가": avr_price,
-                "목표일": target_date,
-                "보유수량": quantity,
+                    "종목코드": ticker,
+                    "종목이름": name,
+                    "평균단가": avr_price,
+                    "목표일": target_date,
+                    "보유수량": quantity,
             },
         )
+
+        # ---------- 계좌-DB 정합성 동기화 ----------
+        try:
+            quantity, avr_price, closed = await self.sync_session_with_balance(
+                session_id, ticker, quantity, avr_price
+            )
+            if closed:
+                # 잔고가 없어 세션이 종료되었으므로 모니터링도 중단
+                if ticker in self.subscribed_tickers:
+                    await self.unsubscribe_ticker(ticker)
+                return True
+        except Exception as e:
+            self.logger.error(
+                "초기 정합성 동기화 실패",
+                extra={"context": {"종목코드": ticker, "에러": str(e)}},
+            )
         # 세션 확인 카운터 초기화
         session_check_counter = 0
         
@@ -889,16 +900,22 @@ class KISWebSocket:
             # 거래시간 체크: 거래시간 외면 모니터링 중단
             if not self._is_market_open():
                 print(f"[{datetime.now().strftime('%H:%M:%S')}] 거래시간 외 - {ticker} 모니터링 중단")
-                self.slack_logger.send_log(
-                    level="INFO",
-                    message="거래시간 외 모니터링 중단",
-                    context={"종목코드": ticker},
+                self.logger.info(
+                    "거래시간 외 모니터링 중단",
+                    extra={
+                        "context": {
+                            "종목코드": ticker,
+                        }
+                    },
                 )
                 break
                 
             # 구독 상태 확인
             if ticker not in self.subscribed_tickers:
-                self.slack_logger.send_log(level="INFO", message=f"{ticker} 구독 취소됨 - 모니터링 종료", context={"종목코드": ticker})
+                self.logger.info(
+                    f"{ticker} 구독 취소됨 - 모니터링 종료",
+                    extra={"context": {"종목코드": ticker}}
+                )
                 break
                 
             # 주기적으로 세션 존재 여부 확인 (약 1분마다)
@@ -920,7 +937,7 @@ class KISWebSocket:
                 try:
                     # 타임아웃을 설정하여 데이터 대기
                     recvvalue = await asyncio.wait_for(
-                        self.ticker_queues[ticker].get(), timeout=5.0
+                        self.ticker_queues[ticker].get(), timeout=30.0
                     )
                     
                     # 매수 중인 경우 모니터링 건너뛰기
@@ -955,7 +972,7 @@ class KISWebSocket:
                 except asyncio.TimeoutError:
                     # 타임아웃은 데이터 미수신 상태를 나타내며, 네트워크 재연결 대기 동안 자주 발생할 수 있다.
                     # 웹소켓 연결 여부와 관계없이 계속 루프를 유지하여 재연결을 기다린다.
-                    print(f'타임아웃 발생: {ticker} - 5초 동안 데이터 없음')
+                    # self.logger.info(f"{ticker}: 30초 동안 데이터 수신 없음. (거래 없음)")
                     continue
             except asyncio.CancelledError:
                 print(f"{ticker} 모니터링 취소됨")
@@ -1002,10 +1019,14 @@ class KISWebSocket:
                 )
                 return balance_data
         except Exception as e:
-            self.slack_logger.send_log(
-                level="ERROR",
-                message="비동기 잔고 조회 실패",
-                context={"종목코드": ticker, "에러": str(e)}
+            self.logger.error(
+                "비동기 잔고 조회 실패",
+                extra={
+                    "context": {
+                        "종목코드": ticker,
+                        "에러": str(e)
+                    }
+                }
             )
             return None
             
@@ -1042,3 +1063,83 @@ class KISWebSocket:
             print("최대 재시도 횟수 초과, 웹소켓 연결 실패")
             return False
         return True
+
+    #############################################################
+    #    DB-계좌 정합성 동기화 메서드
+    #############################################################
+    async def sync_session_with_balance(self, session_id, ticker, current_qty, current_avr_price):
+        """모니터링 시작 시 DB 세션과 실제 계좌 잔고를 동기화합니다.
+
+        반환:
+            updated_qty, updated_avr_price, closed
+            closed가 True이면 잔고가 없어 세션이 종료되어야 함
+        """
+        # 실제 잔고 조회
+        balance_data = await self.check_balance_async(ticker)
+
+        if balance_data is None:
+            # 조회 실패: 기존 값 유지
+            return current_qty, current_avr_price, False
+
+        try:
+            actual_qty = int(balance_data.get("hldg_qty", 0))
+            avr_price = int(float(balance_data.get("pchs_avg_pric", 0)))
+        except (TypeError, ValueError):
+            # 파싱 실패 시 기존 값 유지
+            actual_qty = current_qty
+            avr_price = current_avr_price
+
+        # 잔고가 0이면 세션 삭제 및 모니터링 종료
+        if actual_qty == 0:
+            await asyncio.to_thread(self.db_manager.delete_session_one_row, session_id)
+            self.logger.info(
+                "실잔고 0 → 세션 삭제",
+                extra={
+                    "context": {
+                        "종목코드": ticker,
+                        "세션ID": session_id,
+                    }
+                },
+            )
+            return 0, avr_price, True
+
+        # DB 값이 실제 잔고와 다르면 업데이트
+        if actual_qty != current_qty or avr_price != current_avr_price:
+            def _update_db():
+                try:
+                    session = self.db_manager.get_session_by_id(session_id)
+                    if session:
+                        spent_fund = actual_qty * avr_price
+                        self.db_manager.save_trading_session_upper(
+                            session_id,
+                            session.get("start_date"),
+                            datetime.now(),
+                            ticker,
+                            session.get("name"),
+                            session.get("high_price", 0),
+                            session.get("fund", 0),
+                            spent_fund,
+                            actual_qty,
+                            avr_price,
+                            session.get("count", 0),
+                        )
+                except Exception as e:
+                    print(f"[SYNC ERROR] DB 업데이트 실패: {e}")
+
+            await asyncio.to_thread(_update_db)
+            self.logger.info(
+                "DB 세션 ↔ 실잔고 동기화",
+                extra={
+                    "context": {
+                        "종목코드": ticker,
+                        "기존수량": current_qty,
+                        "실제수량": actual_qty,
+                        "기존평균가": current_avr_price,
+                        "실제평균가": avr_price,
+                    }
+                },
+            )
+            return actual_qty, avr_price, False
+
+        # 변화 없음
+        return current_qty, current_avr_price, False
