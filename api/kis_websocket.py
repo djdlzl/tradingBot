@@ -63,6 +63,8 @@ class KISWebSocket:
         self.buy_status_lock = asyncio.Lock()
         self.logger = TradingLogger()
         self.pending_sell = {}
+        # 전역 매도 세마포어 - 동시 매도 제한 (값이 1이면 한 번에 하나의 매도만 처리)
+        self.global_sell_semaphore = asyncio.Semaphore(1)
 
 
     ######################################################################################
@@ -76,9 +78,22 @@ class KISWebSocket:
         if ticker in self.selling_in_progress:
             # 이미 다른 비동기 작업에서 매도 처리가 진행 중인 경우, 현재 작업은 중복이므로 무시합니다.
             return False
+            
+        # 세마포어 획득 시도 (비강제: 이미 다른 매도가 진행 중이면 바로 반환)
+        if self.global_sell_semaphore.locked():
+            self.logger.info(f"다른 종목 매도 중 - {ticker} 매도 연기", {"ticker": ticker})
+            return False
+            
+        # 현재 종목을 매도 중인 종목으로 표시
         self.selling_in_progress.add(ticker)
 
         try:
+            # 세마포어 획득 - 다른 종목의 매도 처리가 끝날 때까지 대기
+            await self.global_sell_semaphore.acquire()
+            
+            # 세마포어 획득 후 매도 처리 시작
+            self.logger.info(f"{ticker} 매도 처리 시작", {"ticker": ticker})
+            
             if len(recv_value) == 1 and "SUBSCRIBE SUCCESS" in recv_value[0]:
                 return False
 
@@ -109,7 +124,7 @@ class KISWebSocket:
             except TypeError as e:
                 print(f"[오류] 날짜 비교 실패: {e}, 타겟데이트: {type(target_date)}, 값: {target_date}")
 
-            # 조건2: 주가 상승으로 익절 (SELLING_POINT_UPPER = 1.5)
+            # 조건2: 주가 상승으로 익절 (SELLING_POINT_UPPER = 1.015)
             if sell_reason_text is None and target_price > (avg_price * SELLING_POINT_UPPER):
                 sell_reason_text = "주가 상승: 목표가 도달"
                 sell_reason["매도조건가"] = int(avg_price * SELLING_POINT_UPPER)  # 정수로 변환
@@ -219,7 +234,12 @@ class KISWebSocket:
             return False
 
         finally:
-            # 작업이 성공하든 실패하든, 반드시 set에서 티커를 제거하여 다음 매도를 허용합니다.
+            # 전역 세마포어 해제 (다른 매도 작업이 진행될 수 있도록)
+            if self.global_sell_semaphore.locked():
+                self.global_sell_semaphore.release()
+                self.logger.info(f"{ticker} 매도 작업 완료 - 다음 매도 가능", {"ticker": ticker})
+                
+            # 개별 종목 매도 진행 중 상태 해제
             if ticker in self.selling_in_progress:
                 self.selling_in_progress.remove(ticker)
 
@@ -890,7 +910,7 @@ class KISWebSocket:
         except Exception as e:
             self.logger.error(
                 "초기 정합성 동기화 실패",
-                extra={"context": {"종목코드": ticker, "에러": str(e)}},
+                {"context": {"종목코드": ticker, "에러": str(e)}},
             )
         # 세션 확인 카운터 초기화
         session_check_counter = 0
@@ -902,7 +922,7 @@ class KISWebSocket:
                 print(f"[{datetime.now().strftime('%H:%M:%S')}] 거래시간 외 - {ticker} 모니터링 중단")
                 self.logger.info(
                     "거래시간 외 모니터링 중단",
-                    extra={
+                    {
                         "context": {
                             "종목코드": ticker,
                         }
@@ -914,23 +934,28 @@ class KISWebSocket:
             if ticker not in self.subscribed_tickers:
                 self.logger.info(
                     f"{ticker} 구독 취소됨 - 모니터링 종료",
-                    extra={"context": {"종목코드": ticker}}
+                    {"context": {"종목코드": ticker}}
                 )
                 break
                 
             # 주기적으로 세션 존재 여부 확인 (약 1분마다)
             session_check_counter += 1
-            if session_check_counter >= 12:  # 5초 타임아웃 * 12 = 약 60초
-                session = self.db_manager.get_session_by_id(session_id)
-                if not session:
-                    self.slack_logger.send_log(
-                        level="INFO", 
-                        message=f"{ticker} 세션이 존재하지 않음 - 모니터링 종료", 
-                        context={"종목코드": ticker, "세션ID": session_id}
-                    )
-                    if ticker in self.subscribed_tickers:
-                        await self.unsubscribe_ticker(ticker)
-                    return True
+            if session_check_counter >= 2:  # 30초 타임아웃 * 2 = 약 60초
+                # 매수 중인 종목인지 확인
+                is_buying = await self.is_buying_in_progress(ticker)
+                if not is_buying:  # 매수 중이 아닌 경우에만 세션 검증 수행
+                    session = self.db_manager.get_session_by_id(session_id)
+                    if not session:
+                        self.slack_logger.send_log(
+                            level="INFO", 
+                            message=f"{ticker} 세션이 존재하지 않음 - 모니터링 종료", 
+                            context={"종목코드": ticker, "세션ID": session_id}
+                        )
+                        if ticker in self.subscribed_tickers:
+                            await self.unsubscribe_ticker(ticker)
+                        return True
+                else:
+                    self.logger.info(f"매수 중인 종목이므로 세션 검증 건너뜀: {ticker}")
                 session_check_counter = 0
                 
             try:
@@ -972,7 +997,7 @@ class KISWebSocket:
                 except asyncio.TimeoutError:
                     # 타임아웃은 데이터 미수신 상태를 나타내며, 네트워크 재연결 대기 동안 자주 발생할 수 있다.
                     # 웹소켓 연결 여부와 관계없이 계속 루프를 유지하여 재연결을 기다린다.
-                    # self.logger.info(f"{ticker}: 30초 동안 데이터 수신 없음. (거래 없음)")
+                    self.logger.info(f"{ticker}: 데이터 수신 대기 중")
                     continue
             except asyncio.CancelledError:
                 print(f"{ticker} 모니터링 취소됨")
@@ -1021,7 +1046,7 @@ class KISWebSocket:
         except Exception as e:
             self.logger.error(
                 "비동기 잔고 조회 실패",
-                extra={
+                {
                     "context": {
                         "종목코드": ticker,
                         "에러": str(e)
@@ -1074,8 +1099,27 @@ class KISWebSocket:
             updated_qty, updated_avr_price, closed
             closed가 True이면 잔고가 없어 세션이 종료되어야 함
         """
-        # 실제 잔고 조회
-        balance_data = await self.check_balance_async(ticker)
+        # 매수 중인 종목인지 확인
+        is_buying = await self.is_buying_in_progress(ticker)
+        if is_buying:
+            # 매수 중인 경우 DB 값 유지하고 세션 유지
+            self.logger.info(
+                f"매수 중인 종목이므로 잔고 동기화 건너뜀: {ticker}",
+                {
+                    "context": {
+                        "종목코드": ticker,
+                        "세션ID": session_id,
+                    }
+                },
+            )
+            return current_qty, current_avr_price, False
+            
+        try:
+            balance_data = await self.check_balance_async(ticker)
+        except Exception as e:
+            print(f"잔고 확인 실패: {e}")
+            # 에러 발생 시 DB 값 그대로 사용
+            return current_qty, current_avr_price, False
 
         if balance_data is None:
             # 조회 실패: 기존 값 유지
@@ -1089,12 +1133,12 @@ class KISWebSocket:
             actual_qty = current_qty
             avr_price = current_avr_price
 
-        # 잔고가 0이면 세션 삭제 및 모니터링 종료
+        # 잔고가 없으면 세션 종료 필요
         if actual_qty == 0:
             await asyncio.to_thread(self.db_manager.delete_session_one_row, session_id)
             self.logger.info(
                 "실잔고 0 → 세션 삭제",
-                extra={
+                {
                     "context": {
                         "종목코드": ticker,
                         "세션ID": session_id,
@@ -1129,7 +1173,7 @@ class KISWebSocket:
             await asyncio.to_thread(_update_db)
             self.logger.info(
                 "DB 세션 ↔ 실잔고 동기화",
-                extra={
+                {
                     "context": {
                         "종목코드": ticker,
                         "기존수량": current_qty,
