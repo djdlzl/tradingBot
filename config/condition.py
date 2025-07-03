@@ -40,10 +40,10 @@ PRICE_BUFFER = 0.01  # 1% buffer added on top of quoted price when calculating b
 
 
 #selling_point_1 이상일 때 매도
-SELLING_POINT_UPPER = 1.015
+SELLING_POINT_UPPER = 1.08
 
 #selling_point_1 이상일 때 매도
-RISK_MGMT_UPPER = 0.985
+RISK_MGMT_UPPER = 0.93
 
 # 매도 주문 후 대기 / 초
 SELL_WAIT = 3
