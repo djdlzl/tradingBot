@@ -145,27 +145,33 @@ class TradingUpper():
                 result_decline = True
             
                 
-            ### 조건3: 상승일 거래량 대비 다음날 거래량 20% 이상인지 체크
+            ### 조건3: 상승일 거래량 대비 다음날 거래량 20% 이상 체크
             result_volume = self.get_volume_check(stock.get('ticker'))
             
             
             ### 조건4: 상장일 이후 1년 체크
             result_lstg = self.check_listing_date(stock.get('ticker'))
             
-            ### 조건5: 과열 종목 제외
+            ### 조건5: 과열 및 거래정지 종목 제외 체크
             stock_info = self.kis_api.get_stock_price(stock.get('ticker'))
-            result_short_over = stock_info.get('output', {}).get('short_over_yn', 'N')
+            result_short_over_yn = stock_info.get('output', {}).get('short_over_yn', 'N')
+            result_trht_yn = stock_info.get('output', {}).get('trht_yn', 'N')
+            if result_short_over_yn == 'N' and result_trht_yn == 'N':
+                result_possible = True
+            else:
+                result_possible = False
             
             print(stock.get('name'))
-            print('조건1: result_high_price:',result_high_price)
-            print('조건2: result_decline:',result_decline)
-            print('조건3: result_volume:',result_volume)
-            print('조건4: result_lstg:',result_lstg)
-            print('조건5: result_short_over:',result_short_over)
+            print('조건1: 상승일 기준 10일 전까지 고가 20% 넘지 않은은 이력 여부 체크:',result_high_price)
+            print('조건2: 상승일 고가 - 매수일 현재가 = -7.5% 체크:',result_decline)
+            # print('조건3: 상승일 거래량 대비 다음날 거래량 20% 이상 체크:',result_volume)
+            print('조건4: 상장일 이후 1년 체크:',result_lstg)
+            print('조건5: 과열 종목 제외 체크:',result_possible)
             # print('매매 확인을 위해 임시로 모든 조건 통과')
 
             # if True:
-            if result_high_price and result_decline and result_volume and result_lstg and (result_short_over=='N'):
+            # if result_high_price and result_decline and result_volume and result_lstg and result_possible:
+            if result_high_price and result_decline and result_lstg and result_possible: # 볼륨 체크 임시 제외
                 print(f"################ 매수 후보 종목: {stock.get('ticker')}, 종목명: {stock.get('name')} (현재가: {current_price}, 상한가 당시 가격: {stock.get('closing_price')})")
                 selected_stocks.append(stock)
       
