@@ -172,48 +172,7 @@ class MainProcess:
             kis_websocket = KISWebSocket(self.trading_upper.sell_order)
             self.trading_upper.kis_websocket = kis_websocket  # KISWebSocket 인스턴스 설정
             sessions_info = self.trading_upper.get_session_info_upper()
-            
-            # # 각 세션별로 모니터링 시작 알림 전송
-            # if sessions_info:
-            #     for session in sessions_info:
-            #         # 튜플 구조: (세션ID, 종목코드, 종목명, 매수가, 수량, 시작일, 종료일)
-            #         stock_code = session[1]
-            #         stock_name = session[2]
-            #         entry_price = session[3]
-            #         quantity = session[4]
-                    
-            #         message = f"모니터링 시작: {stock_name}({stock_code}) - 매수가: {entry_price}원, 수량: {quantity}주"
-            #         self.slack_logger.send_log(
-            #             level="INFO",
-            #             message=message,
-            #             context={
-            #                 "모니터링 유형": "상한가 모니터링",
-            #                 "시작 시간": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            #             }
-            #         )
-                
-            #     # 전체 모니터링 시작 메시지 전송
-            #     total_count = len(sessions_info)
-            #     self.slack_logger.send_log(
-            #         level="INFO",
-            #         message=f"총 {total_count}개 종목 모니터링 시작",
-            #         context={
-            #             "모니터링 유형": "상한가 모니터링",
-            #             "시작 시간": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            #         }
-            #     )
-            # else:
-            #     # 모니터링할 세션이 없을 경우
-            #     self.slack_logger.send_log(
-            #         level="WARNING",
-            #         message="모니터링할 세션이 없습니다.",
-            #         context={
-            #             "모니터링 유형": "상한가 모니터링",
-            #             "시작 시간": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            #         }
-            #     )
-            
-            # 이벤트 루프에서 코루틴 실행
+
             # 초기 세션 구독 코루틴을 등록하고 루프를 지속 실행
             loop.create_task(self.trading_upper.monitor_for_selling_upper(sessions_info))
             loop.run_forever()

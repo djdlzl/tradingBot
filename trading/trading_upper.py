@@ -714,7 +714,6 @@ class TradingUpper():
                                         actual_quantity,  # 수량
                                         actual_avg_price,  # 가격
                                         session.get('start_date'),
-                                        session.get('start_date')  # target_date 값은 임시로 start_date 사용
                                     )
                                     asyncio.run_coroutine_threadsafe(
                                         self.monitor_for_selling_upper([session_tuple]),
@@ -750,17 +749,9 @@ class TradingUpper():
                                 loop = getattr(self, "_monitor_loop", None)
                                 if loop and not loop.is_closed():
                                     # 딕셔너리를 튜플로 변환 (main.py와 동일한 형식)
-                                    session_tuple = (
-                                        session.get('id'),
-                                        session.get('ticker'),
-                                        session.get('name'),
-                                        total_quantity,  # 수량
-                                        session.get('avr_price', 0),  # 가격
-                                        session.get('start_date'),
-                                        session.get('start_date')  # target_date 값은 임시로 start_date 사용
-                                    )
+                                    sessions_info = self.get_session_info_upper()
                                     asyncio.run_coroutine_threadsafe(
-                                        self.monitor_for_selling_upper([session_tuple]),
+                                        self.monitor_for_selling_upper(sessions_info),
                                         loop
                                     )
                                     print(f"[DEBUG] 모니터링 시작: 세션ID={session.get('id')}, 종목코드={session.get('ticker')}")

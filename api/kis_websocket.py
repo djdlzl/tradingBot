@@ -125,16 +125,17 @@ class KISWebSocket:
             except TypeError as e:
                 print(f"[오류] 날짜 비교 실패: {e}, 타겟데이트: {type(target_date)}, 값: {target_date}")
 
-            # 조건2: 주가 상승으로 익절 (SELLING_POINT_UPPER = 1.015)
+            # 조건2: 주가 상승으로 익절
             # if sell_reason_text is None and target_price > (avg_price * SELLING_POINT_UPPER):
             #     sell_reason_text = "주가 상승: 목표가 도달"
             #     sell_reason["매도조건가"] = int(avg_price * SELLING_POINT_UPPER)  # 정수로 변환
 
-            # 조건3: 리스크 관리차 매도 (RISK_MGMT_UPPER = 0.985)
+            # 조건3: 리스크 관리차 매도
             if sell_reason_text is None and target_price < (avg_price * RISK_MGMT_UPPER):
                 sell_reason_text = "주가 하락: 리스크 관리차 매도"
                 sell_reason["매도조건가"] = int(avg_price * RISK_MGMT_UPPER)  # 정수로 변환
         
+            # 조건2: 주가 상승으로 익절
             # 트레일링스탑 로직 구현
             if sell_reason_text is None:
                 # 현재 수익률 계산
