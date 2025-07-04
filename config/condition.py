@@ -39,11 +39,15 @@ PRICE_BUFFER = 0.01  # 1% buffer added on top of quoted price when calculating b
 ######################################################
 
 
-#selling_point_1 이상일 때 매도
+# 수익률이 이 값 이상일 때 매도
 SELLING_POINT_UPPER = 1.08
 
-#selling_point_1 이상일 때 매도
+# 손실 위험 관리 값 (이 값보다 낮아지면 매도)
 RISK_MGMT_UPPER = 0.93
+
+# 트레일링스탑 하락 비율 (%) - 고점 대비 몇 % 하락 시 매도할지 설정
+# SELLING_POINT_UPPER 이상 수익 시 활성화
+TRAILING_STOP_PERCENTAGE = 1.04
 
 # 매도 주문 후 대기 / 초
 SELL_WAIT = 3
@@ -65,7 +69,7 @@ GET_SELECT_MINUTE = 55
 
 # 매수 시간 1
 ORDER_HOUR_1 = 9
-ORDER_MINUTE_1 = 6
+ORDER_MINUTE_1 = 33
 # 매수 시간 2
 ORDER_HOUR_2 = 11
 ORDER_MINUTE_2 = 26

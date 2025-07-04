@@ -236,9 +236,7 @@ class TradingUpper():
 
         # DB 트레이딩 세션 추가
         session_info = self.add_new_trading_session()
-        if session_info is None:
-            return
-        try:
+        if session_info is not None:
             #SLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACKSLACK
             # 세션 시작 로그
             self.slack_logger.send_log(
@@ -249,6 +247,7 @@ class TradingUpper():
                     "추가된 슬롯": session_info['slot']
                 }
             )
+        try:
             # 거래 세션을 조회 및 검증
             with DatabaseManager() as db:
                 sessions = db.load_trading_session_upper()

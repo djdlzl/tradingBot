@@ -12,6 +12,7 @@ from config.condition import (
     RISK_MGMT_UPPER,
     KRX_TRADING_START,
     KRX_TRADING_END,
+    TRAILING_STOP_PERCENTAGE
 )
 from utils.trading_logger import TradingLogger
 from utils.slack_logger import SlackLogger
@@ -125,27 +126,55 @@ class KISWebSocket:
                 print(f"[오류] 날짜 비교 실패: {e}, 타겟데이트: {type(target_date)}, 값: {target_date}")
 
             # 조건2: 주가 상승으로 익절 (SELLING_POINT_UPPER = 1.015)
-            if sell_reason_text is None and target_price > (avg_price * SELLING_POINT_UPPER):
-                sell_reason_text = "주가 상승: 목표가 도달"
-                sell_reason["매도조건가"] = int(avg_price * SELLING_POINT_UPPER)  # 정수로 변환
+            # if sell_reason_text is None and target_price > (avg_price * SELLING_POINT_UPPER):
+            #     sell_reason_text = "주가 상승: 목표가 도달"
+            #     sell_reason["매도조건가"] = int(avg_price * SELLING_POINT_UPPER)  # 정수로 변환
 
             # 조건3: 리스크 관리차 매도 (RISK_MGMT_UPPER = 0.985)
             if sell_reason_text is None and target_price < (avg_price * RISK_MGMT_UPPER):
                 sell_reason_text = "주가 하락: 리스크 관리차 매도"
                 sell_reason["매도조건가"] = int(avg_price * RISK_MGMT_UPPER)  # 정수로 변환
-            
-            # # 상승 후 하락 추세 코드 (추후 사용 예정) - trailing stop 구현용
-            # if sell_reason_text is None:
-            #     ten_min_high = self.db_manager.get_recent_high(ticker, minutes=10)
-            #     if ten_min_high and current_price <= ten_min_high * 0.97:
-            #         # 주석 처리하여 실제로는 이 조건으로 매도하지 않음
-            #         # sell_reason_text = "상승 후 하락 추세: 고점 대비 하락"
-            #         # sell_reason["매도조건가"] = ten_min_high * 0.97
-            #         pass
-            
-            # 매도 사유가 없으면 종료
+        
+            # 트레일링스탑 로직 구현
             if sell_reason_text is None:
-                return False
+                # 현재 수익률 계산
+                current_profit_ratio = target_price / avg_price
+                
+                # 종목별 최고 수익률 추적 (딕셔너리에 저장하여 관리)
+                if not hasattr(self, 'ticker_high_ratio'):
+                    self.ticker_high_ratio = {}
+                
+                # 최고 수익률 업데이트
+                if ticker not in self.ticker_high_ratio or current_profit_ratio > self.ticker_high_ratio[ticker]:
+                    self.ticker_high_ratio[ticker] = current_profit_ratio
+                
+                high_ratio = self.ticker_high_ratio[ticker]
+                selling_threshold = SELLING_POINT_UPPER  # 기준 수익률 (8%)
+                trailing_threshold = 1 - (TRAILING_STOP_PERCENTAGE)  # 예: 4%면 0.96
+                
+                # 케이스 1: 수익률이 8% 이하일 때는 트레일링스탑 미적용 (기존 로직대로 작동)
+                if current_profit_ratio <= selling_threshold:
+                    pass
+                    
+                # 케이스 2: 수익률이 8~12% 사이일 때, 8% 미만으로 떨어지면 매도
+                elif selling_threshold < high_ratio < (selling_threshold + TRAILING_STOP_PERCENTAGE):
+                    if current_profit_ratio < selling_threshold:
+                        sell_reason_text = "트레일링스탑: 수익률 8% 미만으로 하락"
+                        sell_reason["최고수익률"] = round((high_ratio - 1) * 100, 2)
+                        sell_reason["현재수익률"] = round((current_profit_ratio - 1) * 100, 2)
+                        sell_reason["하락비율"] = round(((high_ratio - current_profit_ratio) / high_ratio) * 100, 2)
+                
+                # 케이스 3: 수익률이 12%를 초과한 경우, 고점 대비 4% 하락 시 매도
+                elif high_ratio >= (selling_threshold + TRAILING_STOP_PERCENTAGE):
+                    if current_profit_ratio <= (high_ratio * trailing_threshold):
+                        sell_reason_text = f"트레일링스탑: 고점 대비 {(TRAILING_STOP_PERCENTAGE*100)-100}% 하락"
+                        sell_reason["최고수익률"] = round((high_ratio - 1) * 100, 2)
+                        sell_reason["현재수익률"] = round((current_profit_ratio - 1) * 100, 2)
+                        sell_reason["하락비율"] = round(((high_ratio - current_profit_ratio) / high_ratio) * 100, 2)
+                
+                # 매도 사유가 없으면 종료
+                if sell_reason_text is None:
+                    return False
 
             # 최종 매도 사유 저장
             sell_reason["매도사유"] = sell_reason_text
