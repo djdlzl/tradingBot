@@ -48,17 +48,8 @@ class DateUtils:
         Returns:
             datetime: 계산된 이전 영업일
         """
-        # 한국의 2025년 공휴일 가져오기 (holidayskr 사용)
-        holidays_2025 = holidayskr.year_holidays(2025)
-        kr_holidays = [holiday[0] for holiday in holidays_2025]
-        
-        # 추가 공휴일 수동으로 추가 (datetime.date 객체로 추가)
-        additional_holidays = [
-            dt(2025, 6, 3)
-        ]
-
-        # 기존 공휴일에 추가 공휴일 합치기
-        all_holidays = set(kr_holidays).union(additional_holidays)
+        # 공휴일 목록 가져오기
+        all_holidays = DateUtils.get_holidays()
         
         # date가 datetime 객체인 경우 date 객체로 변환
         if hasattr(date, 'date'):
@@ -66,23 +57,28 @@ class DateUtils:
         else:
             current_date = date
 
-        while days_back > 0 or current_date.weekday() == 5 or current_date.weekday() == 6 or ((current_date in all_holidays) and (current_date.weekday() < 5)):
-
-            # 주말 건너뛰기
-            if current_date.weekday() == 5:
-                current_date -= timedelta(days=1)
-                continue
-            elif current_date.weekday() == 6:
-                current_date -= timedelta(days=2)
-                continue
-
-            days_back -= 1
+        # 시작일이 영업일이 아닌 경우
+        if current_date.weekday() >= 5 or current_date in all_holidays:
+            # days_back이 1이면 가장 최근 영업일 반환
+            if days_back == 1:
+                while current_date.weekday() >= 5 or current_date in all_holidays:
+                    current_date -= timedelta(days=1)
+                return current_date
+            # days_back이 1보다 크면 최근 영업일을 찾고 그로부터 days_back-1만큼 더 이동
+            else:
+                while current_date.weekday() >= 5 or current_date in all_holidays:
+                    current_date -= timedelta(days=1)
+                return DateUtils.get_previous_business_day(current_date, days_back - 1)
+        
+        # 시작일이 영업일인 경우
+        business_days_count = 0
+        while business_days_count < days_back:
             current_date -= timedelta(days=1)
-
-            #공휴일 건너뛰기
-            if (current_date in all_holidays) and (current_date.weekday() < 5):
-                current_date -= timedelta(days=1)
-
+            
+            # 영업일인 경우만 카운트
+            if current_date.weekday() < 5 and current_date not in all_holidays:
+                business_days_count += 1
+                
         return current_date
 
 
@@ -173,7 +169,9 @@ class DateUtils:
         
         # 추가 공휴일 수동으로 추가 (필요한 경우)
         additional_holidays = [
-            dt(2025, 6, 3)  # 기존에 추가했던 공휴일
+            dt(year, 6, 3),     # 기존에 추가했던 공휴일
+            dt(year, 12, 31),    # 휴장일
+            dt(year-1, 12, 31)    # 휴장일
         ]
         
         # 날짜 문자열을 date 객체로 변환하여 set에 추가

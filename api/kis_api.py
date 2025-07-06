@@ -5,10 +5,12 @@ from requests.exceptions import RequestException
 from utils.string_utils import unicode_to_korean
 from config.config import R_APP_KEY, R_APP_SECRET, M_APP_KEY, M_APP_SECRET, M_ACCOUNT_NUMBER
 from config.condition import BUY_DAY_AGO
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from database.db_manager_upper import DatabaseManager
 import time
 from threading import Lock
+from zoneinfo import ZoneInfo
+KST = ZoneInfo("Asia/Seoul")
 
 
 
@@ -54,7 +56,7 @@ class KISApi:
         
         # Check if we have a valid cached token
         cached_token, cached_expires_at = db_manager.get_token(token_type)
-        if cached_token and cached_expires_at > datetime.utcnow():
+        if cached_token and cached_expires_at > datetime.now(KST):
             logging.info("Using cached %s token", token_type)
             return cached_token, cached_expires_at
 
@@ -74,7 +76,7 @@ class KISApi:
                 
                 if "access_token" in token_data:
                     access_token = token_data["access_token"]
-                    expires_at = datetime.utcnow() + timedelta(seconds=token_data.get("expires_in", 86400))
+                    expires_at = datetime.now(KST) + timedelta(seconds=token_data.get("expires_in", 86400))
                     
                     # Save the new token to the database
                     db_manager.save_token(token_type, access_token, expires_at)
@@ -104,7 +106,7 @@ class KISApi:
         Returns:
             str: 유효한 액세스 토큰
         """
-        now = datetime.now()
+        now = datetime.now(KST)
         if is_mock:
             if not self.mock_token or now >= self.mock_token_expires_at:
                 self.mock_token, self.mock_token_expires_at = self._get_token(M_APP_KEY, M_APP_SECRET, "mock")
@@ -578,7 +580,7 @@ class KISApi:
         """
         주식일별주문체결조회
         """
-        today = datetime.now()
+        today = datetime.now(KST)
         formatted_date = today.strftime('%Y%m%d')
         # url="https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/trading/inquire-daily-ccld"
         url="https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/inquire-daily-ccld"
@@ -690,8 +692,8 @@ class KISApi:
             list: 최근 n일간의 거래량 리스트 (최신 날짜부터 과거 순으로)
         """
         
-        end_date = datetime.now().strftime("%Y%m%d")
-        start_date = (datetime.now() - timedelta(days=days)).strftime("%Y%m%d")
+        end_date = datetime.now(KST).strftime("%Y%m%d")
+        start_date = (datetime.now(KST) - timedelta(days=days)).strftime("%Y%m%d")
         
         url = "https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-daily-price"
         body = {

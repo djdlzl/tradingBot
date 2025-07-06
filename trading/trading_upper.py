@@ -90,6 +90,34 @@ class TradingUpper():
             self.logger.warning(no_data_msg, {"date": date_str})
         db.close()
 
+    def fetch_and_save_previous_upper_limit_stocks(self):
+        """
+        상한가 종목을 받아온 후,
+        DB에 상한가 종목을 저장
+        """
+        upper_limit_stocks = self.kis_api.get_upper_limit_stocks()
+        if upper_limit_stocks:
+
+            # 상한가 종목 정보 추출
+            stocks_info = [(stock['mksc_shrn_iscd'], stock['hts_kor_isnm'], stock['stck_prpr'], stock['prdy_ctrt']) for stock in upper_limit_stocks['output']]
+            
+            # 오늘 날짜 가져오기
+            today = datetime.now().date()  # 현재 날짜와 시간 가져오기 - .date()로 2024-00-00 형태로 변경
+            is_bd = self.date_utils.is_business_day(today)
+            if not is_bd:
+                current_day = self.date_utils.get_previous_business_day(datetime.now(), 1)
+            else:
+                current_day = today
+            
+            # 데이터베이스에 저장
+            db = DatabaseManager()
+            if stocks_info:  # 리스트가 비어있지 않은 경우
+                db.save_upper_limit_stocks(current_day.strftime('%Y-%m-%d'), stocks_info)  # 날짜를 문자열로 변환하여 저장
+                print(current_day.strftime('%Y-%m-%d'), stocks_info)
+            else:
+                print("상한가 종목이 없습니다.")
+            db.close()
+
 ######################################################################################
 #########################    셀렉 메서드   ###################################
 ######################################################################################

@@ -6,6 +6,9 @@ from config.config import DB_CONFIG
 from config.condition import BUY_DAY_AGO_UPPER
 from utils.date_utils import DateUtils
 from typing import Any, Dict, List, Optional, Sequence, cast
+from zoneinfo import ZoneInfo
+KST = ZoneInfo("Asia/Seoul")
+
 
 class DatabaseManager:
     cursor: MySQLCursorDict
@@ -166,6 +169,8 @@ class DatabaseManager:
             if result:
                 access_token = result.get('access_token')
                 expires_at = result.get('expires_at')
+                if expires_at and expires_at.tzinfo is None:
+                    expires_at = expires_at.replace(tzinfo=KST)
                 return access_token, expires_at
             return None, None
         except mysql.connector.Error as e:
@@ -236,6 +241,24 @@ class DatabaseManager:
             logging.info("Saved upper stocks for date: %s", date)
         except mysql.connector.Error as e:
             logging.error("Error saving upper stocks: %s", e)
+            raise
+
+    def save_upper_limit_stocks(self, date, stocks):
+        try:
+            for ticker, name, closing_price, upper_rate in stocks:
+                self.cursor.execute('''
+                    INSERT INTO upper_stocks 
+                    (date, ticker, name, closing_price, upper_rate)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON DUPLICATE KEY UPDATE
+                        name = VALUES(name),
+                        closing_price = VALUES(closing_price),
+                        upper_rate = VALUES(upper_rate)
+                ''', (date, ticker, name, float(closing_price), float(upper_rate)))
+            self.conn.commit()
+            logging.info("Saved upper limit stocks for date: %s", date)
+        except mysql.connector.Error as e:
+            logging.error("Error saving upper limit stocks: %s", e)
             raise
 
     def close(self):
