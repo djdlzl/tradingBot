@@ -204,27 +204,24 @@ class MainProcess:
     def start_all(self):
         """모든 스레드 시작"""
         try:
-            # 스케줄 관리 스레드
-            scheduler_thread = threading.Thread(
-                target=self.schedule_manager,
-                name="Schedule_Manager"
-            )
-            scheduler_thread.daemon = True  # 메인 프로그램 종료시 함께 종료
-            scheduler_thread.start()
-            self.threads['scheduler'] = scheduler_thread
-            
-            print("스케줄러 스레드 시작됨")
-            
-            # 트레이딩 스레드들
-        
+            # 1) 모니터링 루프 스레드를 가장 먼저 시작하여 이벤트 루프를 준비
             trading_thread = threading.Thread(
                 target=self.run_monitoring,
                 name="run_monitoring"
-                )
-            
+            )
             trading_thread.start()
-            self.threads['trading'] = trading_thread  # threads 딕셔너리에 추가
+            self.threads['trading'] = trading_thread
             print("모니터링 스레드 시작됨")
+
+            # 2) 스케줄 관리 스레드는 루프 이후에 실행
+            scheduler_thread = threading.Thread(
+                target=self.schedule_manager,
+                name="Schedule_Manager",
+                daemon=True  # 메인 프로그램 종료 시 함께 종료
+            )
+            scheduler_thread.start()
+            self.threads['scheduler'] = scheduler_thread
+            print("스케줄러 스레드 시작됨")
 
         except Exception as e:
             print(f"스레드 시작 중 오류 발생: {e}")
