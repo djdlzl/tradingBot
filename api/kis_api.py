@@ -498,7 +498,7 @@ class KISApi:
         return json_response
 
 
-    def revise_order(self, order_num, order_price, quantity):
+    def revise_order(self, order_num, quantity, order_price):
         """
         주문취소 API
         """
