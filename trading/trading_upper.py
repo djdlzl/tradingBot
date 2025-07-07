@@ -102,7 +102,8 @@ class TradingUpper():
             stocks_info = [(stock['mksc_shrn_iscd'], stock['hts_kor_isnm'], stock['stck_prpr'], stock['prdy_ctrt']) for stock in upper_limit_stocks['output']]
             
             # 오늘 날짜 가져오기
-            today = datetime.now().date()  # 현재 날짜와 시간 가져오기 - .date()로 2024-00-00 형태로 변경
+            today = datetime.now().date()  # 현재 날짜와 시간 가져오기 - .date()로 20
+            24-00-00 형태로 변경
             is_bd = self.date_utils.is_business_day(today)
             if not is_bd:
                 current_day = self.date_utils.get_previous_business_day(datetime.now(), 1)

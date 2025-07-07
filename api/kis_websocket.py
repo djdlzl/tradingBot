@@ -66,6 +66,8 @@ class KISWebSocket:
         self.pending_sell = {}
         # 전역 매도 세마포어 - 동시 매도 제한 (값이 1이면 한 번에 하나의 매도만 처리)
         self.global_sell_semaphore = asyncio.Semaphore(1)
+        # 티커별 매도 락 (key: 종목코드, value: 락 객체)
+        self.ticker_sell_locks = {}
 
 
     ######################################################################################
@@ -213,11 +215,7 @@ class KISWebSocket:
                         timeout=30.0  # 30초 타임아웃
                     )
             except asyncio.TimeoutError:
-                self.slack_logger.send_log(
-                    level="ERROR",
-                    message=f"{ticker} 매도 주문 타임아웃 (30초)",
-                    context=log_context
-                )
+                self.logger.error(f"{ticker} 매도 주문 타임아웃 (30초)")
                 return False
 
             # 매도 결과 처리
@@ -272,6 +270,11 @@ class KISWebSocket:
             # 개별 종목 매도 진행 중 상태 해제
             if ticker in self.selling_in_progress:
                 self.selling_in_progress.remove(ticker)
+                
+            # 티커별 락 해제 - _monitor_ticker에서 획득한 락을 여기서 해제해야 함
+            if ticker in self.ticker_sell_locks and self.ticker_sell_locks[ticker].locked():
+                self.ticker_sell_locks[ticker].release()
+                self.logger.info(f"{ticker} 티커 락 해제 완료", {"ticker": ticker})
 
     def get_tick(self, price: int) -> int:
         if price < 1000:
@@ -1001,17 +1004,39 @@ class KISWebSocket:
                         print(f'{ticker} - 매수 중인 종목이므로 모니터링 건너뜀')
                         self.ticker_queues[ticker].task_done()
                         continue
-                        
-                    # 매도 조건 확인
-                    sell_completed = await self.sell_condition(
-                        recvvalue,
-                        session_id,
-                        ticker,
-                        name,
-                        quantity,
-                        avr_price,
-                        target_date,
-                    )
+                    
+                    # 티커별 매도 락 확인
+                    if ticker in self.ticker_sell_locks and self.ticker_sell_locks[ticker].locked():
+                        self.logger.info(f"{ticker} - 이미 매도 진행 중이므로 건너뜀", {"ticker": ticker})
+                        self.ticker_queues[ticker].task_done()
+                        continue
+                    
+                    # 티커에 락이 없으면 생성
+                    if ticker not in self.ticker_sell_locks:
+                        self.ticker_sell_locks[ticker] = asyncio.Lock()
+                    
+                    # 티커별 락 획득 시도
+                    if not self.ticker_sell_locks[ticker].locked():
+                        await self.ticker_sell_locks[ticker].acquire()
+                        try:
+                            # 매도 조건 확인
+                            sell_completed = await self.sell_condition(
+                                recvvalue,
+                                session_id,
+                                ticker,
+                                name,
+                                quantity,
+                                avr_price,
+                                target_date,
+                            )
+                        finally:
+                            # 매도 조건 확인 후 락 해제
+                            if self.ticker_sell_locks[ticker].locked():
+                                self.ticker_sell_locks[ticker].release()
+                    else:
+                        self.logger.info(f"{ticker} - 매도 진행 중이므로 건너뜀", {"ticker": ticker})
+                        self.ticker_queues[ticker].task_done()
+                        continue
 
                     if sell_completed:
                         # 매도 완료 또는 잔고 없음으로 인한 세션 종료 처리
