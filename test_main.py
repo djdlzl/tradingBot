@@ -98,7 +98,7 @@ def test():
     # print(available_cash)
 
     # ########### 매수 재시도 로직 수리 #################
-    conclusion_result = kis_api.daily_order_execution_inquiry('0000002659')
+    conclusion_result = kis_api.daily_order_execution_inquiry('0000005847')
     print(json.dumps(conclusion_result, indent=2, ensure_ascii=False))
     real_quantity = int(conclusion_result.get('output1', [{}])[0].get('tot_ccld_qty', 0))
     real_spent_fund = int(conclusion_result.get('output1', [{}])[0].get('tot_ccld_amt', 0))

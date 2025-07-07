@@ -600,76 +600,6 @@ class TradingUpper():
                     total_spent_fund = int(session.get('spent_fund', 0))
                     total_quantity = int(session.get('quantity', 0))
                     current_date = datetime.now()
-                    updated = False
-
-                    # ---------------------------------------------
-                    # 1) 주문 체결 여부 확인 (완전 체결될 때까지 대기)
-                    # ---------------------------------------------
-                    odno = order_result.get('output', {}).get('ODNO')
-                    print(f"[DEBUG] 주문번호: {odno}")
-
-                    if not odno:
-                        print(f"주문 번호 누락: {order_result.get('msg1')}")
-                        return
-
-                    for retry in range(1, MAX_RETRY + 1):
-                        try:
-                            result = self.kis_api.daily_order_execution_inquiry(odno)
-                            if not result or 'output2' not in result or not result['output2']:
-                                print(f"주문 체결 정보 없음: {odno} (재시도 {retry}/{MAX_RETRY})")
-                                if retry < MAX_RETRY:
-                                    time.sleep(RETRY_DELAY)
-                                    continue
-                                else:
-                                    break
-
-                            # 남은 미체결 수량 확인
-                            try:
-                                rmn_qty = int(result['output1'][0].get('rmn_qty', 0))
-                            except (ValueError, TypeError, IndexError):
-                                rmn_qty = 0
-
-                            if rmn_qty > 0:
-                                print(f"미체결 수량 {rmn_qty}주 남아있음 (재시도 {retry}/{MAX_RETRY})")
-                                if retry < MAX_RETRY:
-                                    time.sleep(RETRY_DELAY)
-                                    continue
-                                else:
-                                    break
-
-                            # 체결 완료 ▶︎ 총 체결 금액·수량 계산
-                            if 'output2' in result and result['output2']:
-                                real_spent_fund = int(result['output2']['tot_ccld_amt'])
-                                real_quantity = int(result['output2']['tot_ccld_qty'])
-                            else:
-                                # Fallback: output1 사용
-                                real_spent_fund = int(result['output1'][0].get('tot_ccld_amt', 0))
-                                real_quantity = int(result['output1'][0].get('tot_ccld_qty', 0))
-
-                            total_spent_fund += real_spent_fund
-                            total_quantity += real_quantity
-                            updated = True
-                            break  # 체결 정보 확보 → 루프 탈출
-
-                        except Exception as e:
-                            print(f"주문 체결 조회 중 오류: {e} (재시도 {retry}/{MAX_RETRY})")
-                            if retry < MAX_RETRY:
-                                time.sleep(RETRY_DELAY)
-                                continue
-                            else:
-                                break
-
-                    if not updated:
-                        print("유효한 주문 체결 정보가 없습니다. (최대 재시도 후에도 실패)")
-                        self.slack_logger.send_log(
-                            level="ERROR",
-                            message="체결 정보 조회 실패, 세션 미업데이트",
-                            context={
-                                "세션ID": session.get('id'),
-                                "종목코드": session.get('ticker')
-                            }
-                        )
-                        return
 
                     # 잔고 조회 재시도
                     balance_data = None
@@ -702,7 +632,8 @@ class TradingUpper():
                                 continue
                             else:
                                 break
-                    # balance_data 조회 성공 후 다음 코드를 추가해야 합니다 (약 519줄)
+                            
+                    # balance_data 조회 성공
                     if balance_data:
                         # 잔고 정보에서 실제 값 가져오기
                         actual_quantity = int(balance_data.get('hldg_qty', 0))
@@ -726,7 +657,26 @@ class TradingUpper():
                             actual_avg_price,
                             count
                         )
-                        
+
+                        # === trade_history 저장 ===
+                        try:
+                            trade_date = current_date.date()
+                            trade_time = current_date.time()
+                            db.save_trade_history(
+                                trade_date,
+                                trade_time,
+                                session.get('ticker'),
+                                session.get('name'),
+                                actual_avg_price,  # buy_avg_price
+                                0,                 # sell_price (미체결)
+                                actual_quantity,
+                                0,                 # profit_amount
+                                0.0,               # profit_rate
+                                actual_quantity    # remaining_assets
+                            )
+                        except Exception as e:
+                            self.logger.error("trade_history 저장 실패", {"세션ID": session.get('id'), "error": str(e)})
+
                         print(f"[DEBUG] 세션 업데이트 완료: 세션ID={session.get('id')}, 보유수량={actual_quantity}, 사용금액={actual_spent_fund}, 평균가={actual_avg_price}, 거래횟수={count}")
                         
                         # 모니터링 시작
@@ -735,16 +685,9 @@ class TradingUpper():
                                 loop = getattr(self, "_monitor_loop", None)
                                 if loop and not loop.is_closed():
                                     # 딕셔너리를 튜플로 변환 (main.py와 동일한 형식)
-                                    session_tuple = (
-                                        session.get('id'),
-                                        session.get('ticker'),
-                                        session.get('name'),
-                                        actual_quantity,  # 수량
-                                        actual_avg_price,  # 가격
-                                        session.get('start_date'),
-                                    )
+                                    sessions_info = self.get_session_info_upper()
                                     asyncio.run_coroutine_threadsafe(
-                                        self.monitor_for_selling_upper([session_tuple]),
+                                        self.monitor_for_selling_upper(sessions_info),
                                         loop
                                     )
                                     print(f"[DEBUG] 모니터링 시작: 세션ID={session.get('id')}, 종목코드={session.get('ticker')}")
@@ -801,188 +744,6 @@ class TradingUpper():
                     "에러": error_msg
                 }
             )
-
-
-    def validate_db_data(self, session, balance_data=None):
-        """실제 보유 정보와 DB를 비교하고 필요시 DB를 업데이트 합니다.
-        
-        Args:
-            session: 검증할 세션 정보
-            balance_data: 잔고 데이터 (None일 경우 API로 조회)
-            
-        Returns:
-            bool: 검증/업데이트 성공 여부
-        """
-        print(f"\n[DEBUG] ====== validate_db_data 진입: 세션ID {session.get('id')} ======")
-        
-        import time
-        MAX_RETRY = 15  # 체결 지연 대응을 위한 재시도 횟수 대폭 증가
-        RETRY_DELAY = 2  # 대기 시간도 2초로 증가 (총 최대 30초 이상 대기)
-        price_tolerance = 1  # 평균가격 차이 허용 범위
-        
-        try:
-            with DatabaseManager() as db:
-                # 1. 실제 잔고 정보 조회 (balance_data가 제공되지 않은 경우)
-                if balance_data is None:
-                    for retry in range(1, MAX_RETRY+1):
-                        try:
-                            balance_result = self.kis_api.balance_inquiry()
-                            if not balance_result:
-                                print(f"잔고 조회 실패: 응답 없음 (재시도 {retry}/{MAX_RETRY})")
-                                if retry < MAX_RETRY:
-                                    time.sleep(RETRY_DELAY)
-                                    continue
-                                else:
-                                    break
-                                    
-                            balance_data = next((item for item in balance_result 
-                                            if item.get('pdno') == session.get('ticker')), None)
-                            
-                            if balance_data:
-                                break  # 성공적으로 데이터를 얻으면 루프 탈출
-                                
-                            print(f"종목 잔고 정보 없음: {session.get('ticker')} (재시도 {retry}/{MAX_RETRY})")
-                            if retry < MAX_RETRY:
-                                time.sleep(RETRY_DELAY)
-                                continue
-                            
-                        except Exception as e:
-                                    print(f"잔고 조회 중 오류: {e} (재시도 {retry}/{MAX_RETRY})")
-                                    if retry < MAX_RETRY:
-                                        time.sleep(RETRY_DELAY)
-                                        continue
-                                    else:
-                                        break
-                
-                # 잔고 정보가 없는 경우 처리
-                if balance_data is None:
-                    print(f"최종 잔고 조회 실패: {session.get('ticker')}")
-                    self.slack_logger.send_log(
-                        level="ERROR",
-                        message="잔고 조회 실패로 DB 검증 불가",
-                        context={"세션ID": session.get('id'), "종목코드": session.get('ticker')}
-                    )
-                    return False
-
-                # 2. 실제 보유 정보 파싱
-                actual_quantity = int(balance_data.get('hldg_qty', 0))
-                actual_spent_fund = int(float(balance_data.get('pchs_amt', 0)))
-                actual_avg_price = int(float(balance_data.get('pchs_avg_pric', 0)))
-                
-                print(f"[DEBUG] 실제 잔고 - 수량: {actual_quantity}, 비용: {actual_spent_fund}, 평균가: {actual_avg_price}")
-
-                # 3. DB에서 세션 정보 조회
-                session_data = db.load_trading_session_upper()
-                db_session = next((s for s in session_data if s.get('id') == session.get('id')), None)
-                
-                if db_session is None:
-                    print(f"DB 세션 조회 실패: {session.get('id')}")
-                    return False
-                    
-                print(f"[DEBUG] DB 상태 - 수량: {db_session.get('quantity')}, 비용: {db_session.get('spent_fund')}, 평균가: {db_session.get('avr_price')}, 거래횟수: {db_session.get('count')}")
-
-                # 4. DB와 실제 잔고 비교
-                is_mismatch = (
-                    db_session.get('quantity', 0) != actual_quantity or
-                    db_session.get('spent_fund', 0) != actual_spent_fund or
-                    abs(db_session.get('avr_price', 0) - actual_avg_price) > price_tolerance
-                )
-                
-                # 거래 횟수 업데이트 필요 여부 확인 (새 주문이 들어왔는지 판단)
-                update_count = False
-                if actual_quantity > 0 and actual_quantity != db_session.get('quantity', 0):
-                    update_count = True
-                    
-                # 5. 불일치 시 DB 업데이트
-                if is_mismatch or update_count:
-                    print(f"[DB 업데이트 필요] 세션 ID: {session.get('id')}, 종목: {session.get('name')}")
-                    
-                    # 업데이트할 횟수 계산
-                    count = db_session.get('count', 0)
-                    if update_count:
-                        count += 1
-                        print(f"[DEBUG] 거래 횟수 증가: {db_session.get('count', 0)} -> {count}")
-                    
-                    # DB 업데이트 실행
-                    try:
-                        db.save_trading_session_upper(
-                            session.get('id'), 
-                            db_session.get('start_date'),  # 원본 시작일 유지
-                            datetime.now(),  # 현재 시간으로 업데이트 시간 갱신
-                            session.get('ticker'), 
-                            session.get('name'), 
-                            db_session.get('high_price', 0),  # 원본 고가 유지
-                            db_session.get('fund'),  # 원본 투자금액 유지
-                            actual_spent_fund,  # 실제 사용 금액 갱신
-                            actual_quantity,  # 실제 수량 갱신
-                            actual_avg_price,  # 실제 평균가 갱신
-                            count  # 업데이트된 거래 횟수
-                        )
-                        print("[DB 업데이트 성공] 세션 데이터 갱신 완료")
-                    except Exception as db_error:
-                        print(f"[DB 업데이트 실패] 오류: {db_error}")
-                        self.slack_logger.send_log(
-                            level="ERROR",
-                            message="세션 DB 업데이트 실패",
-                            context={
-                                "세션ID": session.get('id'),
-                                "종목코드": session.get('ticker'),
-                                "에러": str(db_error)
-                            }
-                        )
-                        return False
-
-                    # 로그 기록
-                    self.slack_logger.send_log(
-                        level="INFO",
-                        message="DB 데이터 일치화 수행",
-                        context={
-                            "세션ID": session.get('id'),
-                            "종목명": session.get('name'),
-                            "DB_quantity": db_session.get('quantity'),
-                            "DB_spent_fund": db_session.get('spent_fund'),
-                            "Actual_quantity": actual_quantity,
-                            "Actual_spent_fund": actual_spent_fund,
-                            "거래횟수": count
-                        }
-                    )
-
-                    # 6. 재검증
-                    session_data = db.load_trading_session_upper()
-                    updated_session = next((s for s in session_data if s.get('id') == session.get('id')), None)
-                    
-                    if updated_session and (
-                        updated_session.get('quantity') == actual_quantity and
-                        updated_session.get('spent_fund') == actual_spent_fund and
-                        abs(updated_session.get('avr_price', 0) - actual_avg_price) <= price_tolerance
-                    ):
-                        print("[DB 재검증 성공] 데이터 일치 확인")
-                        return True
-                    else:
-                        print("[DB 재검증 실패] 데이터 불일치 지속")
-                        return False
-                else:
-                    print("[DB 검증 완료] 데이터 일치 - 업데이트 불필요")
-                    return True
-
-        except Exception as e:
-            error_msg = f"[심각한 오류] validate_db_data 실행 중 예외 발생: {e}"
-            print(error_msg)
-            
-            # 로그 기록: 데이터 검증 오류
-            self.logger.log_error("데이터 검증", e, {
-                "세션ID": session.get('id'), 
-                "종목코드": session.get('ticker'),
-                "함수": "validate_db_data"
-            })
-            
-            self.slack_logger.send_log(
-                level="ERROR",
-                message="데이터 검증/업데이트 실패",
-                context={"세션ID": session.get('id'), "종목코드": session.get('ticker'), "에러": str(e)}
-            )
-            return False
-
 
     def generate_random_id(self, min_value=1000, max_value=9999, exclude=None):
         """
@@ -1454,7 +1215,7 @@ class TradingUpper():
 
                 # === 매도 완료 후 trade_history 저장 ===
                 MAX_RETRY = 5
-                RETRY_DELAY = 2  # 초
+                RETRY_DELAY = 5  # 초
                 remaining_qty = None
                 for retry in range(1, MAX_RETRY + 1):
                     balance_result = self.kis_api.balance_inquiry()
@@ -1599,80 +1360,3 @@ class TradingUpper():
             
         print("sessions_info 값: ",sessions_info)
         return sessions_info
-        
-    
-    ###### 삭제 예정 ######
-    # async def start_monitoring_for_session(self, session):
-    #     ticker = session.get('ticker')
-    #     name = session.get('name')
-    #     quantity = session.get('quantity')
-    #     avr_price = session.get('avr_price')
-    #     start_date = session.get('start_date')
-    #     target_date = self.date_utils.get_target_date(start_date, DAYS_LATER_UPPER)
-        
-    #     session_info = [(session.get('id'), ticker, name, quantity, avr_price, start_date, target_date)]
-        
-    #     if self.kis_websocket is None:
-    #         self.kis_websocket = KISWebSocket(self.sell_order)
-    #     await self.kis_websocket.real_time_monitoring(session_info)
-        
-
-    # def _run_monitoring_for_session(self, session):
-    #     # 이미 모니터링 중인 세션인지 확인
-    #     ticker = session.get('ticker')
-    #     if ticker in getattr(self, '_monitoring_tickers', set()):
-    #         print(f"[경고] {ticker} 이미 모니터링 중임")
-    #         return
-        
-    #     # 모니터링 중인 종목 추적
-    #     if not hasattr(self, '_monitoring_tickers'):
-    #         self._monitoring_tickers = set()
-    #     self._monitoring_tickers.add(ticker)
-        
-    #     # 새로운 이벤트 루프 생성
-    #     loop = asyncio.new_event_loop()
-    #     asyncio.set_event_loop(loop)
-        
-    #     try:
-    #         print(f"[디버그] {ticker} 모니터링 시작")
-    #         loop.run_until_complete(self.start_monitoring_for_session(session))
-    #     except Exception as e:
-    #         print(f"[오류] {ticker} 모니터링 중 오류 발생: {e}")
-    #     finally:
-    #         try:
-    #             # 실행 중인 태스크를 정리
-    #             pending = asyncio.all_tasks(loop)
-    #             if pending:
-    #                 print(f"[디버그] {ticker} 모니터링 태스크 정리 중: {len(pending)} 태스크")
-    #                 for task in pending:
-    #                     task.cancel()
-                    
-    #                 # 취소된 태스크 정리 대기
-    #                 loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
-                
-    #             # 웹소켓 연결 정리 시도
-    #             if self.kis_websocket:
-    #                 try:
-    #                     loop.run_until_complete(self.kis_websocket.close())
-    #                     print(f"[디버그] {ticker} 웹소켓 안전 종료 완료")
-    #                 except Exception as e:
-    #                     print(f"[오류] 웹소켓 종료 중 오류: {e}")
-    #         except Exception as e:
-    #             print(f"[오류] 이벤트 루프 정리 중 오류: {e}")
-    #         finally:
-    #             # 루프 종료
-    #             try:
-    #                 loop.close()
-    #             except Exception as e:
-    #                 print(f"[오류] 이벤트 루프 닫기 실패: {e}")
-                
-    #             # 모니터링 종목 정보에서 제거
-    #             if ticker in self._monitoring_tickers:
-    #                 self._monitoring_tickers.remove(ticker)
-    #             print(f"[디버그] {ticker} 모니터링 종료")
-
-
-
-######################################################################################
-###############################    유틸리티티   ####################################
-######################################################################################
