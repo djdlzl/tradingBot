@@ -98,12 +98,10 @@ def test():
     # print(available_cash)
 
     # ########### 매수 재시도 로직 수리 #################
-    conclusion_result = kis_api.daily_order_execution_inquiry('0000005847')
-    print(json.dumps(conclusion_result, indent=2, ensure_ascii=False))
-    real_quantity = int(conclusion_result.get('output1', [{}])[0].get('tot_ccld_qty', 0))
-    real_spent_fund = int(conclusion_result.get('output1', [{}])[0].get('tot_ccld_amt', 0))
-
-    # print("결과:",real_quantity, real_spent_fund)
+    origin_result = kis_api.daily_order_execution_inquiry('0000002775')
+    revise_result = kis_api.daily_order_execution_inquiry('0000002789')
+    print(json.dumps(origin_result, indent=2, ensure_ascii=False))
+    print(json.dumps(revise_result, indent=2, ensure_ascii=False))
 
     # ######### 과열 종목 확인 ##########
     # stock = kis_api.get_stock_price('035420')

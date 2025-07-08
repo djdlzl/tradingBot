@@ -992,13 +992,45 @@ class TradingUpper():
                 )
                 self.logger.info("revised_result", revised_result)
 
-                # (2) 수정 주문번호로 체결 상태 재확인
-                unfilled_qty = self.order_complete_check(revised_result)
-                self.logger.info(
-                    "after revise order_result / unfilled",
-                    {"revised_order_no": revised_result.get('output', {}).get('ODNO'),
-                     "unfilled": unfilled_qty}
-                )
+                # (2) 수정 주문 체결 상태 확인
+                if revised_result.get('rt_cd') == '0' and 'output1' in revised_result and revised_result['output1']:
+                    # 원주문과 수정주문의 체결 내역을 모두 확인
+                    original_order = self.kis_api.daily_order_execution_inquiry(original_order_no)
+                    revised_order = self.kis_api.daily_order_execution_inquiry(revised_result['output']['ODNO'])
+                    
+                    # 체결 수량 합산
+                    total_filled = 0
+                    
+                    # 원주문 체결 수량
+                    if original_order.get('output1') and len(original_order['output1']) > 0:
+                        total_filled += int(original_order['output1'][0].get('tot_ccld_qty', 0))
+                    
+                    # 수정주문 체결 수량
+                    if revised_order.get('output1') and len(revised_order['output1']) > 0:
+                        total_filled += int(revised_order['output1'][0].get('tot_ccld_qty', 0))
+                    
+                    unfilled_qty = max(0, quantity - total_filled)
+                    
+                    self.logger.info(
+                        "수정주문 체결 현황",
+                        {
+                            "original_order_no": original_order_no,
+                            "revised_order_no": revised_result['output'].get('ODNO'),
+                            "total_filled": total_filled,
+                            "unfilled": unfilled_qty,
+                            "original_filled": original_order['output1'][0].get('tot_ccld_qty') if original_order.get('output1') else 0,
+                            "revised_filled": revised_order['output1'][0].get('tot_ccld_qty') if revised_order.get('output1') else 0
+                        }
+                    )
+                else:
+                    # 주문 수정 실패 시 로깅 후 미체결 수량 0으로 처리
+                    self.logger.warning(
+                        "주문 수정 실패",
+                        {"rt_cd": revised_result.get('rt_cd'),
+                         "msg1": revised_result.get('msg1', ''),
+                         "unfilled": 0}
+                    )
+                    unfilled_qty = 0  # 더 이상 재시도하지 않도록 0으로 설정
 
                 # 다음 루프와 최종 반환을 위해 최신 주문 결과 저장
                 order_result = revised_result
