@@ -199,8 +199,27 @@ class TradingUpper():
 
             # if True:
             # if result_high_price and result_decline and result_volume and result_lstg and result_possible:
+            # --- 💡 신규 로직: 강화된 모멘텀 식별 💡 ---
+            is_strong_momentum = False
+            if len(df) >= 3:
+                day_0_close = df['종가'].iloc[-3]
+                day_1_close = df['종가'].iloc[-2]
+                if day_0_close > 0:
+                    day_1_return = (day_1_close - day_0_close) / day_0_close
+                    if day_1_return >= 0.10:
+                        is_strong_momentum = True
+                    print(f"종목명: {stock.get('name')}, D+1 수익률: {day_1_return:.2%}, 강화된 모멘텀: {is_strong_momentum}")
+                else:
+                    print(f"종목명: {stock.get('name')}, D+0 종가가 0 이하여서 수익률 계산 불가")
+            else:
+                self.logger.warning(f"{stock.get('ticker')} OHLCV 데이터 부족 (3일 미만)으로 강화된 모멘텀 여부 확인 불가")
+
             if result_high_price and result_decline and result_lstg and result_possible: # 볼륨 체크 임시 제외
-                print(f"################ 매수 후보 종목: {stock.get('ticker')}, 종목명: {stock.get('name')} (현재가: {current_price}, 상한가 당시 가격: {stock.get('closing_price')})")
+                if is_strong_momentum:
+                    stock['trade_condition'] = 'strong_momentum'
+                else:
+                    stock['trade_condition'] = 'normal'  # 기본 조건
+                print(f"################ 매수 후보 종목: {stock.get('ticker')}, 종목명: {stock.get('name')} (현재가: {current_price}, 상한가 당시 가격: {stock.get('closing_price')}), 거래 조건: {stock.get('trade_condition')}")
                 selected_stocks.append(stock)
       
         # 선택된 종목을 selected_stocks 테이블에 저장
@@ -366,13 +385,14 @@ class TradingUpper():
 
             # 추가된 세션
             session_stocks = []
+            exclude_tickers = [s['ticker'] for s in sessions]
 
             for slot in range(counted_slot, 0, -1):
                 calculated_fund = self.calculate_funds(slot)
 
                 # 기존 세션 ID 조회
-                sessions = db.load_trading_session_upper()
-                exclude_num = [session.get('id') for session in sessions]
+                current_sessions = db.load_trading_session_upper()
+                exclude_num = [session.get('id') for session in current_sessions]
 
                 random_id = self.generate_random_id(exclude=exclude_num)
                 today = datetime.now()
@@ -383,10 +403,13 @@ class TradingUpper():
                 avr_price = 0
                 high_price = 0
 
-                stock = self.allocate_stock()
+                stock = self.allocate_stock(exclude_tickers)
                 if stock is None:
-                    print("selected_upper_stocks is None: 매수가 가능한 종목을 찾지 못했습니다.")
-                    return
+                    self.logger.warning("add_new_trading_session: 매수 가능한 신규 종목을 찾지 못했습니다.")
+                    continue
+                
+                # 방금 할당된 종목을 다음 할당에서 제외하기 위해 추가
+                exclude_tickers.append(stock['ticker'])
 
                 result = self.kis_api.get_stock_price(stock['ticker'])
                 time.sleep(1)
@@ -394,14 +417,15 @@ class TradingUpper():
                     print(f"{stock['name']} - 매수가 불가능하여 다시 받아옵니다.")
                     continue
 
-                db.save_trading_session_upper(random_id, today, today, stock['ticker'], stock['name'], high_price, fund, spent_fund, quantity, avr_price, count)
+                trade_condition = stock.get('trade_condition')
+                db.save_trading_session_upper(random_id, today, today, stock['ticker'], stock['name'], high_price, fund, spent_fund, quantity, avr_price, count, trade_condition)
                 session_stocks.append(stock["name"])
                 
             self.logger.info(f"세션에 종목 추가: {session_stocks}")
             return {'session': session_stocks, 'slot': counted_slot}
 
 
-    def place_order_session_upper(self, session: Dict) -> Union[Optional[List[Dict]], int]:
+    def place_order_session_upper(self, session: Dict) -> Optional[Dict]:
         """
         세션 정보를 바탕으로 분할 매수 주문을 실행합니다.
         - COUNT_UPPER 회차로 자금을 분할하여 주문
@@ -655,7 +679,8 @@ class TradingUpper():
                             actual_spent_fund,
                             actual_quantity,
                             actual_avg_price,
-                            count
+                            count,
+                            session.get('is_strong_momentum', False)
                         )
 
                         # === trade_history 저장 ===
@@ -836,26 +861,17 @@ class TradingUpper():
             return 0
 
 
-    def allocate_stock(self):
+    def allocate_stock(self, exclude_tickers: list):
         """
-        세션에 거래할 종목을 할당
+        세션에 거래할 종목을 할당하고, 할당된 종목은 리스트에서 제거합니다.
         """
-        db = DatabaseManager()
+        with DatabaseManager() as db:
+            stock = db.get_selected_stock_to_trade(exclude_tickers)
+            if stock:
+                # 해당 종목을 selected_upper_stocks 테이블에서 삭제
+                db.delete_selected_stock_by_no(stock['no'])
+        return stock
 
-        try:
-            # selected_stocks에서 첫 번째 종목 가져오기
-            selected_stock = db.get_selected_stocks()  # selected_stocks 조회
-            if selected_stock is not None:
-                db.delete_selected_stock_by_no(selected_stock['no'])  # no로 삭제 
-                db.close()
-                return selected_stock
-            else:
-                db.close()
-                return None
-            
-        except Exception as e:
-            print(f"Error allocating funds: {e}")
-            return None
 
 
 ######################################################################################
@@ -1387,7 +1403,8 @@ class TradingUpper():
         for session in sessions:
             #강제 매도 일자
             target_date = self.date_utils.get_target_date(date.fromisoformat(str(session.get('start_date')).split()[0]), DAYS_LATER_UPPER)
-            info_list = session.get('id'), session.get('ticker'), session.get('name'), session.get('quantity'), session.get('avr_price'), session.get('start_date'), target_date
+            trade_condition = session.get('trade_condition')
+            info_list = session.get('id'), session.get('ticker'), session.get('name'), session.get('quantity'), session.get('avr_price'), session.get('start_date'), target_date, trade_condition
             sessions_info.append(info_list)
             
         print("sessions_info 값: ",sessions_info)

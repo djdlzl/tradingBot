@@ -43,7 +43,8 @@ PRICE_BUFFER = 0.01  # 1% buffer added on top of quoted price when calculating b
 SELLING_POINT_UPPER = 1.08
 
 # 손실 위험 관리 값 (이 값보다 낮아지면 매도)
-RISK_MGMT_UPPER = 0.93
+RISK_MGMT_UPPER = 0.95
+RISK_MGMT_STRONG_MOMENTUM = 0.93  # 강력 모멘텀 종목에 대한 리스크 관리 기준 (7% 손실)
 
 # 트레일링스탑 하락 비율 (%) - 고점 대비 몇 % 하락 시 매도할지 설정
 # SELLING_POINT_UPPER 이상 수익 시 활성화
@@ -105,3 +106,10 @@ DAYS_LATER_UPPER = 1 #마지막 매수로부터 +1일
 
 #selling_point_1 이상일 때 1차 매도 - 일단 이것만 사용
 # RISK_MGMT = 0.99
+
+######################################################
+#################    전략 조건   ######################
+######################################################
+
+STRONG_MOMENTUM = "strong_momentum"
+

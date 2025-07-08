@@ -3,7 +3,7 @@ from mysql.connector.cursor import MySQLCursor, MySQLCursorDict
 import logging
 from datetime import datetime
 from config.config import DB_CONFIG
-from config.condition import BUY_DAY_AGO_UPPER
+from config.condition import STRONG_MOMENTUM
 from utils.date_utils import DateUtils
 from typing import Any, Dict, List, Optional, Sequence, cast
 from zoneinfo import ZoneInfo
@@ -97,7 +97,8 @@ class DatabaseManager:
                 spent_fund INT,
                 quantity INT,
                 avr_price INT,
-                count INT
+                count INT,
+                is_strong_momentum BOOLEAN DEFAULT FALSE
             ) ENGINE=InnoDB
         ''')
         
@@ -118,7 +119,8 @@ class DatabaseManager:
                 `date` DATE,
                 ticker VARCHAR(20),
                 name VARCHAR(100),
-                closing_price DECIMAL(10,2)
+                closing_price DECIMAL(10,2),
+                is_strong_momentum BOOLEAN DEFAULT FALSE
             ) ENGINE=InnoDB
         ''')
 
@@ -290,28 +292,36 @@ class DatabaseManager:
             logging.error("Error deleting old stocks: %s", e)
             raise
 
-    def get_selected_stocks(self):
+    def get_selected_stock_to_trade(self, exclude_tickers: List[str] = []) -> Optional[Dict[str, Any]]:
         try:
-            # 커서 재설정
             self._reset_cursor()
+
+            query = '''
+                SELECT no, ticker, name, closing_price, trade_condition
+                FROM selected_upper_stocks
+            '''
+            params = []
+
+            if exclude_tickers:
+                query += ' WHERE ticker NOT IN (%s)' % ', '.join(['%s'] * len(exclude_tickers))
+                params.extend(exclude_tickers)
             
-            self.cursor.execute('''
-                SELECT * FROM selected_upper_stocks 
-                ORDER BY no 
-                LIMIT 1
-            ''')
+            query += ' ORDER BY no ASC LIMIT 1'
+
+            self.cursor.execute(query, tuple(params))
             result = self.cursor.fetchone()
+
             if result:
                 return {
                     'no': int(result.get('no')),
-                    'date': result.get('date'),
                     'ticker': result.get('ticker'),
                     'name': result.get('name'),
-                    'closing_price': result.get('closing_price')
+                    'closing_price': result.get('closing_price'),
+                    'trade_condition': result.get('trade_condition')
                 }
             return None
         except mysql.connector.Error as e:
-            logging.error("Error retrieving selected stocks: %s", e)
+            logging.error("Error retrieving stock to trade: %s", e)
             return None
 
     def get_upper_stocks_days_ago(self, day_ago):
@@ -345,12 +355,14 @@ class DatabaseManager:
             today = DateUtils.get_previous_business_day(datetime.now(), 1)
             
             for index, stock in enumerate(sorted_stocks, start=1):
+                # stock 딕셔너리에서 trade_condition 값을 직접 가져옴
+                trade_cond = stock.get('trade_condition')
                 self.cursor.execute('''
                     INSERT INTO selected_upper_stocks 
-                    (no, date, ticker, name, closing_price)
-                    VALUES (%s, %s, %s, %s, %s)
+                    (no, date, ticker, name, closing_price, trade_condition)
+                    VALUES (%s, %s, %s, %s, %s, %s)
                 ''', (index, today.strftime('%Y-%m-%d'), stock.get('ticker'), stock.get('name'), 
-                    float(stock.get('closing_price')), ))
+                    float(stock.get('closing_price')), trade_cond))
             print("선별 종목 저장 완료")
             self.conn.commit()
             logging.info("Saved selected stocks successfully.")
@@ -399,50 +411,52 @@ class DatabaseManager:
             logging.error("Error reordering selected stocks: %s", e)
             raise
 
-    def save_trading_session_upper(self, random_id, start_date, current_date, ticker, name, high_price, fund, spent_fund, quantity, avr_price, count):
+    def save_trading_session_upper(self, session_id, start_date, current_date, ticker, name, high_price, fund, spent_fund, quantity, avr_price, count, trade_condition: Optional[str] = None):
         try:
             # 파라미터 유효성 검사
-            if not all([random_id, ticker, name]):
+            if not all([session_id, ticker, name]):
                 raise ValueError("필수 파라미터가 누락되었습니다.")
-                
+
             if not isinstance(quantity, int) or quantity < 0:
                 raise ValueError(f"유효하지 않은 수량: {quantity}")
-                
+
             if not isinstance(avr_price, (int, float)) or avr_price < 0:
                 raise ValueError(f"유효하지 않은 평균가: {avr_price}")
-    
+
             # SQL 쿼리 실행
             self.cursor.execute('''
-                INSERT INTO trading_session_upper 
-                (id, start_date, `current_date`, ticker, name, high_price, fund, spent_fund, quantity, avr_price, count)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO trading_session_upper
+                    (id, start_date, current_date, ticker, name, high_price, fund, spent_fund, quantity, avr_price, count, trade_condition)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                     `current_date` = VALUES(`current_date`),
                     spent_fund = VALUES(spent_fund),
                     quantity = VALUES(quantity),
-                    avr_price = CASE 
+                    avr_price = CASE
                         WHEN VALUES(quantity) > 0 THEN VALUES(avr_price)
                         ELSE avr_price
                     END,
-                    count = VALUES(count)
+                    count = VALUES(count),
+                    trade_condition = VALUES(trade_condition)
             ''', (
-                random_id, 
-                start_date, 
-                current_date, 
-                ticker, 
-                name, 
-                high_price, 
-                fund, 
-                spent_fund, 
-                quantity, 
-                avr_price, 
-                count
+                session_id,
+                start_date,
+                current_date,
+                ticker,
+                name,
+                high_price,
+                fund,
+                spent_fund,
+                quantity,
+                avr_price,
+                count,
+                trade_condition
             ))
-            
+
             self.conn.commit()
             logging.info(
-                "Trading session saved/updated - ID: %s, Ticker: %s, Quantity: %s, AvgPrice: %s",
-                random_id, ticker, quantity, avr_price
+                "Trading session saved/updated - ID: %s, Ticker: %s, Quantity: %s, AvgPrice: %s, StrongMomentum: %s",
+                random_id, ticker, quantity, avr_price, is_strong_momentum
             )
             
         except mysql.connector.Error as e:
@@ -501,17 +515,7 @@ class DatabaseManager:
             
             result = self.cursor.fetchone()
             if result:
-                if isinstance(result, dict):
-                    return {
-                        'no': int(result.get('no', 0)) if 'no' in result else None,
-                        'date': result.get('date'),
-                        'ticker': result.get('ticker'),
-                        'name': result.get('name'),
-                        'closing_price': result.get('closing_price')
-                    }
-                else:
-                    logging.error("Result is not a dictionary in get_session_by_id: %s", result)
-                    return None
+                return result
             else:
                 return None
             

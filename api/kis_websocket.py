@@ -10,6 +10,7 @@ from config.config import R_APP_KEY, R_APP_SECRET, M_APP_KEY, M_APP_SECRET
 from config.condition import (
     SELLING_POINT_UPPER,
     RISK_MGMT_UPPER,
+    RISK_MGMT_STRONG_MOMENTUM,
     KRX_TRADING_START,
     KRX_TRADING_END,
     TRAILING_STOP_PERCENTAGE
@@ -74,7 +75,7 @@ class KISWebSocket:
     ##################################    매도 로직   #####################################
     ######################################################################################
 
-    async def sell_condition(self, recv_value, session_id, ticker, name, quantity, avg_price, target_date):
+        async def sell_condition(self, recv_value, session_id, ticker, name, quantity, avg_price, target_date, trade_condition):
         """
         매도 조건을 판단하고, 조건이 충족되면 매도 처리를 진행합니다.
         """
@@ -133,9 +134,18 @@ class KISWebSocket:
             #     sell_reason["매도조건가"] = int(avg_price * SELLING_POINT_UPPER)  # 정수로 변환
 
             # 조건3: 리스크 관리차 매도
-            if sell_reason_text is None and target_price < (avg_price * RISK_MGMT_UPPER):
-                sell_reason_text = "주가 하락: 리스크 관리차 매도"
-                sell_reason["매도조건가"] = int(avg_price * RISK_MGMT_UPPER)  # 정수로 변환
+            if sell_reason_text is None:
+                # trade_condition에 따라 다른 손절 라인 적용
+                if trade_condition == "strong_momentum":
+                    risk_threshold = RISK_MGMT_STRONG_MOMENTUM
+                    reason = "주가 하락: 강력 모멘텀 리스크 관리"
+                else:
+                    risk_threshold = RISK_MGMT_UPPER
+                    reason = "주가 하락: 리스크 관리차 매도"
+
+                if target_price < (avg_price * risk_threshold):
+                    sell_reason_text = reason
+                    sell_reason["매도조건가"] = int(avg_price * risk_threshold)
         
             # 조건2: 주가 상승으로 익절
             # 트레일링스탑 로직 구현
@@ -424,9 +434,10 @@ class KISWebSocket:
             # background_tasks를 클래스 속성으로 변경
             self.background_tasks = set()
 
-            # 종목 구독
-            for (session_id,ticker,name,qty,price,start_date,target_date,) in sessions_info:
-                await self.add_new_stock_to_monitoring(session_id, ticker, name, qty, price, start_date, target_date)
+            # 세션별 모니터링 시작
+            for session in sessions_info:
+                session_id, ticker, name, quantity, avg_price, start_date, target_date, trade_condition = session
+                await self.start_monitoring_ticker(session_id, ticker, name, quantity, avg_price, start_date, target_date, trade_condition)
 
             # 단일 웹소켓 수신 처리 시작 (중복 생성 방지)
             if self.receiver_task is None or self.receiver_task.done():
@@ -878,7 +889,7 @@ class KISWebSocket:
             # 오류 발생 시에도 구독 목록에서 제거
             self.subscribed_tickers.discard(ticker)
 
-    async def add_new_stock_to_monitoring(self, session_id, ticker, name, qty, price, start_date, target_date):
+    async def start_monitoring_ticker(self, session_id, ticker, name, quantity, avg_price, start_date, target_date, trade_condition):
         # 기존 모니터링이 있으면 우선 중단해 중복 태스크 방지
         if ticker in self.active_tasks:
             await self.stop_monitoring(ticker)
