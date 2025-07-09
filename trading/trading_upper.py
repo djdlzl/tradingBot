@@ -142,8 +142,10 @@ class TradingUpper():
             if not ticker:
                 self.logger.warning(f"{stock} ticker 정보 누락, 건너뜁니다.")
                 continue
+
+
             ### 조건1: 상승일 기준 10일 전까지 고가 20% 넘은 이력 여부 체크
-            df = self.krx_api.get_OHLCV(stock.get('ticker'), UPPER_DAY_AGO_CHECK) # D+2일 8시55분에 실행이라 10일
+            df = self.krx_api.get_OHLCV(stock.get('ticker'), UPPER_DAY_AGO_CHECK, BUY_DAY_AGO_UPPER) # D+2일 8시55분에 실행이라 10일
             # 데이터프레임에서 최하단 2개 행을 제외
             filtered_df = df.iloc[:-2]
               # 종가 대비 다음날 고가의 등락률 계산
@@ -189,37 +191,23 @@ class TradingUpper():
             else:
                 result_possible = False
             
+            # 조건6: 강화된 모멘텀 확인 (D+1 수익률 10% 이상)
+            result_strong_momentum = self._check_strong_momentum(stock, df)
+
+            # 모든 매수 조건 충족 시 후보 목록에 추가
             print(stock.get('name'))
             print('조건1: 상승일 기준 10일 전까지 고가 20% 넘지 않은은 이력 여부 체크:',result_high_price)
             print('조건2: 상승일 고가 - 매수일 현재가 = -7.5% 체크:',result_decline)
             # print('조건3: 상승일 거래량 대비 다음날 거래량 20% 이상 체크:',result_volume)
             print('조건4: 상장일 이후 1년 체크:',result_lstg)
             print('조건5: 과열 종목 제외 체크:',result_possible)
-            # print('매매 확인을 위해 임시로 모든 조건 통과')
-
-            # if True:
-            # if result_high_price and result_decline and result_volume and result_lstg and result_possible:
-            # --- 💡 신규 로직: 강화된 모멘텀 식별 💡 ---
-            is_strong_momentum = False
-            if len(df) >= 3:
-                day_0_close = df['종가'].iloc[-3]
-                day_1_close = df['종가'].iloc[-2]
-                if day_0_close > 0:
-                    day_1_return = (day_1_close - day_0_close) / day_0_close
-                    if day_1_return >= 0.10:
-                        is_strong_momentum = True
-                    print(f"종목명: {stock.get('name')}, D+1 수익률: {day_1_return:.2%}, 강화된 모멘텀: {is_strong_momentum}")
-                else:
-                    print(f"종목명: {stock.get('name')}, D+0 종가가 0 이하여서 수익률 계산 불가")
-            else:
-                self.logger.warning(f"{stock.get('ticker')} OHLCV 데이터 부족 (3일 미만)으로 강화된 모멘텀 여부 확인 불가")
-
-            if result_high_price and result_decline and result_lstg and result_possible: # 볼륨 체크 임시 제외
-                if is_strong_momentum:
-                    stock['trade_condition'] = 'strong_momentum'
-                else:
-                    stock['trade_condition'] = 'normal'  # 기본 조건
-                print(f"################ 매수 후보 종목: {stock.get('ticker')}, 종목명: {stock.get('name')} (현재가: {current_price}, 상한가 당시 가격: {stock.get('closing_price')}), 거래 조건: {stock.get('trade_condition')}")
+            
+            
+            if result_high_price and result_decline and result_lstg and result_possible and result_volume:
+                # 거래 조건 설정
+                stock['trade_condition'] = 'strong_momentum' if result_strong_momentum else 'normal'
+                
+                self.logger.info(f"[매수 후보 선정] 종목: {stock.get('name')}({stock.get('ticker')}), 조건: {stock.get('trade_condition')}")
                 selected_stocks.append(stock)
       
         # 선택된 종목을 selected_stocks 테이블에 저장
@@ -229,6 +217,25 @@ class TradingUpper():
         db.close()
         
         return selected_stocks
+
+    def _check_strong_momentum(self, stock: Dict, df: pd.DataFrame) -> bool:
+        """강화된 모멘텀 조건을 확인합니다 (D+1 수익률 10% 이상)."""
+        if len(df) < 3:
+            self.logger.warning(f"{stock.get('ticker')} OHLCV 데이터 부족 (3일 미만)으로 모멘텀 확인 불가")
+            return False
+
+        day_0_close = df['종가'].iloc[-3]
+        day_1_close = df['종가'].iloc[-2]
+
+        if day_0_close <= 0:
+            self.logger.warning(f"{stock.get('name')}, D+0 종가가 0 이하여서 수익률 계산 불가")
+            return False
+
+        day_1_return = (day_1_close - day_0_close) / day_0_close
+        is_strong = day_1_return >= 0.10
+
+        self.logger.info(f"[{stock.get('name')}] D+1 수익률: {day_1_return:.2%}, 강화된 모멘텀: {is_strong}")
+        return is_strong
 
 ######################################################################################
 ################################    삭제   ##########################################
@@ -884,7 +891,7 @@ class TradingUpper():
         # 거래량 비교
         diff_1_2, diff_2_3 = self.kis_api.compare_volumes(volumes)
         
-        if diff_1_2 > -80:
+        if diff_1_2 > -90:
             return True
         else:
             return False

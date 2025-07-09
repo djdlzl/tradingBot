@@ -98,10 +98,10 @@ def test():
     # print(available_cash)
 
     # ########### 매수 재시도 로직 수리 #################
-    origin_result = kis_api.daily_order_execution_inquiry('0000002775')
-    revise_result = kis_api.daily_order_execution_inquiry('0000002789')
-    print(json.dumps(origin_result, indent=2, ensure_ascii=False))
-    print(json.dumps(revise_result, indent=2, ensure_ascii=False))
+    # origin_result = kis_api.daily_order_execution_inquiry('0000002775')
+    # revise_result = kis_api.daily_order_execution_inquiry('0000002789')
+    # print(json.dumps(origin_result, indent=2, ensure_ascii=False))
+    # print(json.dumps(revise_result, indent=2, ensure_ascii=False))
 
     # ######### 과열 종목 확인 ##########
     # stock = kis_api.get_stock_price('035420')
@@ -155,7 +155,7 @@ def test():
     # # print("상한가 저장")
 
     # # # ######매수가능 상한가 종목 조회###########
-    # trading.select_stocks_to_buy() # 3일째 장 마감때 저장
+    trading_upper.select_stocks_to_buy()
     # # print("상한가 선별 및 저장 완료")
     
     # print("start_trading_session 실행 시작")

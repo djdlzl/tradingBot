@@ -75,7 +75,7 @@ class KISWebSocket:
     ##################################    매도 로직   #####################################
     ######################################################################################
 
-        async def sell_condition(self, recv_value, session_id, ticker, name, quantity, avg_price, target_date, trade_condition):
+    async def sell_condition(self, recv_value, session_id, ticker, name, quantity, avg_price, target_date, trade_condition):
         """
         매도 조건을 판단하고, 조건이 충족되면 매도 처리를 진행합니다.
         """
@@ -285,6 +285,7 @@ class KISWebSocket:
             if ticker in self.ticker_sell_locks and self.ticker_sell_locks[ticker].locked():
                 self.ticker_sell_locks[ticker].release()
                 self.logger.info(f"{ticker} 티커 락 해제 완료", {"ticker": ticker})
+
 
     def get_tick(self, price: int) -> int:
         if price < 1000:
@@ -903,7 +904,7 @@ class KISWebSocket:
 
         # 새 종목에 대한 모니터링 태스크 생성
         task = asyncio.create_task(
-            self._monitor_ticker(session_id, ticker, name, qty, price, target_date)
+            self._monitor_ticker(session_id, ticker, name, quantity, avg_price, target_date, trade_condition)
         )
         task.add_done_callback(self.background_tasks.discard)
         self.background_tasks.add(task)
@@ -916,7 +917,7 @@ class KISWebSocket:
     ######################################################################################
 
     async def _monitor_ticker(
-        self, session_id, ticker, name, quantity, avr_price, target_date
+        self, session_id, ticker, name, quantity, avr_price, target_date, trade_condition
     ):
         """개별 종목 모니터링 및 매도 처리"""
         # 큐가 없거나 다른 루프에 바인딩되어 있으면 새로 생성
@@ -1032,13 +1033,7 @@ class KISWebSocket:
                         try:
                             # 매도 조건 확인
                             sell_completed = await self.sell_condition(
-                                recvvalue,
-                                session_id,
-                                ticker,
-                                name,
-                                quantity,
-                                avr_price,
-                                target_date,
+                                recvvalue, session_id, ticker, name, quantity, avr_price, target_date, trade_condition
                             )
                         finally:
                             # 매도 조건 확인 후 락 해제

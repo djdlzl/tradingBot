@@ -98,7 +98,7 @@ class DatabaseManager:
                 quantity INT,
                 avr_price INT,
                 count INT,
-                is_strong_momentum BOOLEAN DEFAULT FALSE
+                trade_condition VARCHAR(50) DEFAULT 'normal'
             ) ENGINE=InnoDB
         ''')
         
@@ -120,7 +120,7 @@ class DatabaseManager:
                 ticker VARCHAR(20),
                 name VARCHAR(100),
                 closing_price DECIMAL(10,2),
-                is_strong_momentum BOOLEAN DEFAULT FALSE
+                trade_condition VARCHAR(50) DEFAULT 'normal'
             ) ENGINE=InnoDB
         ''')
 
@@ -420,45 +420,25 @@ class DatabaseManager:
             if not isinstance(quantity, int) or quantity < 0:
                 raise ValueError(f"유효하지 않은 수량: {quantity}")
 
-            if not isinstance(avr_price, (int, float)) or avr_price < 0:
-                raise ValueError(f"유효하지 않은 평균가: {avr_price}")
-
-            # SQL 쿼리 실행
             self.cursor.execute('''
-                INSERT INTO trading_session_upper
-                    (id, start_date, current_date, ticker, name, high_price, fund, spent_fund, quantity, avr_price, count, trade_condition)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO trading_session_upper (
+                    id, start_date, `current_date`, ticker, name, high_price, fund, spent_fund, quantity, avr_price, `count`, trade_condition
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
-                    `current_date` = VALUES(`current_date`),
-                    spent_fund = VALUES(spent_fund),
-                    quantity = VALUES(quantity),
-                    avr_price = CASE
-                        WHEN VALUES(quantity) > 0 THEN VALUES(avr_price)
-                        ELSE avr_price
-                    END,
-                    count = VALUES(count),
-                    trade_condition = VALUES(trade_condition)
-            ''', (
-                session_id,
-                start_date,
-                current_date,
-                ticker,
-                name,
-                high_price,
-                fund,
-                spent_fund,
-                quantity,
-                avr_price,
-                count,
-                trade_condition
-            ))
-
+                `current_date` = VALUES(`current_date`),
+                high_price = VALUES(high_price),
+                spent_fund = VALUES(spent_fund),
+                quantity = VALUES(quantity),
+                avr_price = VALUES(avr_price),
+                `count` = VALUES(`count`),
+                trade_condition = VALUES(trade_condition)
+            ''', (session_id, start_date, current_date, ticker, name, high_price, fund, spent_fund, quantity, avr_price, count, trade_condition))
             self.conn.commit()
             logging.info(
-                "Trading session saved/updated - ID: %s, Ticker: %s, Quantity: %s, AvgPrice: %s, StrongMomentum: %s",
-                random_id, ticker, quantity, avr_price, is_strong_momentum
+                "Trading session saved/updated - ID: %s, Ticker: %s, Quantity: %s, AvgPrice: %s, TradeCondition: %s",
+                session_id, ticker, quantity, avr_price, trade_condition
             )
-            
         except mysql.connector.Error as e:
             self.conn.rollback()
             error_msg = f"DB 오류: {str(e)}"
