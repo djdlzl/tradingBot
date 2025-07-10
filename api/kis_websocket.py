@@ -96,7 +96,7 @@ class KISWebSocket:
             await self.global_sell_semaphore.acquire()
             
             # 세마포어 획득 후 매도 처리 시작
-            self.logger.info(f"{ticker} 매도 처리 시작", {"ticker": ticker})
+            # self.logger.info(f"{ticker} 매도 처리 시작", {"ticker": ticker})
             
             if len(recv_value) == 1 and "SUBSCRIBE SUCCESS" in recv_value[0]:
                 return False
@@ -275,7 +275,7 @@ class KISWebSocket:
             # 전역 세마포어 해제 (다른 매도 작업이 진행될 수 있도록)
             if self.global_sell_semaphore.locked():
                 self.global_sell_semaphore.release()
-                self.logger.info(f"{ticker} 매도 작업 완료 - 다음 매도 가능", {"ticker": ticker})
+                # self.logger.info(f"{ticker} 매도 작업 완료 - 다음 매도 가능", {"ticker": ticker})
                 
             # 개별 종목 매도 진행 중 상태 해제
             if ticker in self.selling_in_progress:
@@ -284,7 +284,7 @@ class KISWebSocket:
             # 티커별 락 해제 - _monitor_ticker에서 획득한 락을 여기서 해제해야 함
             if ticker in self.ticker_sell_locks and self.ticker_sell_locks[ticker].locked():
                 self.ticker_sell_locks[ticker].release()
-                self.logger.info(f"{ticker} 티커 락 해제 완료", {"ticker": ticker})
+                # self.logger.info(f"{ticker} 티커 락 해제 완료", {"ticker": ticker})
 
 
     def get_tick(self, price: int) -> int:
