@@ -23,7 +23,7 @@ from trading.trading_upper import TradingUpper
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.executors.pool import ThreadPoolExecutor
-from config.condition import GET_ULS_HOUR, GET_ULS_MINUTE, GET_SELECT_HOUR, GET_SELECT_MINUTE, ORDER_HOUR_1, ORDER_HOUR_2, ORDER_MINUTE_1, ORDER_MINUTE_2
+from config.condition import GET_ULS_HOUR, GET_ULS_MINUTE, GET_SELECT_HOUR, GET_SELECT_MINUTE, ORDER_HOUR_1, ORDER_HOUR_2, ORDER_MINUTE_1, ORDER_MINUTE_2, ORDER_HOUR_3, ORDER_MINUTE_3
 from api.kis_websocket import KISWebSocket
 from utils.decorators import business_day_only
 from utils.slack_logger import SlackLogger
@@ -99,6 +99,13 @@ class MainProcess:
                 self.execute_buy_task,
                 CronTrigger(hour=ORDER_HOUR_2, minute=ORDER_MINUTE_2),
                 id='buy_task_2',
+                replace_existing=True
+            )
+
+            self.scheduler.add_job(
+                self.execute_buy_task,
+                CronTrigger(hour=ORDER_HOUR_3, minute=ORDER_MINUTE_3),
+                id='buy_task_3',
                 replace_existing=True
             )
 
