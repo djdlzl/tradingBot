@@ -40,7 +40,7 @@ PRICE_BUFFER = 0.01  # 1% buffer added on top of quoted price when calculating b
 
 
 # 수익률이 이 값 이상일 때 매도
-SELLING_POINT_UPPER = 1.08
+SELLING_POINT_UPPER = 1.02
 
 # 손실 위험 관리 값 (이 값보다 낮아지면 매도)
 RISK_MGMT_UPPER = 0.93
@@ -75,7 +75,7 @@ ORDER_HOUR_2 = 10
 ORDER_MINUTE_2 = 40
 # # 매수 시간 3
 ORDER_HOUR_3 = 14
-ORDER_MINUTE_3 = 40
+ORDER_MINUTE_3 = 41
 
 
 

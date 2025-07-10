@@ -583,7 +583,7 @@ class TradingUpper():
         print(f"[DEBUG] 세션: {session}")
         
         MAX_RETRY = 15  # 체결 지연 대응을 위한 재시도 횟수 대폭 증가
-        RETRY_DELAY = 5  # 대기 시간도 2초로 증가 (총 최대 30초 이상 대기)
+        RETRY_DELAY = 30  # 대기 시간도 2초로 증가 (총 최대 30초 이상 대기)
         try:
             with self.session_lock:
                 with DatabaseManager() as db:

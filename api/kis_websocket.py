@@ -79,6 +79,109 @@ class KISWebSocket:
         """
         매도 조건을 판단하고, 조건이 충족되면 매도 처리를 진행합니다.
         """
+        # ------------------------------------------------------------------
+        # 새 로직: 매도 조건만 판단하여 결과를 반환 (_monitor_ticker에서 매도 실행)
+        # ------------------------------------------------------------------
+        try:
+            if not avg_price:
+                self.logger.error(f"{ticker} avg_price=0, 매도 조건 판단 건너뜀")
+                return False
+                
+            # 1) 수신 데이터 유효성 체크
+            if len(recv_value) == 1 and "SUBSCRIBE SUCCESS" in recv_value[0]:
+                return False
+
+            current_price = int(recv_value[15])
+            tick_interval = self.get_tick(current_price)
+            target_price = max(current_price - tick_interval * 2, tick_interval)
+
+            now = datetime.now()
+            current_date = now.date()
+            current_time = now.time()
+
+            # 2) 거래시간이 아니면 조건 미충족
+            if current_time < KRX_TRADING_START or current_time > KRX_TRADING_END:
+                return False
+
+            # 3) 매도 사유 판단
+            sell_reason = {"매도가": target_price}
+            sell_reason_text = None
+
+            # (1) 보유기간 만료
+            sell_time_threshold = time(15, 10)  # 15:10 이후
+            if current_date > target_date and current_time >= sell_time_threshold:
+                sell_reason_text = "기간만료"
+                sell_reason["매도목표일"] = (
+                    target_date.strftime("%Y-%m-%d") if hasattr(target_date, "strftime") else str(target_date)
+                )
+
+            # (2) 리스크 관리(손절)
+            if sell_reason_text is None:
+                if trade_condition == "strong_momentum":
+                    risk_threshold = RISK_MGMT_STRONG_MOMENTUM
+                    reason = "주가 하락: 강력 모멘텀 리스크 관리"
+                else:
+                    risk_threshold = RISK_MGMT_UPPER
+                    reason = "주가 하락: 리스크 관리차 매도"
+
+                if target_price < (avg_price * risk_threshold):
+                    sell_reason_text = reason
+                    sell_reason["매도조건가"] = int(avg_price * risk_threshold)
+
+            # (3) 트레일링스탑(익절 보호)
+            if sell_reason_text is None:
+                current_profit_ratio = target_price / avg_price
+                if not hasattr(self, "ticker_high_ratio"):
+                    self.ticker_high_ratio = {}
+                if ticker not in self.ticker_high_ratio or current_profit_ratio > self.ticker_high_ratio[ticker]:
+                    self.ticker_high_ratio[ticker] = current_profit_ratio
+
+                high_ratio = self.ticker_high_ratio[ticker]
+                selling_threshold = SELLING_POINT_UPPER  # 예: 1.08 (8%)
+                trailing_threshold = 1 - TRAILING_STOP_PERCENTAGE  # 예: 0.96 (4%)
+
+                if selling_threshold < high_ratio < (selling_threshold + TRAILING_STOP_PERCENTAGE):
+                    if current_profit_ratio < selling_threshold:
+                        sell_reason_text = "트레일링스탑: 수익률 8% 미만으로 하락"
+                elif high_ratio >= (selling_threshold + TRAILING_STOP_PERCENTAGE):
+                    if current_profit_ratio <= (high_ratio * trailing_threshold):
+                        sell_reason_text = "트레일링스탑: 고점 대비 4% 하락"
+
+            # 4) 매도 조건 최종 판단
+            if sell_reason_text is None:
+                return False  # 조건 미충족
+
+            sell_reason["매도사유"] = sell_reason_text
+
+            session_exists = self.db_manager.get_session_by_id(session_id) is not None
+
+            return {
+                "sell_decision": True,
+                "target_price": target_price,
+                "sell_reason": sell_reason,
+                "session_exists": session_exists,
+            }
+
+        except Exception as e:
+            self.slack_logger.send_log(
+                level="ERROR",
+                message=f"{ticker} 매도 조건 판단 중 예외 발생",
+                context={"종목코드": ticker, "에러": str(e)},
+            )
+            return False
+    # ------------------------------------------------------------------
+    # 기존 매도 실행 로직은 더 이상 사용되지 않음 (legacy) -------
+    # ------------------------------------------------------------------
+
+    async def sell_condition_legacy_disabled(self, *args, **kwargs):
+        """(Legacy) Disabled after sell refactor. Always returns False."""
+        return False
+
+    # -------- 이하 legacy 코드(사용되지 않음) --------
+    async def sell_condition_legacy(self, recv_value, session_id, ticker, name, quantity, avg_price, target_date, trade_condition):
+        """
+        매도 조건을 판단하고, 조건이 충족되면 매도 처리를 진행합니다.
+        """
         if ticker in self.selling_in_progress:
             # 이미 다른 비동기 작업에서 매도 처리가 진행 중인 경우, 현재 작업은 중복이므로 무시합니다.
             return False
@@ -1022,35 +1125,103 @@ class KISWebSocket:
                         self.logger.info(f"{ticker} - 이미 매도 진행 중이므로 건너뜀", {"ticker": ticker})
                         self.ticker_queues[ticker].task_done()
                         continue
-                    
+
                     # 티커에 락이 없으면 생성
                     if ticker not in self.ticker_sell_locks:
                         self.ticker_sell_locks[ticker] = asyncio.Lock()
-                    
-                    # 티커별 락 획득 시도
-                    if not self.ticker_sell_locks[ticker].locked():
-                        await self.ticker_sell_locks[ticker].acquire()
+
+                    # --- 매도 조건 확인 및 필요 시 매도 실행 ---
+                    await self.ticker_sell_locks[ticker].acquire()
+                    try:
+                        # 1) 매도 조건만 판단 (실제 매도 실행 X)
+                        sell_signal = await self.sell_condition(
+                            recvvalue,
+                            session_id,
+                            ticker,
+                            name,
+                            quantity,
+                            avr_price,
+                            target_date,
+                            trade_condition,
+                        )
+
+                        # 조건 충족 여부 확인
+                        if not (isinstance(sell_signal, dict) and sell_signal.get("sell_decision")):
+                            # 조건 미충족 → 다음 루프로
+                            self.ticker_queues[ticker].task_done()
+                            continue
+
+                        # 세션이 이미 종료된 경우 → 모니터링 중단
+                        if not sell_signal.get("session_exists", True):
+                            if ticker in self.subscribed_tickers:
+                                await self.unsubscribe_ticker(ticker)
+                            return True
+
+                        target_price = sell_signal.get("target_price")
+                        sell_reason = sell_signal.get("sell_reason", {})
+
+                        # 2) 전역 세마포어로 동시 매도 제한
+                        await self.global_sell_semaphore.acquire()
                         try:
-                            # 매도 조건 확인
-                            sell_completed = await self.sell_condition(
-                                recvvalue, session_id, ticker, name, quantity, avr_price, target_date, trade_condition
+                            start_time = datetime.now()
+                            log_context = {
+                                "종목코드": ticker,
+                                "매도이유": sell_reason,
+                                "시작시간": start_time.strftime("%H:%M:%S.%f")[:-3],
+                            }
+
+                            # 3) sell_order 콜백 실행 (동기 함수를 스레드 풀에서 실행)
+                            loop = asyncio.get_event_loop()
+                            sell_results = await asyncio.wait_for(
+                                loop.run_in_executor(
+                                    None,
+                                    self._sell_order,
+                                    session_id,
+                                    ticker,
+                                    target_price,
+                                ),
+                                timeout=30.0,
+                            )
+
+                            sell_duration_ms = (datetime.now() - start_time).total_seconds() * 1000
+
+                            if not sell_results or not isinstance(sell_results, dict):
+                                sell_results = {}
+
+                            is_sell_completed = sell_results.get("rt_cd") == "0"
+
+                            self.slack_logger.send_log(
+                                level="INFO",
+                                message=f"{ticker} 매도 처리 완료",
+                                context={
+                                    **log_context,
+                                    "매도소요ms": f"{sell_duration_ms:.1f}ms",
+                                    "매도결과": "성공" if is_sell_completed else "실패",
+                                },
+                            )
+
+                            # 매도 성공 후 잔고/세션 동기화
+                            if is_sell_completed:
+                                quantity, avr_price, closed = await self.sync_session_with_balance(
+                                    session_id, ticker, quantity, avr_price
+                                )
+                                if closed:
+                                    if ticker in self.subscribed_tickers:
+                                        await self.unsubscribe_ticker(ticker)
+                                    return True  # 모니터링 종료 (잔고 없음)
+                        except asyncio.TimeoutError:
+                            self.slack_logger.send_log(
+                                level="ERROR",
+                                message=f"{ticker} 매도 주문 타임아웃 (30초)",
+                                context={"종목코드": ticker},
                             )
                         finally:
-                            # 매도 조건 확인 후 락 해제
-                            if self.ticker_sell_locks[ticker].locked():
-                                self.ticker_sell_locks[ticker].release()
-                    else:
-                        self.logger.info(f"{ticker} - 매도 진행 중이므로 건너뜀", {"ticker": ticker})
-                        self.ticker_queues[ticker].task_done()
-                        continue
-
-                    if sell_completed:
-                        # 매도 완료 또는 잔고 없음으로 인한 세션 종료 처리
-                        if ticker in self.subscribed_tickers:
-                            await self.unsubscribe_ticker(ticker)
-                        print(f"{ticker} 매도 완료 또는 세션 종료")
-                        # 세션이 종료되었으므로 모니터링 루프 종료
-                        return True
+                            if self.global_sell_semaphore.locked():
+                                self.global_sell_semaphore.release()
+                    finally:
+                        # 티커 락 해제
+                        if self.ticker_sell_locks[ticker].locked():
+                            self.ticker_sell_locks[ticker].release()
 
                     # 큐 태스크 종료
                     self.ticker_queues[ticker].task_done()
