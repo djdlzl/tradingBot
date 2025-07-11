@@ -1148,15 +1148,7 @@ class TradingUpper():
                         "종목이름": balance_data.get('prdt_name'),
                         "종목코드": ticker
                     })
-                    
-                    self.slack_logger.send_log(
-                        level="INFO",
-                        message="잔고 없음으로 세션 삭제",
-                        context={
-                            "세션ID": session_id,
-                            "종목코드": ticker,
-                        }
-                    )
+
                     # sell_condition에서 모니터링을 중단할 수 있도록 성공 상태(dict) 반환
                     return {"rt_cd": "0", "msg1": "잔고 없음 세션 삭제"}
                 
@@ -1208,65 +1200,65 @@ class TradingUpper():
                         if order_result.get('output', {}).get('ODNO') is not None:
                             break
                 
-                # 주문 완료 후 대기
-                time.sleep(SELL_WAIT)
+                        # 주문 완료 후 대기
+                        time.sleep(SELL_WAIT)
 
-                # 주문 완료 체크
-                unfilled_qty = self.order_complete_check(order_result)
-                self.logger.info(f"매도 주문 미체결 수량 확인", {"세션ID": session_id, "ticker": ticker, "unfilled": unfilled_qty})
+                        # 주문 완료 체크
+                        unfilled_qty = self.order_complete_check(order_result)
+                        self.logger.info(f"매도 주문 미체결 수량 확인", {"세션ID": session_id, "ticker": ticker, "unfilled": unfilled_qty})
 
-                ## 매도 성공. 매도 로직 종료
-                if unfilled_qty == 0:
-                    self.logger.info(f"매도 주문 전체 체결 완료", {"세션ID": session_id, "ticker": ticker})
-                    # 주문이 모두 체결되었으므로 세션을 DB에서 삭제
-                    self.delete_finished_session(session_id)
-                    # 슬랙 알림 전송
-                    self.slack_logger.send_log(
-                        level="INFO",
-                        message="매도 주문 전체 체결 및 세션 삭제",
-                        context={
-                            "세션ID": session_id,
-                            "종목코드": ticker
-                        }
-                    )
-                    return order_result
+                        ## 매도 성공. 매도 로직 종료
+                        if unfilled_qty == 0:
+                            self.logger.info(f"매도 주문 전체 체결 완료", {"세션ID": session_id, "ticker": ticker})
+                            # 주문이 모두 체결되었으므로 세션을 DB에서 삭제
+                            self.delete_finished_session(session_id)
+                            # 슬랙 알림 전송
+                            self.slack_logger.send_log(
+                                level="INFO",
+                                message="매도 주문 전체 체결 및 세션 삭제",
+                                context={
+                                    "세션ID": session_id,
+                                    "종목코드": ticker
+                                }
+                            )
+                            break
 
-                # 최초 주문번호(원주문번호)를 별도로 저장
-                original_order_no = order_result.get('output', {}).get('ODNO')
+                        # 최초 주문번호(원주문번호)를 별도로 저장
+                        original_order_no = order_result.get('output', {}).get('ODNO')
 
-                ## 미체결 시 주문 수정
-                TRY_COUNT = 0
-                while unfilled_qty > 0:
-                    self.logger.info(f"매도 미체결 주문 처리 시작", {"세션ID": session_id, "ticker": ticker, "unfilled": unfilled_qty})
-                    new_price, _ = self.kis_api.get_current_price(ticker)
-                    
-                    # 매도는 가격을 낮출수록 체결 확률 증가
-                    tick_size = self._get_tick_size(new_price)
-                    revised_price = new_price - (tick_size * 2)  # 두 틱 아래로 설정
-                    
-                    # 주문 수정 실행
-                    revised_result = self.kis_api.revise_order(
-                        original_order_no,
-                        unfilled_qty,
-                        revised_price
-                    )
-                    self.logger.info("revised_result", revised_result)
-                    # 수정된 주문번호로 체결 상태 확인
-                    unfilled_qty = self.order_complete_check(revised_result)
-                    self.logger.info(
-                        "after revise order_result / unfilled",
-                        {"revised_order_no": revised_result.get('output', {}).get('ODNO'),
-                         "unfilled": unfilled_qty}
-                    )
-                    # 다음 루프를 위한 최신 주문 결과 저장
-                    order_result = revised_result
-                    TRY_COUNT += 1
-                    time.sleep(SELL_WAIT)
+                        ## 미체결 시 주문 수정
+                        TRY_COUNT = 0
+                        while unfilled_qty > 0:
+                            self.logger.info(f"매도 미체결 주문 처리 시작", {"세션ID": session_id, "ticker": ticker, "unfilled": unfilled_qty})
+                            new_price, _ = self.kis_api.get_current_price(ticker)
+                            
+                            # 매도는 가격을 낮출수록 체결 확률 증가
+                            tick_size = self._get_tick_size(new_price)
+                            revised_price = new_price - (tick_size * 2)  # 두 틱 아래로 설정
+                            
+                            # 주문 수정 실행
+                            revised_result = self.kis_api.revise_order(
+                                original_order_no,
+                                unfilled_qty,
+                                revised_price
+                            )
+                            self.logger.info("revised_result", revised_result)
+                            # 수정된 주문번호로 체결 상태 확인
+                            unfilled_qty = self.order_complete_check(revised_result)
+                            self.logger.info(
+                                "after revise order_result / unfilled",
+                                {"revised_order_no": revised_result.get('output', {}).get('ODNO'),
+                                "unfilled": unfilled_qty}
+                            )
+                            # 다음 루프를 위한 최신 주문 결과 저장
+                            order_result = revised_result
+                            TRY_COUNT += 1
+                            time.sleep(SELL_WAIT)
 
-                    if TRY_COUNT > 5:
-                        error_msg = f"미체결 매도 주문 반복 실패: {ticker}, {TRY_COUNT}회 재시도"
-                        self.logger.error(error_msg, {"세션ID": session_id, "unfilled": unfilled_qty})
-                        raise Exception(error_msg)  # 명시적으로 예외 발생
+                            if TRY_COUNT > 5:
+                                error_msg = f"미체결 매도 주문 반복 실패: {ticker}, {TRY_COUNT}회 재시도"
+                                self.logger.error(error_msg, {"세션ID": session_id, "unfilled": unfilled_qty})
+                                raise Exception(error_msg)  # 명시적으로 예외 발생
 
                 # === 매도 완료 후 trade_history 저장 ===
                 MAX_RETRY = 5
@@ -1346,7 +1338,7 @@ class TradingUpper():
                                         "실제투자금액": new_spent_fund
                                     }
                                 )
-
+                        return order_result
                     except Exception as e:
                         print(f"[ERROR] update_session 예외: {e}")
                         self.slack_logger.send_log(
@@ -1388,7 +1380,7 @@ class TradingUpper():
                 self.kis_websocket = KISWebSocket(self.sell_order)
             complete = await self.kis_websocket.real_time_monitoring(sessions_info)
             if complete:
-                print("모니터링이 정상적으로 종료되었습니다.")
+                print("모니터링이 정상적으로 종료되었습니다. 종목:", sessions_info)
         except Exception as e:
             print(f"모니터링 오류: {e}")
             self.slack_logger.send_log(
