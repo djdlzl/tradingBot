@@ -40,11 +40,11 @@ PRICE_BUFFER = 0.01  # 1% buffer added on top of quoted price when calculating b
 
 
 # 수익률이 이 값 이상일 때 매도
-SELLING_POINT_UPPER = 1.01
+SELLING_POINT_UPPER = 1.045
 
 # 손실 위험 관리 값 (이 값보다 낮아지면 매도)
-RISK_MGMT_UPPER = 0.99
-RISK_MGMT_STRONG_MOMENTUM = 0.90  # 강력 모멘텀 종목에 대한 리스크 관리 기준 (7% 손실)
+RISK_MGMT_UPPER = 0.96
+RISK_MGMT_STRONG_MOMENTUM = 0.93  # 강력 모멘텀 종목에 대한 리스크 관리 기준 (7% 손실)
 
 # 트레일링스탑 하락 비율 (%) - 고점 대비 몇 % 하락 시 매도할지 설정
 # SELLING_POINT_UPPER 이상 수익 시 활성화
@@ -64,11 +64,11 @@ DAYS_LATER = 7 #마지막 매수로부터 4(7-3)일째 매도
 GET_ULS_HOUR = 20
 GET_ULS_MINUTE = 0
 # 종목 중 선별하는 시간
-GET_SELECT_HOUR = 8
-GET_SELECT_MINUTE = 55
+GET_SELECT_HOUR = 9
+GET_SELECT_MINUTE = 11
 
 # 매수 시간 1
-ORDER_HOUR_1 = 15
+ORDER_HOUR_1 = 9
 ORDER_MINUTE_1 = 12
 # 매수 시간 2
 ORDER_HOUR_2 = 10

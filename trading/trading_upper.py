@@ -203,7 +203,8 @@ class TradingUpper():
             print('조건5: 과열 종목 제외 체크:',result_possible)
             
             
-            if result_high_price and result_decline and result_lstg and result_possible and result_volume:
+            # if result_high_price and result_decline and result_lstg and result_possible and result_volume:
+            if result_high_price and result_decline and result_lstg and result_possible:
                 # 거래 조건 설정
                 stock['trade_condition'] = 'strong_momentum' if result_strong_momentum else 'normal'
                 

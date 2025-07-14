@@ -1198,10 +1198,8 @@ class KISWebSocket:
                                                     "세션ID": session_id,
                                                     "에러": str(e)
                                                 }
-                                            },
-                                            exc_info=True
+                                            }
                                         )
-                                    
                                     if ticker in self.subscribed_tickers:
                                         await self.unsubscribe_ticker(ticker)
                                     return True
