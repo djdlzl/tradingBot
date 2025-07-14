@@ -8,6 +8,7 @@ import asyncio
 from datetime import datetime, timedelta, date
 from database.db_manager_upper import DatabaseManager
 from utils.date_utils import DateUtils
+from typing import Optional
 from utils.slack_logger import SlackLogger
 from utils.trading_logger import TradingLogger
 from api.kis_api import KISApi
@@ -718,7 +719,7 @@ class TradingUpper():
                                 loop = getattr(self, "_monitor_loop", None)
                                 if loop and not loop.is_closed():
                                     # 딕셔너리를 튜플로 변환 (main.py와 동일한 형식)
-                                    sessions_info = self.get_session_info_upper()
+                                    sessions_info = self.get_session_info_upper(session.get('ticker'))
                                     asyncio.run_coroutine_threadsafe(
                                         self.monitor_for_selling_upper(sessions_info),
                                         loop
@@ -753,7 +754,7 @@ class TradingUpper():
                                 loop = getattr(self, "_monitor_loop", None)
                                 if loop and not loop.is_closed():
                                     # 딕셔너리를 튜플로 변환 (main.py와 동일한 형식)
-                                    sessions_info = self.get_session_info_upper()
+                                    sessions_info = self.get_session_info_upper(session.get('ticker'))
                                     asyncio.run_coroutine_threadsafe(
                                         self.monitor_for_selling_upper(sessions_info),
                                         loop
@@ -1391,21 +1392,33 @@ class TradingUpper():
             )
             
 
-    def get_session_info_upper(self):
+    def get_session_info_upper(self, ticker: Optional[str] = None):
         """
-        매도 모니터링에 필요한 세션 정보 받아오기
+        매도 모니터링에 필요한 세션 정보를 받아옵니다.
+        ticker가 제공되면 해당 종목의 세션만, 아니면 전체 세션을 가져옵니다.
         """
         db = DatabaseManager()
-        sessions = db.load_trading_session_upper()
+        sessions = db.load_trading_session_upper(ticker=ticker)
         db.close()
         
         sessions_info = []
         for session in sessions:
-            #강제 매도 일자
-            target_date = self.date_utils.get_target_date(date.fromisoformat(str(session.get('start_date')).split()[0]), DAYS_LATER_UPPER)
-            trade_condition = session.get('trade_condition')
-            info_list = session.get('id'), session.get('ticker'), session.get('name'), session.get('quantity'), session.get('avr_price'), session.get('start_date'), target_date, trade_condition
+            # 강제 매도 일자
+            start_date_str = str(session.get('start_date')).split()[0]
+            start_date_obj = date.fromisoformat(start_date_str)
+            target_date = self.date_utils.get_target_date(start_date_obj, DAYS_LATER_UPPER)
+            
+            info_list = (
+                session.get('id'), 
+                session.get('ticker'), 
+                session.get('name'), 
+                session.get('quantity'), 
+                session.get('avr_price'), 
+                session.get('start_date'), 
+                target_date, 
+                session.get('trade_condition')
+            )
             sessions_info.append(info_list)
             
-        print("sessions_info 값: ",sessions_info)
+        print("sessions_info 결과: ", sessions_info)
         return sessions_info

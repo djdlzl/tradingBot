@@ -450,16 +450,16 @@ class DatabaseManager:
             logging.error(error_msg)
             raise
 
-    def load_trading_session_upper(self, random_id: Optional[int] = None) -> Sequence[Dict[str, Any]]:
+    def load_trading_session_upper(self, ticker: Optional[str] = None) -> Sequence[Dict[str, Any]]:
         try:
             # 커서 재설정
             self._reset_cursor()
             
-            if random_id is not None:
+            if ticker is not None:
                 self.cursor.execute('''
                     SELECT * FROM trading_session_upper 
-                    WHERE id = %s
-                ''', (random_id,))
+                    WHERE ticker = %s
+                ''', (ticker,))
             else:
                 self.cursor.execute('SELECT * FROM trading_session_upper')
                 
