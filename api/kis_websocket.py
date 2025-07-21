@@ -71,7 +71,8 @@ class KISWebSocket:
         self.global_sell_semaphore = asyncio.Semaphore(1)
         # 티커별 매도 락 (key: 종목코드, value: 락 객체)
         self.ticker_sell_locks = {}
-
+        # 티커별 매도 락 (key: 종목코드, value: 락 객체)
+        self.ticker_sell_locks = {}
 
     ######################################################################################
     ##################################    매도 로직   #####################################
@@ -1070,21 +1071,21 @@ class KISWebSocket:
                     await self.unsubscribe_ticker(ticker)
                 return True
         except Exception as e:
-            pass
+            self.logger.error(f"{ticker} 계좌-DB 정합성 동기화 중 예외 발생: {e}")
         
         # 세션 확인 카운터 초기화
         session_check_counter = 0
         
         # 모니터링 프로세스 시작
         while True:
-            # 거래시간 체크: 거래시간 외면 모니터링 중단
+            # 거래시간 체크: 거래시간이 아니면 대기
             if not self._is_market_open():
-                pass
-                break
+                await self._wait_for_market_open(ticker)
+                continue  # 거래시간이 되면 다시 체크
                 
             # 구독 상태 확인
             if ticker not in self.subscribed_tickers:
-                pass
+                self.logger.error(f"{ticker} 구독 상태 확인 모니터링 중단")
                 break
                 
             try:
@@ -1108,7 +1109,7 @@ class KISWebSocket:
                 # 동일 종목 동시실행 방지
                 # 티커별 매도 락 확인
                 if ticker in self.ticker_sell_locks and self.ticker_sell_locks[ticker].locked():
-                    pass
+                    self.logger.error(f"{ticker} 티커별 매도 락 확인 모니터링 중단")
                     self.ticker_queues[ticker].task_done()
                     continue
                 # 티커에 락이 없으면 생성
@@ -1142,15 +1143,13 @@ class KISWebSocket:
 
                             # 세션이 이미 종료된 경우 모니터링 중단
                             if not session_exists:
-                                pass
+                                self.logger.info(f"{ticker} 세션이 종료되어 모니터링 중단")
                                 if ticker in self.subscribed_tickers:
                                     await self.unsubscribe_ticker(ticker)
                                 # 락 해제
                                 self.condition_check_lock[ticker] = False
                                 self.ticker_sell_locks[ticker].release()
                                 return True
-
-                            # 매도 실행
                             
                             # 매도 실행 (비동기 처리 + 타임아웃)
                             try:
@@ -1248,6 +1247,68 @@ class KISWebSocket:
 
         # 장 운영 시간 체크
         return market_start <= now <= market_end
+
+    async def _wait_for_market_open(self, ticker):
+        """거래시간까지 대기하는 메서드"""
+        from config.condition import KRX_TRADING_START, KRX_TRADING_END
+        import asyncio
+        
+        while True:
+            now = datetime.now()
+            
+            # 주말이면 월요일까지 대기
+            if now.weekday() >= 5:  # 토요일(5), 일요일(6)
+                next_monday = now + timedelta(days=(7 - now.weekday()))
+                market_start = next_monday.replace(
+                    hour=KRX_TRADING_START.hour, 
+                    minute=KRX_TRADING_START.minute, 
+                    second=0, 
+                    microsecond=0
+                )
+                wait_seconds = (market_start - now).total_seconds()
+                self.logger.info(f"{ticker} 주말이므로 다음 월요일 장 시작({market_start.strftime('%m/%d %H:%M')})까지 대기")
+                await asyncio.sleep(min(wait_seconds, 3600))  # 최대 1시간씩 대기
+                continue
+            
+            # 장 시작 전이면 장 시작까지 대기
+            market_start = now.replace(
+                hour=KRX_TRADING_START.hour, 
+                minute=KRX_TRADING_START.minute, 
+                second=0, 
+                microsecond=0
+            )
+            market_end = now.replace(
+                hour=KRX_TRADING_END.hour, 
+                minute=KRX_TRADING_END.minute, 
+                second=0, 
+                microsecond=0
+            )
+            
+            # 장 시작 전
+            if now < market_start:
+                wait_seconds = (market_start - now).total_seconds()
+                self.logger.info(f"{ticker} 장 시작({market_start.strftime('%H:%M')})까지 {int(wait_seconds/60)}분 대기")
+                await asyncio.sleep(min(wait_seconds, 300))  # 최대 5분씩 대기
+                continue
+            
+            # 장 종료 후면 다음날까지 대기
+            elif now > market_end:
+                tomorrow = now + timedelta(days=1)
+                next_market_start = tomorrow.replace(
+                    hour=KRX_TRADING_START.hour, 
+                    minute=KRX_TRADING_START.minute, 
+                    second=0, 
+                    microsecond=0
+                )
+                wait_seconds = (next_market_start - now).total_seconds()
+                self.logger.info(f"{ticker} 장이 종료되어 다음날 장 시작({next_market_start.strftime('%m/%d %H:%M')})까지 대기")
+                await asyncio.sleep(min(wait_seconds, 3600))  # 최대 1시간씩 대기
+                continue
+            
+            # 거래시간이면 대기 종료
+            else:
+                self.logger.info(f"{ticker} 거래시간 진입, 모니터링 재개")
+                break
 
     async def check_balance_async(self, ticker):
         """비동기적으로 종목의 잔고를 확인합니다.
