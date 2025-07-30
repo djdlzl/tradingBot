@@ -222,8 +222,10 @@ class KISApi:
             "FID_INPUT_PRICE_2": "",
             "FID_VOL_CNT": ""
         }
-        self._get_hashkey(body, is_mock=False)
-        self._set_headers(is_mock=False, tr_id="FHKST130000C0")
+        # 환경설정에서 자동으로 모의거래 여부와 tr_id 결정
+        is_mock = env_config.is_mock_environment()
+        self._get_hashkey(body, is_mock=is_mock)
+        self._set_headers(api_name="upper_limit_stocks")
         self.headers["hashkey"] = self.hashkey
         
         response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
@@ -380,8 +382,8 @@ class KISApi:
             logging.warning("[place_order] 주문 수량이 0 이하입니다. ticker=%s", ticker)
             return {"rt_cd": "1", "msg_cd": "00010001", "msg1": "주문 수량이 0 이하입니다."}
 
-        # --- 거래 ID 설정 ---
-        tr_id_code = "VTTC0802U" if order_type == 'buy' else "VTTC0801U"
+        # --- 거래 ID 설정 (환경설정에서 자동 결정) ---
+        api_name = "order_buy" if order_type == 'buy' else "order_sell"
 
         # --- 시장·지정가 구분 및 가격 선정 ---
         # price 가 None 이면 시장가, 지정가면 입력값 사용
@@ -419,9 +421,10 @@ class KISApi:
             "ORD_QTY": str(quantity),
             "ORD_UNPR": "0" if price is None else str(price),
         }
-        # hashkey 생성 및 헤더 설정
-        self._get_hashkey(data, is_mock=True)
-        self._set_headers(is_mock=True, tr_id=tr_id_code)
+        # hashkey 생성 및 헤더 설정 (환경설정에서 자동 결정)
+        is_mock = env_config.is_mock_environment()
+        self._get_hashkey(data, is_mock=is_mock)
+        self._set_headers(api_name=api_name)
         self.headers["hashkey"] = self.hashkey
         url = "https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/trading/order-cash"
 
@@ -532,8 +535,10 @@ class KISApi:
             "QTY_ALL_ORD_YN": "Y",
             "ALGO_NO": ""
         }
-        self._get_hashkey(body, is_mock=True)
-        self._set_headers(is_mock=True, tr_id="VTTC0803U")
+        # 환경설정에서 자동으로 모의거래 여부와 tr_id 결정
+        is_mock = env_config.is_mock_environment()
+        self._get_hashkey(body, is_mock=is_mock)
+        self._set_headers(api_name="order_revise")
         self.headers["hashkey"] = self.hashkey
         
         response = requests.post(url=url, headers=self.headers, json=body, timeout=10)
@@ -557,8 +562,10 @@ class KISApi:
             "OVRS_ICLD_YN": "N"
         }
         
-        self._get_hashkey(body, is_mock=True)
-        self._set_headers(is_mock=True, tr_id="VTTC8908R")
+        # 환경설정에서 자동으로 모의거래 여부와 tr_id 결정
+        is_mock = env_config.is_mock_environment()
+        self._get_hashkey(body, is_mock=is_mock)
+        self._set_headers(api_name="purchase_availability")
         self.headers["hashkey"] = self.hashkey
 
         response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
@@ -614,8 +621,10 @@ class KISApi:
             "CTX_AREA_NK100": "",
         }
 
-        self._get_hashkey(body, is_mock=True)
-        self._set_headers(is_mock=True, tr_id="VTTC8001R")
+        # 환경설정에서 자동으로 모의거래 여부와 tr_id 결정
+        is_mock = env_config.is_mock_environment()
+        self._get_hashkey(body, is_mock=is_mock)
+        self._set_headers(api_name="daily_order_execution")
         self.headers["hashkey"] = self.hashkey
         
         response = requests.get(url=url, headers=self.headers, params=body, timeout=10)
@@ -648,8 +657,10 @@ class KISApi:
                 
         # 전역 락을 사용하여 동시 호출 방지
         with KISApi._global_api_lock:
-            self._get_hashkey(body, is_mock=True)
-            self._set_headers(is_mock=True, tr_id="VTTC8434R")
+            # 환경설정에서 자동으로 모의거래 여부와 tr_id 결정
+            is_mock = env_config.is_mock_environment()
+            self._get_hashkey(body, is_mock=is_mock)
+            self._set_headers(api_name="balance_inquiry")
             local_headers = self.headers.copy()
             local_headers["hashkey"] = self.hashkey
             response = requests.get(url=url, headers=local_headers, params=body, timeout=10)
@@ -667,7 +678,7 @@ class KISApi:
 
     def get_volume_rank(self):
         """ 거래량 상위 종목 조회 """
-        self._set_headers(tr_id="FHPST01710000")
+        self._set_headers(api_name="volume_rank")
         url = "https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/volume-rank"
         body = {
             "FID_COND_MRKT_DIV_CODE": "J",
@@ -716,8 +727,10 @@ class KISApi:
             # "ST_DATE": start_date,
             # "END_DATE": end_date
         }
-        self._get_hashkey(body, is_mock=False)
-        self._set_headers(is_mock=False, tr_id="FHKST01010400")
+        # 환경설정에서 자동으로 모의거래 여부와 tr_id 결정
+        is_mock = env_config.is_mock_environment()
+        self._get_hashkey(body, is_mock=is_mock)
+        self._set_headers(api_name="stock_volume")
         
         response = requests.get(url=url, params=body, headers=self.headers, timeout=10)
         json_response = response.json()
@@ -751,15 +764,16 @@ class KISApi:
         return round(diff_1_2, 2), round(diff_2_3, 2)
     
     def get_basic_stock_info(self, ticker):
-        self._set_headers(tr_id="FHPST01710000")
         url = "https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/search-stock-info"
         body = {
             "PRDT_TYPE_CD": "300",
             "PDNO": ticker
         }
 
-        self._get_hashkey(body, is_mock=False)
-        self._set_headers(is_mock=False, tr_id="CTPF1002R")
+        # 환경설정에서 자동으로 모의거래 여부와 tr_id 결정
+        is_mock = env_config.is_mock_environment()
+        self._get_hashkey(body, is_mock=is_mock)
+        self._set_headers(api_name="basic_stock_info")
         self.headers["hashkey"] = self.hashkey
 
         response = requests.get(url=url, params=body, headers=self.headers, timeout=10)
