@@ -503,8 +503,9 @@ class KISApi:
             "QTY_ALL_ORD_YN": "Y"
         }
 
-        self._get_hashkey(body, is_mock=True)
-        self._set_headers(is_mock=True, tr_id="VTTC0803U")
+        is_mock = env_config.is_mock_environment()
+        self._get_hashkey(body, is_mock=is_mock)
+        self._set_headers(api_name="order_cancel")
         self.headers["hashkey"] = self.hashkey
         
         response = requests.post(url=url, headers=self.headers, json=body, timeout=10)
