@@ -5,6 +5,7 @@ from requests.exceptions import RequestException
 from utils.string_utils import unicode_to_korean
 from config.config import R_APP_KEY, R_APP_SECRET, M_APP_KEY, M_APP_SECRET, M_ACCOUNT_NUMBER
 from config.condition import BUY_DAY_AGO
+from config.environment_config import env_config, get_tr_id, is_mock
 from datetime import datetime, timedelta, timezone
 from database.db_manager_upper import DatabaseManager
 import time
@@ -120,14 +121,23 @@ class KISApi:
 ###############################    헤더와 해쉬   ########################################
 ######################################################################################
 
-    def _set_headers(self, is_mock=False, tr_id=None):
+    def _set_headers(self, api_name=None, tr_id=None, is_mock=None):
         """
         API 요청에 필요한 헤더를 설정합니다.
 
         Args:
-            is_mock (bool): 모의 거래 여부
-            tr_id (str, optional): 거래 ID
+            api_name (str, optional): API 이름 (환경설정에서 tr_id를 자동으로 가져옴)
+            tr_id (str, optional): 직접 지정할 거래 ID (api_name보다 우선)
+            is_mock (bool, optional): 모의 거래 여부 (None일 경우 환경설정에서 자동 결정)
         """
+        # 환경설정에서 모의거래 여부 결정
+        if is_mock is None:
+            is_mock = env_config.is_mock_environment()
+        
+        # tr_id 결정: 직접 지정 > api_name으로 환경설정에서 조회
+        if tr_id is None and api_name:
+            tr_id = get_tr_id(api_name)
+        
         token = self._ensure_token(is_mock)
         self.headers["authorization"] = f"Bearer {token}"
         self.headers["appkey"] = M_APP_KEY if is_mock else R_APP_KEY
@@ -179,7 +189,7 @@ class KISApi:
         Returns:
             dict: 주가 정보를 포함한 딕셔너리
         """
-        self._set_headers(is_mock=False, tr_id="FHPST01010000")
+        self._set_headers(api_name="stock_price")
         url = "https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-price-2"
         params = {
             "FID_COND_MRKT_DIV_CODE": "J",
@@ -249,8 +259,10 @@ class KISApi:
             "fid_input_date_2": "20241124"
         }
         
-        self._get_hashkey(body, is_mock=False)
-        self._set_headers(is_mock=False, tr_id="FHPST01700000")
+        # 환경설정에서 자동으로 모의거래 여부와 tr_id 결정
+        is_mock = env_config.is_mock_environment()
+        self._get_hashkey(body, is_mock=is_mock)
+        self._set_headers(api_name="up_down_rank")
         self.headers["hashkey"] = self.hashkey
         
         response = requests.get(url=url, headers=self.headers, params=body, timeout=10)

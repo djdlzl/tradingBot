@@ -36,3 +36,6 @@ DB_CONFIG = {
 
 # Slack
 SLACK_TOKEN = os.getenv('SLACK_TOKEN')
+
+# Perplexity API
+PPLX_API_KEY = os.getenv('PPLX_API_KEY')

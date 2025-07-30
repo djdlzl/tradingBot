@@ -1,0 +1,26 @@
+{
+  "environment": "staging",
+  "description": "모의투자 환경 설정",
+  "is_mock": true,
+  "api_endpoints": {
+    "base_url": "https://openapi.koreainvestment.com:9443"
+  },
+  "tr_ids": {
+    "stock_price": "FHPST01010000",
+    "upper_limit_stocks": "FHKST130000C0",
+    "up_down_rank": "FHPST01700000",
+    "order_buy": "VTTC0802U",
+    "order_sell": "VTTC0801U",
+    "order_cancel": "VTTC0803U",
+    "order_revise": "VTTC0803U",
+    "purchase_availability": "VTTC8908R",
+    "balance_inquiry": "VTTC8434R",
+    "daily_order_execution": "VTTC8001R",
+    "volume_rank": "FHPST01710000",
+    "stock_volume": "FHKST01010400",
+    "basic_stock_info": "CTPF1002R"
+  },
+  "account": {
+    "use_mock_account": true
+  }
+}
